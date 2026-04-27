@@ -3,6 +3,7 @@ import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { renderPdf, LpdfRenderError, cancelRender } from './engine';
+import { getLinkedDataJson } from './data';
 import { resolveLpdfDocument } from './utils';
 
 /** Log only when `lpdf.trace` is enabled. Errors are always written via console.error. */
@@ -62,11 +63,12 @@ export async function previewPdf(context: vscode.ExtensionContext, uri?: vscode.
  * Re-render the panel for a URI if the panel is already open.
  * reason 'switch': only re-renders if the URI differs from what is currently shown.
  * reason 'save':   only re-renders if the document content changed since the last render.
+ * reason 'data':   always re-renders (linked JSON file changed or was linked/unlinked).
  */
 export async function renderForUri(
   context: vscode.ExtensionContext,
   uri: vscode.Uri,
-  reason: 'switch' | 'save',
+  reason: 'switch' | 'save' | 'data',
 ): Promise<void> {
   if (!previewPanel) { return; }
 
@@ -183,10 +185,11 @@ async function doRender(context: vscode.ExtensionContext, uri: vscode.Uri): Prom
   postToWebview({ type: 'showLoading' });
 
   const licenseKey = vscode.workspace.getConfiguration('lpdf').get<string>('licenseKey', '');
+  const jsonData = getLinkedDataJson(context, uri);
 
   try {
     trace(`[lpdf] doRender WASM start gen=${generation}`);
-    const bytes = await renderPdf(xml, licenseKey);
+    const bytes = await renderPdf(xml, licenseKey, jsonData);
     trace(`[lpdf] doRender WASM done  gen=${generation} bytes=${bytes.byteLength}`);
     if (generation !== renderGeneration || !previewPanel) {
       trace(`[lpdf] doRender stale after WASM gen=${generation} current=${renderGeneration}`);

@@ -4,7 +4,7 @@
   "description": "VS Code extension for lpdf — pixel-perfect, lightweight, and consistent PDF rendering",
   "license": "SEE LICENSE IN LICENSE",
   "publisher": "lpdfio",
-  "version": "0.5.2",
+  "version": "0.5.5",
   "preview": true,
   "icon": "media/icon.png",
   "repository": {
@@ -41,8 +41,10 @@
       }
     },
     "commands": [
-      { "command": "lpdf.previewPdf", "title": "LPDF: Preview PDF" },
-      { "command": "lpdf.exportPdf",  "title": "LPDF: Export PDF"  },
+      { "command": "lpdf.previewPdf",     "title": "LPDF: Preview PDF" },
+      { "command": "lpdf.exportPdf",       "title": "LPDF: Export PDF"  },
+      { "command": "lpdf.linkDataFile",    "title": "LPDF: Link Data File..."  },
+      { "command": "lpdf.unlinkDataFile",  "title": "LPDF: Unlink Data File"   },
       { "command": "lpdf.generateTs",  "title": "LPDF: Generate TypeScript from XML" },
       { "command": "lpdf.generateCs",  "title": "LPDF: Generate C# from XML" },
       { "command": "lpdf.generatePy",  "title": "LPDF: Generate Python from XML" },

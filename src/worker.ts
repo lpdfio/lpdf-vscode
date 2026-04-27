@@ -12,6 +12,7 @@ interface RenderRequest {
   id: string;
   xml: string;
   licenseKey: string;
+  jsonData: string | null;
 }
 
 let _module: IWasmModule | undefined;
@@ -37,10 +38,10 @@ function getEngine(licenseKey: string): IWasmEngine {
   return _engine;
 }
 
-parentPort!.on('message', ({ id, xml, licenseKey }: RenderRequest) => {
+parentPort!.on('message', ({ id, xml, licenseKey, jsonData }: RenderRequest) => {
   try {
     const engine = getEngine(licenseKey);
-    const rawBytes = engine.render_pdf(xml);
+    const rawBytes = engine.render_pdf(xml, jsonData);
     // Copy into a new buffer to guarantee we own the ArrayBuffer before transferring.
     // This guards against the WASM engine returning a view into shared WASM memory.
     const bytes = new Uint8Array(rawBytes);
