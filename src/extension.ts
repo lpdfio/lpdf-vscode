@@ -9,7 +9,9 @@ import { disposeRenderWorker } from './engine';
 class LpdfCodeLensProvider implements vscode.CodeLensProvider {
   provideCodeLenses(doc: vscode.TextDocument): vscode.CodeLens[] {
     if (!isLpdfDocument(doc)) { return []; }
-    const idx = doc.getText().indexOf('<lpdf');
+    // isLpdfDocument already confirmed <lpdf\b is within the first 512 chars — search only there.
+    const head = doc.getText().substring(0, 512);
+    const idx = head.search(/<lpdf\b/);
     if (idx === -1) { return []; }
     const pos = doc.positionAt(idx);
     const range = new vscode.Range(pos, pos);
@@ -23,10 +25,28 @@ class LpdfCodeLensProvider implements vscode.CodeLensProvider {
 export function activate(context: vscode.ExtensionContext): void {
   const xsdPath = path.join(context.extensionPath, 'schema', 'lpdf.xsd');
 
+  // Soft recommendation for the Red Hat XML extension (needed for XSD validation).
+  // Shown at most once; respects the user's explicit dismissal via globalState.
+  void (async () => {
+    const XML_EXT_ID      = 'redhat.vscode-xml';
+    const DISMISSED_KEY   = 'xmlExtDismissed';
+    if (!vscode.extensions.getExtension(XML_EXT_ID) && !context.globalState.get<boolean>(DISMISSED_KEY)) {
+      const choice = await vscode.window.showInformationMessage(
+        'LPDF: XML schema validation requires the Red Hat XML extension.',
+        'Install', 'Dismiss',
+      );
+      if (choice === 'Install') {
+        await vscode.commands.executeCommand('workbench.extensions.installExtension', XML_EXT_ID);
+      } else if (choice === 'Dismiss') {
+        await context.globalState.update(DISMISSED_KEY, true);
+      }
+    }
+  })();
+
   // Status bar
   const statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-  statusBar.text = 'lpdf ◆';
-  statusBar.tooltip = 'lpdf PDF document — click to preview';
+  statusBar.text = 'LPDF ◆';
+  statusBar.tooltip = 'LPDF document — click to preview';
   statusBar.command = 'lpdf.previewPdf';
   context.subscriptions.push(statusBar);
 
@@ -51,6 +71,7 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 
   // Schema association + status bar refresh
+  let _statusDebounce: ReturnType<typeof setTimeout> | undefined;
   context.subscriptions.push(
     vscode.window.onDidChangeActiveTextEditor(editor => {
       refreshStatusBar(editor);
@@ -61,7 +82,15 @@ export function activate(context: vscode.ExtensionContext): void {
         }
       }
     }),
+    vscode.workspace.onDidChangeTextDocument(event => {
+      // Refresh the status bar when the active file's content changes (e.g. user adds/removes <lpdf).
+      // Debounced at 300 ms to avoid thrashing on every keystroke.
+      if (event.document !== vscode.window.activeTextEditor?.document) { return; }
+      clearTimeout(_statusDebounce);
+      _statusDebounce = setTimeout(() => refreshStatusBar(vscode.window.activeTextEditor), 300);
+    }),
     vscode.workspace.onDidOpenTextDocument(doc => {
+      if (doc.languageId !== 'xml') { return; }
       ensureSchemaAssociation(doc, xsdPath);
     }),
     vscode.workspace.onDidSaveTextDocument(doc => {

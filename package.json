@@ -4,7 +4,7 @@
   "description": "VS Code extension for lpdf — pixel-perfect, lightweight, and consistent PDF rendering",
   "license": "SEE LICENSE IN LICENSE",
   "publisher": "lpdfio",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "preview": true,
   "icon": "media/icon.png",
   "repository": {
@@ -12,15 +12,13 @@
     "url": "https://github.com/lpdfio/lpdf-vscode"
   },
   "engines": {
-    "vscode": "^1.85.0"
+    "vscode": "^1.85.0",
+    "node": ">=18.17.1"
   },
   "categories": [
     "Programming Languages",
     "Visualization",
     "Other"
-  ],
-  "extensionDependencies": [
-    "redhat.vscode-xml"
   ],
   "activationEvents": [
     "onLanguage:xml"
@@ -34,38 +32,22 @@
           "type": "string",
           "default": "",
           "description": "lpdf license key"
+        },
+        "lpdf.trace": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable verbose trace logging for lpdf in the extension output channel (useful for debugging)."
         }
       }
     },
     "commands": [
-      {
-        "command": "lpdf.previewPdf",
-        "title": "lpdf: Preview PDF"
-      },
-      {
-        "command": "lpdf.exportPdf",
-        "title": "lpdf: Export PDF"
-      },
-      {
-        "command": "lpdf.generateTs",
-        "title": "lpdf: Generate TypeScript from XML"
-      },
-      {
-        "command": "lpdf.generateCs",
-        "title": "lpdf: Generate C# from XML"
-      },
-      {
-        "command": "lpdf.generatePy",
-        "title": "lpdf: Generate Python from XML"
-      },
-      {
-        "command": "lpdf.generatePhp",
-        "title": "lpdf: Generate PHP from XML"
-      },
-      {
-        "command": "lpdf.generateHere",
-        "title": "lpdf: Generate lpdf code here"
-      }
+      { "command": "lpdf.previewPdf", "title": "LPDF: Preview PDF" },
+      { "command": "lpdf.exportPdf",  "title": "LPDF: Export PDF"  },
+      { "command": "lpdf.generateTs",  "title": "LPDF: Generate TypeScript from XML" },
+      { "command": "lpdf.generateCs",  "title": "LPDF: Generate C# from XML" },
+      { "command": "lpdf.generatePy",  "title": "LPDF: Generate Python from XML" },
+      { "command": "lpdf.generatePhp", "title": "LPDF: Generate PHP from XML" },
+      { "command": "lpdf.generateHere","title": "LPDF: Generate lpdf code here" }
     ],
     "menus": {
       "explorer/context": [

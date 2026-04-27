@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'none';
-                 script-src __CSP_SOURCE__ 'unsafe-inline';
+                 script-src __CSP_SOURCE__ 'nonce-__NONCE__';
                  worker-src __CSP_SOURCE__ blob:;
                  style-src 'unsafe-inline';">
   <style>
@@ -107,7 +107,7 @@
   <div id="viewer"><div id="viewer-inner"></div></div>
   <!-- Visible by default so first render shows "Rendering…" without needing a message -->
   <div id="loading-overlay">Rendering&#x2026;</div>
-  <script>
+  <script nonce="__NONCE__">
     // Polyfill for Map.prototype.getOrInsertComputed (TC39 Stage 2, not yet in stable V8).
     // Required here for pdf.min.mjs running in the main thread.
     // pdf.worker.min.mjs has its own copy for the worker thread — both are needed
@@ -120,7 +120,7 @@
     }
     const vscodeApi = acquireVsCodeApi();
   </script>
-  <script type="module">
+  <script type="module" nonce="__NONCE__">
     import * as pdfjsLib from '__PDF_JS_URI__';
     pdfjsLib.GlobalWorkerOptions.workerSrc = '__WORKER_URI__';
 

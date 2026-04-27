@@ -1,5 +1,7 @@
 import { Worker } from 'worker_threads';
+import { randomUUID } from 'node:crypto';
 import * as path from 'node:path';
+import { RENDER_TIMEOUT_MS } from './constants';
 
 export class LpdfRenderError extends Error {
   constructor(message: string) {
@@ -8,23 +10,21 @@ export class LpdfRenderError extends Error {
   }
 }
 
-const RENDER_TIMEOUT_MS = 30_000;
-
 type Resolve = (bytes: Uint8Array) => void;
 type Reject  = (err: LpdfRenderError) => void;
 
 let _worker: Worker | undefined;
-let _nextId  = 0;
-const _pending = new Map<number, { resolve: Resolve; reject: Reject; timer: ReturnType<typeof setTimeout> }>();
+const _pending = new Map<string, { resolve: Resolve; reject: Reject; timer: ReturnType<typeof setTimeout> }>();
 
 function getWorker(): Worker {
   if (_worker) { return _worker; }
 
   const workerPath = path.join(__dirname, 'worker.js');
-  const w = new Worker(workerPath);
+  const wasmPath   = path.join(__dirname, '..', 'wasm', 'lpdf.js');
+  const w = new Worker(workerPath, { workerData: { wasmPath } });
   _worker = w;
 
-  w.on('message', (msg: { id: number; bytes?: Uint8Array; error?: string }) => {
+  w.on('message', (msg: { id: string; bytes?: Uint8Array; error?: string }) => {
     if (w !== _worker) { return; } // stale worker — ignore
     const entry = _pending.get(msg.id);
     if (!entry) { return; }
@@ -70,7 +70,7 @@ export function renderPdf(xml: string, licenseKey: string): Promise<Uint8Array> 
   }
 
   return new Promise<Uint8Array>((resolve, reject) => {
-    const id = _nextId = (_nextId + 1) & 0x7fffffff;
+    const id = randomUUID();
     const timer = setTimeout(() => {
       if (_pending.delete(id)) {
         reject(new LpdfRenderError('Render timed out after 30 seconds'));
@@ -89,10 +89,19 @@ export function renderPdf(xml: string, licenseKey: string): Promise<Uint8Array> 
   });
 }
 
+export function cancelRender(): void {
+  for (const entry of _pending.values()) {
+    clearTimeout(entry.timer);
+    entry.reject(new LpdfRenderError('Render cancelled'));
+  }
+  _pending.clear();
+  _worker?.terminate();
+  _worker = undefined;
+}
+
 export function disposeRenderWorker(): void {
   for (const entry of _pending.values()) { clearTimeout(entry.timer); }
   _pending.clear();
   _worker?.terminate();
   _worker = undefined;
-  _nextId = 0;
 }

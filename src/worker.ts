@@ -1,5 +1,4 @@
-import { parentPort } from 'worker_threads';
-import * as path from 'node:path';
+import { parentPort, workerData } from 'worker_threads';
 
 interface IWasmEngine {
   render_pdf(xml: string, json_data?: string | null): Uint8Array;
@@ -10,7 +9,7 @@ interface IWasmModule {
 }
 
 interface RenderRequest {
-  id: number;
+  id: string;
   xml: string;
   licenseKey: string;
 }
@@ -18,7 +17,7 @@ interface RenderRequest {
 let _module: IWasmModule | undefined;
 function getWasmModule(): IWasmModule {
   if (!_module) {
-    const wasmPath = path.join(__dirname, '..', 'wasm', 'lpdf.js');
+    const wasmPath = (workerData as { wasmPath: string }).wasmPath;
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     _module = require(wasmPath) as IWasmModule;
   }
@@ -47,10 +46,11 @@ parentPort!.on('message', ({ id, xml, licenseKey }: RenderRequest) => {
     const bytes = new Uint8Array(rawBytes);
     parentPort!.postMessage({ id, bytes }, [bytes.buffer as ArrayBuffer]);
   } catch (e) {
-    // Dispose the cached engine on error to prevent stale state on the next request.
-    _engine?.free();
-    _engine = undefined;
-    _engineKey = undefined;
+    // Do NOT dispose the cached engine here. Errors thrown by render_pdf are
+    // document-level (bad XML, missing image, etc.) — the engine itself remains
+    // in a valid state and can be reused for the next request. A true WASM panic
+    // crashes the worker thread, which is handled by the 'exit' event in engine.ts;
+    // a new worker (and therefore a fresh engine) will be created automatically.
     parentPort!.postMessage({ id, error: e instanceof Error ? e.message : String(e) });
   }
 });

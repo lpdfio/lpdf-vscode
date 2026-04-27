@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { LPDF_HEAD_SCAN_BYTES } from './constants';
 
 interface XmlFileAssociation {
   systemId: string;
@@ -14,7 +15,7 @@ export function isLpdfDocument(doc: vscode.TextDocument): boolean {
   const key    = doc.uri.toString();
   const cached = _isLpdfCache.get(key);
   if (cached && cached.version === doc.version) { return cached.result; }
-  const result = /<lpdf\b/.test(doc.getText().substring(0, 512));
+  const result = /<lpdf\b/.test(doc.getText().substring(0, LPDF_HEAD_SCAN_BYTES));
   _isLpdfCache.set(key, { version: doc.version, result });
   return result;
 }

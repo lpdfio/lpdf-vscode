@@ -1,16 +1,11 @@
 import * as vscode from 'vscode';
 import * as path from 'node:path';
 import { renderPdf, LpdfRenderError } from './engine';
+import { resolveLpdfDocument } from './utils';
 
 export async function exportPdf(uri?: vscode.Uri): Promise<void> {
-  const targetUri = uri ?? vscode.window.activeTextEditor?.document.uri;
-  if (!targetUri) { return; }
-
-  const doc = await vscode.workspace.openTextDocument(targetUri);
-  if (doc.languageId !== 'xml') {
-    vscode.window.showErrorMessage('lpdf: Active file is not an XML document.');
-    return;
-  }
+  const doc = await resolveLpdfDocument(uri);
+  if (!doc) { return; }
 
   const licenseKey = vscode.workspace.getConfiguration('lpdf').get<string>('licenseKey', '');
 
@@ -28,9 +23,9 @@ export async function exportPdf(uri?: vscode.Uri): Promise<void> {
   try {
     const bytes = await renderPdf(xml, licenseKey);
     await vscode.workspace.fs.writeFile(saveUri, bytes);
-    vscode.window.showInformationMessage(`lpdf: Saved ${path.basename(saveUri.fsPath)}`);
+    vscode.window.showInformationMessage(`LPDF: Saved ${path.basename(saveUri.fsPath)}`);
   } catch (e) {
     const msg = e instanceof LpdfRenderError ? e.message : String(e);
-    vscode.window.showErrorMessage(`lpdf: ${msg}`);
+    vscode.window.showErrorMessage(`LPDF: ${msg}`);
   }
 }

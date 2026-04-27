@@ -73,7 +73,7 @@ make install-adapter-vscode
 
 Then **restart VS Code** (or run **Developer: Restart Extension Host** from the Command Palette) to load the new version. The install step automatically rebuilds and repackages before installing.
 
-> **Note:** `build-adapter-vscode` copies `schema/lpdf.xsd` from the project root into the extension. Always edit the canonical schema at `schema/lpdf.xsd`; changes made directly to `src/adapters/vscode/schema/lpdf.xsd` will be overwritten on the next build.
+> **Note:** `build-adapter-vscode` copies `docs/schema/lpdf.xsd` from the project root into the extension. Always edit the canonical schema at `docs/schema/lpdf.xsd`; changes made directly to `src/adapters/vscode/schema/lpdf.xsd` will be overwritten on the next build.
 
 ---
 
