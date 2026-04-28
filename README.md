@@ -1,10 +1,10 @@
-# LPDF for VS Code
+# Lpdf for VS Code
 
 **Structure-first PDF authoring, right inside your editor.**
 
-LPDF lets you define PDF documents using a layout model — stacks, flanks, grids, frames — instead of placing elements at explicit coordinates. Author in XML, preview live, and export directly from VS Code.
+Lpdf lets you define PDF documents using a layout model — stacks, flanks, grids, frames — instead of placing elements at explicit coordinates. Author in XML, preview live, and export directly from VS Code.
 
-![LPDF demo](https://raw.githubusercontent.com/lpdfio/lpdf-vscode/HEAD/media/demo.gif)
+![Lpdf demo](https://raw.githubusercontent.com/lpdfio/lpdf-vscode/HEAD/media/demo.gif)
 
 ---
 
@@ -12,22 +12,22 @@ LPDF lets you define PDF documents using a layout model — stacks, flanks, grid
 
 ### Live PDF Preview
 
-Open any LPDF XML file and trigger **LPDF: Preview PDF** to see a live PDF preview rendered via the WASM engine — entirely on your machine, no server required. The preview updates on every save.
+Open any Lpdf XML file and trigger **Lpdf: Preview PDF** to see a live PDF preview rendered via the WASM engine — entirely on your machine, no server required. The preview updates on every save.
 
 ### Export PDF
 
-**LPDF: Export PDF** renders the current XML template and writes the PDF to disk.
+**Lpdf: Export PDF** renders the current XML template and writes the PDF to disk.
 
 ### XSD Autocomplete & Validation
 
-The extension registers the LPDF XSD schema automatically when you open an LPDF XML file. Get attribute autocomplete, element validation, and inline documentation — no configuration needed. Requires the [Red Hat XML extension](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-xml).
+The extension registers the Lpdf XSD schema automatically when you open an Lpdf XML file. Get attribute autocomplete, element validation, and inline documentation — no configuration needed. Requires the [Red Hat XML extension](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-xml).
 
 ---
 
 ## Requirements
 
 - [Red Hat XML](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-xml) — required for XSD autocomplete and validation (installed automatically as a dependency)
-- A valid LPDF license key to remove the preview watermark (configure via `lpdf.licenseKey` in Settings)
+- A valid Lpdf license key to remove the preview watermark (configure via `lpdf.licenseKey` in Settings)
 
 ---
 
@@ -35,7 +35,7 @@ The extension registers the LPDF XSD schema automatically when you open an LPDF 
 
 | Setting | Description |
 |---|---|
-| `lpdf.licenseKey` | Your LPDF license key. Removes the watermark from the preview. |
+| `lpdf.licenseKey` | Your Lpdf license key. Removes the watermark from the preview. |
 
 ---
 
