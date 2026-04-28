@@ -14,41 +14,55 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-tags: true
 
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
 
       # ── Download wasm-pack artifacts ─────────────────────────────────────────
-      # Derives the core tag from package.json (strip patch → .0).
-      # Falls back to the latest release when the version is a placeholder (0.0.0)
-      # or the derived tag does not yet exist.
+      # Derives the core tag from the latest semver git tag in this repo
+      # (strip patch → .0).  Falls back to the latest core release when no
+      # adapter tag exists yet.
       - name: Download wasm artifacts
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           mkdir -p wasm
-          PKG_VERSION=$(node -p "require('./package.json').version")
-          CORE_TAG="v$(echo "$PKG_VERSION" | sed 's/\.[0-9]*$/.0/')"
+          ADAPTER_TAG=$(git tag --sort=-version:refname | grep -E '^v[0-9]' | head -1)
+          CORE_TAG=$(echo "${ADAPTER_TAG:-v0.0.0}" | sed 's/\.[0-9]*$/.0/')
+          echo "Resolved adapter tag: ${ADAPTER_TAG:-<none>}"
           echo "Resolved core tag: $CORE_TAG"
-          for attempt in 1 2 3; do
-            gh release download "$CORE_TAG" \
-              --repo lpdfio/lpdf \
-              --pattern "lpdf.js" \
-              --pattern "lpdf_bg.wasm" \
-              --dir wasm \
-              --clobber && break
-            echo "Attempt $attempt failed — retrying in 10s..."
-            sleep 10
-          done
-          # Fallback to latest release when the derived tag doesn't exist yet
-          if [ ! -f wasm/lpdf.js ]; then
+          # No adapter tags yet — go straight to latest
+          if [ -z "$ADAPTER_TAG" ] || [ "$CORE_TAG" = "v0.0.0" ]; then
+            echo "No adapter tag — downloading latest release"
             gh release download \
               --repo lpdfio/lpdf \
               --pattern "lpdf.js" \
               --pattern "lpdf_bg.wasm" \
               --dir wasm \
               --clobber
+          else
+            for attempt in 1 2 3; do
+              gh release download "$CORE_TAG" \
+                --repo lpdfio/lpdf \
+                --pattern "lpdf.js" \
+                --pattern "lpdf_bg.wasm" \
+                --dir wasm \
+                --clobber && break
+              echo "Attempt $attempt failed — retrying in 10s..."
+              sleep 10
+            done
+            # Fallback to latest release when the derived tag doesn't exist yet
+            if [ ! -f wasm/lpdf.js ]; then
+              gh release download \
+                --repo lpdfio/lpdf \
+                --pattern "lpdf.js" \
+                --pattern "lpdf_bg.wasm" \
+                --dir wasm \
+                --clobber
+            fi
           fi
 
       - name: Install and build
