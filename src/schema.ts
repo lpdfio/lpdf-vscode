@@ -21,8 +21,8 @@ export function isLpdfDocument(doc: vscode.TextDocument): boolean {
 }
 
 /**
- * Associate the LPDF XSD with the specific file that was just confirmed to contain <lpdf.
- * Uses a per-file workspace pattern instead of **\/*.xml so only confirmed LPDF files
+ * Associate the Lpdf XSD with the specific file that was just confirmed to contain <lpdf.
+ * Uses a per-file workspace pattern instead of **\/*.xml so only confirmed Lpdf files
  * get schema validation — unrelated XML files in the workspace are unaffected.
  *
  * Also migrates away from any legacy **\/*.xml catch-all entry written by older versions,

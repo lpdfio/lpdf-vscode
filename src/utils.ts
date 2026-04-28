@@ -12,7 +12,7 @@ export async function resolveLpdfDocument(uri?: vscode.Uri): Promise<vscode.Text
   if (!targetUri) { return undefined; }
   const doc = await vscode.workspace.openTextDocument(targetUri);
   if (doc.languageId !== 'xml') {
-    vscode.window.showErrorMessage('LPDF: Active file is not an XML document.');
+    vscode.window.showErrorMessage('Lpdf: Active file is not an XML document.');
     return undefined;
   }
   return doc;

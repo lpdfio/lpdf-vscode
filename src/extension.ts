@@ -5,6 +5,7 @@ import { registerCodegenCommands } from './codegen';
 import { previewPdf, renderForUri } from './preview';
 import { exportPdf } from './export';
 import { disposeRenderWorker } from './engine';
+import { LpdfPdfViewerProvider } from './pdf-viewer';
 import {
   getLinkedDataUri,
   getExplicitDataUri,
@@ -112,7 +113,7 @@ export function activate(context: vscode.ExtensionContext): void {
     const DISMISSED_KEY   = 'xmlExtDismissed';
     if (!vscode.extensions.getExtension(XML_EXT_ID) && !context.globalState.get<boolean>(DISMISSED_KEY)) {
       const choice = await vscode.window.showInformationMessage(
-        'LPDF: XML schema validation requires the Red Hat XML extension.',
+        'Lpdf: XML schema validation requires the Red Hat XML extension.',
         'Install', 'Dismiss',
       );
       if (choice === 'Install') {
@@ -125,8 +126,8 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // Status bar
   const statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-  statusBar.text = 'LPDF ◆';
-  statusBar.tooltip = 'LPDF document — click to preview';
+  statusBar.text = 'Lpdf ◆';
+  statusBar.tooltip = 'Lpdf document — click to preview';
   statusBar.command = 'lpdf.previewPdf';
   context.subscriptions.push(statusBar);
 
@@ -160,6 +161,16 @@ export function activate(context: vscode.ExtensionContext): void {
       teardownDataWatcher(target);
       await setLinkedDataUri(context, target, undefined);
       void renderForUri(context, target, 'data');
+    }),
+    vscode.window.registerCustomEditorProvider(
+      LpdfPdfViewerProvider.viewType,
+      new LpdfPdfViewerProvider(context),
+      { supportsMultipleEditorsPerDocument: false, webviewOptions: { retainContextWhenHidden: true } },
+    ),
+    vscode.commands.registerCommand('lpdf.openPdf', (uri?: vscode.Uri) => {
+      const target = uri ?? vscode.window.activeTextEditor?.document.uri;
+      if (!target) { return; }
+      void vscode.commands.executeCommand('vscode.openWith', target, LpdfPdfViewerProvider.viewType);
     }),
   );
   registerCodegenCommands(context);

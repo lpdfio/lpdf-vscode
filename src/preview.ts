@@ -13,6 +13,24 @@ function trace(...args: unknown[]): void {
   }
 }
 
+/**
+ * Build the webview HTML for the Lpdf pdf.js viewer, substituting all resource URIs and CSP values.
+ * Shared between the XML-preview panel and the direct PDF viewer.
+ */
+export function buildWebviewHtml(context: vscode.ExtensionContext, webview: vscode.Webview): string {
+  const mediaUri = vscode.Uri.joinPath(context.extensionUri, 'media');
+  const pdfJsUri  = webview.asWebviewUri(vscode.Uri.joinPath(mediaUri, 'pdf.min.mjs'));
+  const workerUri = webview.asWebviewUri(vscode.Uri.joinPath(mediaUri, 'pdf.worker.min.mjs'));
+  const cspSource = webview.cspSource;
+  const nonce     = randomBytes(16).toString('hex');
+  const htmlPath  = path.join(context.extensionPath, 'media', 'preview.html');
+  return fs.readFileSync(htmlPath, 'utf8')
+    .replace(/__CSP_SOURCE__/g, cspSource)
+    .replace(/__NONCE__/g, nonce)
+    .replace('__PDF_JS_URI__', pdfJsUri.toString())
+    .replace('__WORKER_URI__', workerUri.toString());
+}
+
 let previewPanel: vscode.WebviewPanel | undefined;
 let previewUri: vscode.Uri | undefined;
 let renderGeneration = 0;
@@ -32,7 +50,7 @@ function postToWebview(msg: Record<string, unknown>): void {
       () => { trace(`[lpdf] → webview: ${msg.type}`); },
       (err: unknown) => {
         console.error('[lpdf] postMessage failed:', err);
-        vscode.window.showErrorMessage('LPDF: Failed to communicate with the preview panel. Try reopening it.');
+        vscode.window.showErrorMessage('Lpdf: Failed to communicate with the preview panel. Try reopening it.');
       },
     );
   } else {
@@ -95,7 +113,7 @@ function ensurePanel(context: vscode.ExtensionContext): void {
   const mediaUri = vscode.Uri.joinPath(context.extensionUri, 'media');
   previewPanel = vscode.window.createWebviewPanel(
     'lpdfPreview',
-    'LPDF Preview',
+    'Lpdf Preview',
     { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true },
     {
       enableScripts: true,
@@ -104,18 +122,7 @@ function ensurePanel(context: vscode.ExtensionContext): void {
     },
   );
 
-  // Load the webview HTML from media/preview.html, substituting resource URIs.
-  // pdf.js is loaded once at panel creation and reused across renders.
-  const pdfJsUri  = previewPanel.webview.asWebviewUri(vscode.Uri.joinPath(mediaUri, 'pdf.min.mjs'));
-  const workerUri = previewPanel.webview.asWebviewUri(vscode.Uri.joinPath(mediaUri, 'pdf.worker.min.mjs'));
-  const cspSource = previewPanel.webview.cspSource;
-  const nonce     = randomBytes(16).toString('hex');
-  const htmlPath  = path.join(context.extensionPath, 'media', 'preview.html');
-  previewPanel.webview.html = fs.readFileSync(htmlPath, 'utf8')
-    .replace(/__CSP_SOURCE__/g, cspSource)
-    .replace(/__NONCE__/g, nonce)
-    .replace('__PDF_JS_URI__', pdfJsUri.toString())
-    .replace('__WORKER_URI__', workerUri.toString());
+  previewPanel.webview.html = buildWebviewHtml(context, previewPanel.webview);
 
   previewPanel.onDidDispose(() => {
     trace('[lpdf] preview panel disposed');
@@ -156,7 +163,7 @@ function ensurePanel(context: vscode.ExtensionContext): void {
     });
     if (!saveUri) { return; }
     await vscode.workspace.fs.writeFile(saveUri, Buffer.from(msg.pdfBase64, 'base64'));
-    vscode.window.showInformationMessage(`LPDF: Saved ${path.basename(saveUri.fsPath)}`);
+    vscode.window.showInformationMessage(`Lpdf: Saved ${path.basename(saveUri.fsPath)}`);
   }, undefined, context.subscriptions);
 }
 
@@ -210,6 +217,6 @@ async function doRender(context: vscode.ExtensionContext, uri: vscode.Uri): Prom
     const message = e instanceof LpdfRenderError ? e.message : String(e);
     console.error(`[lpdf] doRender error gen=${generation}:`, message);
     postToWebview({ type: 'showError', message });
-    vscode.window.showErrorMessage(`LPDF: ${message}`);
+    vscode.window.showErrorMessage(`Lpdf: ${message}`);
   }
 }

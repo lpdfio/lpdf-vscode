@@ -23,9 +23,9 @@ export async function exportPdf(uri?: vscode.Uri): Promise<void> {
   try {
     const bytes = await renderPdf(xml, licenseKey);
     await vscode.workspace.fs.writeFile(saveUri, bytes);
-    vscode.window.showInformationMessage(`LPDF: Saved ${path.basename(saveUri.fsPath)}`);
+    vscode.window.showInformationMessage(`Lpdf: Saved ${path.basename(saveUri.fsPath)}`);
   } catch (e) {
     const msg = e instanceof LpdfRenderError ? e.message : String(e);
-    vscode.window.showErrorMessage(`LPDF: ${msg}`);
+    vscode.window.showErrorMessage(`Lpdf: ${msg}`);
   }
 }

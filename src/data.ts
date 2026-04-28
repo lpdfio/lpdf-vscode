@@ -85,7 +85,7 @@ export async function promptLinkDataFile(
     canSelectMany: false,
     filters: { JSON: ['json'] },
     defaultUri: vscode.Uri.file(path.dirname(xmlUri.fsPath)),
-    title: 'Select JSON data file for LPDF preview',
+    title: 'Select JSON data file for Lpdf preview',
   });
   if (!picks || picks.length === 0) { return undefined; }
   await setLinkedDataUri(context, xmlUri, picks[0]);

@@ -1,10 +1,10 @@
 {
   "name": "lpdf",
-  "displayName": "LPDF (Preview)",
-  "description": "VS Code extension for lpdf — pixel-perfect, lightweight, and consistent PDF rendering",
+  "displayName": "Lpdf",
+  "description": "VS Code extension for Lpdf — an accurate, efficient, and cross-platform PDF engine",
   "license": "SEE LICENSE IN LICENSE",
   "publisher": "lpdfio",
-  "version": "0.5.5",
+  "version": "0.0.0",
   "preview": true,
   "icon": "media/icon.png",
   "repository": {
@@ -25,6 +25,14 @@
   ],
   "main": "./dist/extension.js",
   "contributes": {
+    "customEditors": [
+      {
+        "viewType": "lpdf.pdfViewer",
+        "displayName": "Lpdf PDF Viewer",
+        "selector": [{ "filenamePattern": "*.pdf" }],
+        "priority": "option"
+      }
+    ],
     "configuration": {
       "title": "lpdf",
       "properties": {
@@ -41,18 +49,24 @@
       }
     },
     "commands": [
-      { "command": "lpdf.previewPdf",     "title": "LPDF: Preview PDF" },
-      { "command": "lpdf.exportPdf",       "title": "LPDF: Export PDF"  },
-      { "command": "lpdf.linkDataFile",    "title": "LPDF: Link Data File..."  },
-      { "command": "lpdf.unlinkDataFile",  "title": "LPDF: Unlink Data File"   },
-      { "command": "lpdf.generateTs",  "title": "LPDF: Generate TypeScript from XML" },
-      { "command": "lpdf.generateCs",  "title": "LPDF: Generate C# from XML" },
-      { "command": "lpdf.generatePy",  "title": "LPDF: Generate Python from XML" },
-      { "command": "lpdf.generatePhp", "title": "LPDF: Generate PHP from XML" },
-      { "command": "lpdf.generateHere","title": "LPDF: Generate lpdf code here" }
+      { "command": "lpdf.previewPdf",     "title": "Lpdf: Preview PDF" },
+      { "command": "lpdf.exportPdf",       "title": "Lpdf: Export PDF"  },
+      { "command": "lpdf.linkDataFile",    "title": "Lpdf: Link Data File..."  },
+      { "command": "lpdf.unlinkDataFile",  "title": "Lpdf: Unlink Data File"   },
+      { "command": "lpdf.generateTs",  "title": "Lpdf: Generate TypeScript from XML" },
+      { "command": "lpdf.generateCs",  "title": "Lpdf: Generate C# from XML" },
+      { "command": "lpdf.generatePy",  "title": "Lpdf: Generate Python from XML" },
+      { "command": "lpdf.generatePhp", "title": "Lpdf: Generate PHP from XML" },
+      { "command": "lpdf.generateHere","title": "Lpdf: Generate lpdf code here" },
+      { "command": "lpdf.openPdf",       "title": "Lpdf: Open PDF" }
     ],
     "menus": {
       "explorer/context": [
+        {
+          "when": "resourceExtname == .pdf",
+          "command": "lpdf.openPdf",
+          "group": "navigation@1"
+        },
         {
           "when": "resourceExtname == .xml",
           "command": "lpdf.previewPdf",
