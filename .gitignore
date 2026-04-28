@@ -1,3 +1,6 @@
 node_modules/
 dist/
 *.vsix
+
+# Generated WASM artifacts (wasm-pack output)
+wasm/
