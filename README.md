@@ -2,7 +2,7 @@
 
 # Lpdf for VS Code
 
-**Preview any PDF. Author documents usign XML.**
+**Preview any PDF. Author documents using XML.**
 
 ![Lpdf demo](https://raw.githubusercontent.com/lpdfio/lpdf-vscode/HEAD/media/demo.gif)
 
