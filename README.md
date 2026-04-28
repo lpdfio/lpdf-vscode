@@ -1,4 +1,4 @@
-<p align="center"><img src="media/lpdf-logo.svg" height="48" alt="Lpdf"></p>
+<p align="center"><img src="media/icon.png" height="48" alt="Lpdf"></p>
 
 # Lpdf for VS Code
 
