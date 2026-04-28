@@ -1,8 +1,8 @@
+<p align="center"><img src="media/lpdf-logo.svg" height="48" alt="Lpdf"></p>
+
 # Lpdf for VS Code
 
-**Structure-first PDF authoring, right inside your editor.**
-
-Lpdf lets you define PDF documents using a layout model — stacks, flanks, grids, frames — instead of placing elements at explicit coordinates. Author in XML, preview live, and export directly from VS Code.
+**Preview any PDF. Author documents usign XML.**
 
 ![Lpdf demo](https://raw.githubusercontent.com/lpdfio/lpdf-vscode/HEAD/media/demo.gif)
 
