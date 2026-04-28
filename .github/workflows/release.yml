@@ -41,6 +41,15 @@ jobs:
             echo "Attempt $attempt failed — retrying in 10s..."
             sleep 10
           done
+          # Fallback to latest release when the derived tag doesn't exist yet
+          if [ ! -f wasm/lpdf.js ]; then
+            gh release download \
+              --repo lpdfio/lpdf \
+              --pattern "lpdf.js" \
+              --pattern "lpdf_bg.wasm" \
+              --dir wasm \
+              --clobber
+          fi
 
       # ── Build ────────────────────────────────────────────────────────────────
       - uses: actions/setup-node@v4

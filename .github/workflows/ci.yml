@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # ── Download wasm-pack artifacts ─────────────────────────────────────────
+      # Derives the core tag from package.json (strip patch → .0).
+      # Falls back to the latest release when the version is a placeholder (0.0.0)
+      # or the derived tag does not yet exist.
+      - name: Download wasm artifacts
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p wasm
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          CORE_TAG="v$(echo "$PKG_VERSION" | sed 's/\.[0-9]*$/.0/')"
+          echo "Resolved core tag: $CORE_TAG"
+          for attempt in 1 2 3; do
+            gh release download "$CORE_TAG" \
+              --repo lpdfio/lpdf \
+              --pattern "lpdf.js" \
+              --pattern "lpdf_bg.wasm" \
+              --dir wasm \
+              --clobber && break
+            echo "Attempt $attempt failed — retrying in 10s..."
+            sleep 10
+          done
+          # Fallback to latest release when the derived tag doesn't exist yet
+          if [ ! -f wasm/lpdf.js ]; then
+            gh release download \
+              --repo lpdfio/lpdf \
+              --pattern "lpdf.js" \
+              --pattern "lpdf_bg.wasm" \
+              --dir wasm \
+              --clobber
+          fi
+
+      - name: Install and build
+        run: npm ci && npm run build
+
+      # ── Package (validates the extension bundles cleanly) ────────────────────
+      - name: Package extension
+        run: npx vsce package --out lpdf.vsix
