@@ -27,11 +27,19 @@ Source: https://github.com/mozilla/pdf.js
 
 ---
 
-## lpdf-wasi.wasm (compiled Rust crates)
+## Lpdf Engine (wasm/)
 
-The bundled WebAssembly binary is compiled from Rust and statically links
-the following crates. All are licensed under MIT OR Apache-2.0 (or compatible
-permissive terms) and do not impose any copyleft obligations.
+The files in `wasm/` (`lpdf.js`, `lpdf_bg.wasm`, `lpdf.d.ts`) are proprietary
+software owned by Codesense LLC. They are NOT open-source and are NOT covered
+by the MIT License that applies to the extension source code.
+
+See LICENSE (Part 2) and https://lpdf.io/license for terms.
+
+### Compiled Rust crates statically linked into the WASM binary
+
+The WASM binary is compiled from Rust and statically links the following
+crates. All are licensed under MIT OR Apache-2.0 (or compatible permissive
+terms) and do not impose any copyleft obligations.
 
 | Crate            | License                     |
 |------------------|-----------------------------|

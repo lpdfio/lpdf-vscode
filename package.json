@@ -1,12 +1,16 @@
 {
   "name": "lpdf",
   "displayName": "Lpdf",
-  "description": "VS Code extension for Lpdf — an accurate, efficient, and cross-platform PDF engine",
+  "description": "VS Code extension for Lpdf — PDF as Code, on every platform. Describe your document structure in code using the programming Kit, or XML. Every PDF is compact, pixel-perfect, and identical across platforms.",
   "license": "SEE LICENSE IN LICENSE",
   "publisher": "lpdfio",
   "version": "0.0.0",
   "preview": true,
   "icon": "media/icon.png",
+  "galleryBanner": {
+    "color": "#141414",
+    "theme": "dark"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/lpdfio/lpdf-vscode"
@@ -15,6 +19,19 @@
     "vscode": "^1.85.0",
     "node": ">=18.17.1"
   },
+  "extensionDependencies": [
+    "redhat.vscode-xml"
+  ],
+  "keywords": [
+    "pdf",
+    "xml",
+    "pdf preview",
+    "pdf export",
+    "pdf create",
+    "pdf design",
+    "document",
+    "template"
+  ],
   "categories": [
     "Programming Languages",
     "Visualization",

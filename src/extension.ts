@@ -106,24 +106,6 @@ function ensureDataWatcher(context: vscode.ExtensionContext, xmlUri: vscode.Uri)
 export function activate(context: vscode.ExtensionContext): void {
   const xsdPath = path.join(context.extensionPath, 'schema', 'lpdf.xsd');
 
-  // Soft recommendation for the Red Hat XML extension (needed for XSD validation).
-  // Shown at most once; respects the user's explicit dismissal via globalState.
-  void (async () => {
-    const XML_EXT_ID      = 'redhat.vscode-xml';
-    const DISMISSED_KEY   = 'xmlExtDismissed';
-    if (!vscode.extensions.getExtension(XML_EXT_ID) && !context.globalState.get<boolean>(DISMISSED_KEY)) {
-      const choice = await vscode.window.showInformationMessage(
-        'Lpdf: XML schema validation requires the Red Hat XML extension.',
-        'Install', 'Dismiss',
-      );
-      if (choice === 'Install') {
-        await vscode.commands.executeCommand('workbench.extensions.installExtension', XML_EXT_ID);
-      } else if (choice === 'Dismiss') {
-        await context.globalState.update(DISMISSED_KEY, true);
-      }
-    }
-  })();
-
   // Status bar
   const statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
   statusBar.text = 'Lpdf ◆';
