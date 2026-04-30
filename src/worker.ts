@@ -5,13 +5,12 @@ interface IWasmEngine {
   free(): void;
 }
 interface IWasmModule {
-  LpdfEngine: new (licenseKey: string) => IWasmEngine;
+  LpdfEngine: new () => IWasmEngine;
 }
 
 interface RenderRequest {
   id: string;
   xml: string;
-  licenseKey: string;
   jsonData: string | null;
 }
 
@@ -25,22 +24,18 @@ function getWasmModule(): IWasmModule {
   return _module;
 }
 
-// Cached engine instance — avoids re-initialising WASM and re-validating the
-// license key on every render request.
+// Cached engine instance.
 let _engine: IWasmEngine | undefined;
-let _engineKey: string | undefined;
 
-function getEngine(licenseKey: string): IWasmEngine {
-  if (_engine && _engineKey === licenseKey) { return _engine; }
-  _engine?.free();
-  _engine = new (getWasmModule()).LpdfEngine(licenseKey);
-  _engineKey = licenseKey;
+function getEngine(): IWasmEngine {
+  if (_engine) { return _engine; }
+  _engine = new (getWasmModule()).LpdfEngine();
   return _engine;
 }
 
-parentPort!.on('message', ({ id, xml, licenseKey, jsonData }: RenderRequest) => {
+parentPort!.on('message', ({ id, xml, jsonData }: RenderRequest) => {
   try {
-    const engine = getEngine(licenseKey);
+    const engine = getEngine();
     const rawBytes = engine.render_pdf(xml, jsonData);
     // Copy into a new buffer to guarantee we own the ArrayBuffer before transferring.
     // This guards against the WASM engine returning a view into shared WASM memory.

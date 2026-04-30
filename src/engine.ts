@@ -55,7 +55,7 @@ function getWorker(): Worker {
   return w;
 }
 
-export function renderPdf(xml: string, licenseKey: string, jsonData: string | null = null): Promise<Uint8Array> {
+export function renderPdf(xml: string, jsonData: string | null = null): Promise<Uint8Array> {
   // Cancel any in-flight render before starting a new one.
   // The stale-worker guard in the event handlers ensures the old worker's exit
   // event cannot clobber the new pending entry.
@@ -80,7 +80,7 @@ export function renderPdf(xml: string, licenseKey: string, jsonData: string | nu
     }, RENDER_TIMEOUT_MS);
     _pending.set(id, { resolve, reject, timer });
     try {
-      getWorker().postMessage({ id, xml, licenseKey, jsonData });
+      getWorker().postMessage({ id, xml, jsonData });
     } catch (e) {
       clearTimeout(timer);
       _pending.delete(id);

@@ -53,11 +53,6 @@
     "configuration": {
       "title": "lpdf",
       "properties": {
-        "lpdf.licenseKey": {
-          "type": "string",
-          "default": "",
-          "description": "lpdf license key"
-        },
         "lpdf.trace": {
           "type": "boolean",
           "default": false,

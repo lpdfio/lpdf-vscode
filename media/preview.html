@@ -71,15 +71,9 @@
       padding: 8px 14px; border-top: 1px solid #454545;
       display: flex; justify-content: flex-end;
     }
-    #watermark-bar {
-      display: none; flex-shrink: 0; background: #5c3d00; color: #ffc107;
-      font: 11px/1.4 sans-serif; padding: 5px 10px;
-      text-align: center; border-bottom: 1px solid #7a5200;
-    }
   </style>
 </head>
 <body>
-  <div id="watermark-bar">Preview only &middot; license key is needed to export</div>
   <div id="toolbar">
     <div id="toolbar-left">
       <button class="primary" id="btn-download">Export PDF</button>
@@ -141,7 +135,6 @@
     const overlay      = document.getElementById('loading-overlay');
     const inner        = document.getElementById('viewer-inner');
     const viewer       = document.getElementById('viewer');
-    const watermarkBar = document.getElementById('watermark-bar');
 
     function showLoading() {
       log('info', 'showLoading');
@@ -173,10 +166,9 @@
       }
     }
 
-    async function loadPdf(pdfBase64, newFilename, newWatermarked, zoomOpt, scrollXOpt, scrollYOpt) {
+    async function loadPdf(pdfBase64, newFilename, zoomOpt, scrollXOpt, scrollYOpt) {
       filename = newFilename;
       savedPdfBase64 = pdfBase64;
-      watermarkBar.style.display = newWatermarked ? '' : 'none';
 
       const bin = atob(pdfBase64);
       const buf = new Uint8Array(bin.length);
@@ -254,7 +246,7 @@
       } else if (msg.type === 'updatePdf') {
         try {
           log('info', 'loadPdf start filename=' + msg.filename + ' bytes=' + msg.pdfBase64.length);
-          await loadPdf(msg.pdfBase64, msg.filename, msg.watermarked, msg.zoom, msg.scrollX, msg.scrollY);
+          await loadPdf(msg.pdfBase64, msg.filename, msg.zoom, msg.scrollX, msg.scrollY);
           log('info', 'loadPdf done');
         } catch (err) {
           log('error', 'loadPdf error: ' + err.message);

@@ -191,12 +191,11 @@ async function doRender(context: vscode.ExtensionContext, uri: vscode.Uri): Prom
   // will be superseded by updatePdf/showError when that arrives.
   postToWebview({ type: 'showLoading' });
 
-  const licenseKey = vscode.workspace.getConfiguration('lpdf').get<string>('licenseKey', '');
   const jsonData = getLinkedDataJson(context, uri);
 
   try {
     trace(`[lpdf] doRender WASM start gen=${generation}`);
-    const bytes = await renderPdf(xml, licenseKey, jsonData);
+    const bytes = await renderPdf(xml, jsonData);
     trace(`[lpdf] doRender WASM done  gen=${generation} bytes=${bytes.byteLength}`);
     if (generation !== renderGeneration || !previewPanel) {
       trace(`[lpdf] doRender stale after WASM gen=${generation} current=${renderGeneration}`);
@@ -206,7 +205,7 @@ async function doRender(context: vscode.ExtensionContext, uri: vscode.Uri): Prom
     const pdfBase64 = Buffer.from(bytes).toString('base64');
     const filename  = path.basename(uri.fsPath, '.xml').replace(/\.lpdf$/, '') + '.pdf';
     // Only pass zoom/scroll for new files; re-renders of the same file preserve the webview's state.
-    const msg: Record<string, unknown> = { type: 'updatePdf', pdfBase64, filename, watermarked: !licenseKey };
+    const msg: Record<string, unknown> = { type: 'updatePdf', pdfBase64, filename };
     if (isNewFile) { msg.zoom = 'fit'; msg.scrollX = 0; msg.scrollY = 0; }
     postToWebview(msg);
   } catch (e) {

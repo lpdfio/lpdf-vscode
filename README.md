@@ -1,47 +1,40 @@
 <p align="center"><img src="media/icon.png" height="48" alt="Lpdf"></p>
 
-# lpdfio.lpdf
-
 **VS Code extension for Lpdf — PDF as Code on every platform**
 
 You describe a document as code or XML. Lpdf renders a compact, pixel-perfect PDF — identical across platforms.
 
-**Preview, design, and export PDFs — entirely offline.**
+Design PDF documents in XML, preview live, and generate typed code for your platform — without leaving your editor.
 
 ![Lpdf demo](https://raw.githubusercontent.com/lpdfio/lpdf-vscode/HEAD/media/demo.gif)
 
+## Fully Offline
+
+The Lpdf engine, PDF preview, and export all run locally on your machine. No server round-trips, no accounts, no telemetry — your documents stay private.
+
 ## Features
 
-### Preview any PDF
+### PDF Viewer
 
-Open any `.pdf` file directly in VS Code. Right-click a PDF in the Explorer and select **Lpdf: Open PDF**, or use the command palette.
+Open any `.pdf` file in VS Code. Right-click a PDF in the Explorer and select **Lpdf: Open PDF**, or use the command palette.
 
-### Design PDFs using XML
+### Design PDFs in XML
 
-Author PDF documents in XML and see a live preview on every save — rendered by the Lpdf WASM engine entirely on your machine. 
+Author PDF documents in XML with a live preview that updates on every save. The extension automatically validates your files against the Lpdf schema, providing autocomplete, element validation, and inline documentation.
 
-The extension automatically associates the Lpdf XSD schema with your files, giving you attribute autocomplete, element validation, and inline documentation. 
-
-Link a JSON data file to your template to preview with real data substituted in.
+Link a JSON data file to your template to preview with real data.
 
 ### Export PDF
 
-Run **Lpdf: Export PDF** to render the current XML template and write the PDF to disk.
+Run **Lpdf: Export PDF** to render and save the current document to disk.
+
+### Code Generation
+
+Generate typed model code directly from your XML template. Supported languages: TypeScript, C#, PHP, and Python.
 
 ## Requirements
 
 - [Red Hat XML](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-xml) — required for XSD autocomplete and validation (installed automatically)
-- A valid Lpdf license key to remove the watermark from exported PDFs (configure via `lpdf.licenseKey` in Settings)
-
-## Extension Settings
-
-| Setting | Description |
-|---|---|
-| `lpdf.licenseKey` | Your Lpdf license key. Removes the watermark from the preview and exports. |
-
-## Fully Offline
-
-The WASM renderer, PDF preview, and export all run locally. No server round-trips, no accounts, no data leaves your machine.
 
 ## Docs
 
