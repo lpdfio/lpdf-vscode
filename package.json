@@ -1,7 +1,7 @@
 {
   "name": "lpdf",
   "displayName": "Lpdf",
-  "description": "VS Code extension for Lpdf — PDF as Code, on every platform. Describe your document structure in code using the programming Kit, or XML. Every PDF is compact, pixel-perfect, and identical across platforms.",
+  "description": "VS Code extension for Lpdf — PDF as Code on every platform. You describe a document as code or XML. Lpdf renders a compact, pixel-perfect PDF — identical across platforms.",
   "license": "SEE LICENSE IN LICENSE",
   "publisher": "lpdfio",
   "version": "0.0.0",

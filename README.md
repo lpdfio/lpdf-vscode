@@ -1,12 +1,14 @@
 <p align="center"><img src="media/icon.png" height="48" alt="Lpdf"></p>
 
-# Lpdf for VS Code
+# lpdfio.lpdf
+
+**VS Code extension for Lpdf — PDF as Code on every platform**
+
+You describe a document as code or XML. Lpdf renders a compact, pixel-perfect PDF — identical across platforms.
 
 **Preview, design, and export PDFs — entirely offline.**
 
 ![Lpdf demo](https://raw.githubusercontent.com/lpdfio/lpdf-vscode/HEAD/media/demo.gif)
-
----
 
 ## Features
 
@@ -26,14 +28,10 @@ Link a JSON data file to your template to preview with real data substituted in.
 
 Run **Lpdf: Export PDF** to render the current XML template and write the PDF to disk.
 
----
-
 ## Requirements
 
 - [Red Hat XML](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-xml) — required for XSD autocomplete and validation (installed automatically)
 - A valid Lpdf license key to remove the watermark from exported PDFs (configure via `lpdf.licenseKey` in Settings)
-
----
 
 ## Extension Settings
 
@@ -41,26 +39,16 @@ Run **Lpdf: Export PDF** to render the current XML template and write the PDF to
 |---|---|
 | `lpdf.licenseKey` | Your Lpdf license key. Removes the watermark from the preview and exports. |
 
----
-
 ## Fully Offline
 
 The WASM renderer, PDF preview, and export all run locally. No server round-trips, no accounts, no data leaves your machine.
 
----
+## Docs
 
-## License
+[lpdf.io/docs](https://lpdf.io/docs)
+
+--
 
 The extension source code is [MIT licensed](LICENSE).
 
-The Lpdf engine bundled inside is proprietary. It is free for individuals, open-source projects, non-profits, and organizations with annual gross revenue under 1,000,000 USD. A paid license is required for production use by larger organizations — and removes the watermark from generated PDFs.
-
-Visit [lpdf.io/pricing](https://lpdf.io/pricing) to purchase a license. See [LICENSE](LICENSE) for full terms.
-
----
-
-## More Information
-
-- [Documentation](https://lpdf.io/docs)
-- [GitHub](https://github.com/lpdf-io/lpdf)
-- [lpdf.io](https://lpdf.io)
+Lpdf is Dual-licensed: Community License (free) and Commercial License (paid). See [LICENSE](LICENSE) for full terms.
