@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'node:path';
-import { isLpdfDocument, ensureSchemaAssociation } from './schema';
+import { isLpdfDocument, registerSchemaAssociation } from './schema';
 import { registerCodegenCommands } from './codegen';
 import { previewPdf, renderForUri } from './preview';
 import { exportPdf } from './export';
@@ -60,8 +60,9 @@ class LpdfCodeLensProvider implements vscode.CodeLensProvider {
         ];
 
     return [
-      new vscode.CodeLens(range, { title: '▶ Preview PDF', command: 'lpdf.previewPdf' }),
-      new vscode.CodeLens(range, { title: '⬇ Export PDF',  command: 'lpdf.exportPdf'  }),
+      new vscode.CodeLens(range, { title: '▶ Preview PDF',    command: 'lpdf.previewPdf' }),
+      new vscode.CodeLens(range, { title: '⬇ Export PDF',     command: 'lpdf.exportPdf'  }),
+      new vscode.CodeLens(range, { title: '⟨/⟩ Generate code', command: 'lpdf.generateHere', arguments: [doc.uri] }),
       ...dataLenses,
     ];
   }
@@ -102,6 +103,38 @@ function ensureDataWatcher(context: vscode.ExtensionContext, xmlUri: vscode.Uri)
   if (!jsonUri) { return; } // no data file linked or discoverable
   setupDataWatcher(context, xmlUri, jsonUri);
 }
+
+// ---------- PDF default-viewer helpers ----------
+
+const PDF_ASSOC_GLOB = '*.pdf';
+
+async function applyPdfViewerAssociation(enable: boolean): Promise<void> {
+  const config = vscode.workspace.getConfiguration();
+  const current = config.get<Record<string, string>>('workbench.editorAssociations') ?? {};
+  const updated = { ...current };
+  if (enable) {
+    updated[PDF_ASSOC_GLOB] = LpdfPdfViewerProvider.viewType;
+  } else if (updated[PDF_ASSOC_GLOB] === LpdfPdfViewerProvider.viewType) {
+    delete updated[PDF_ASSOC_GLOB];
+  }
+  await config.update('workbench.editorAssociations', updated, vscode.ConfigurationTarget.Global);
+}
+
+async function promptPdfViewerOptIn(context: vscode.ExtensionContext): Promise<void> {
+  if (context.globalState.get<boolean>('pdfViewerPromptShown')) { return; }
+  await context.globalState.update('pdfViewerPromptShown', true);
+  const choice = await vscode.window.showInformationMessage(
+    'Open PDF files with the Lpdf viewer by default?',
+    'Enable',
+    'Not now',
+  );
+  if (choice === 'Enable') {
+    await vscode.workspace.getConfiguration('lpdf').update('defaultPdfViewer', true, vscode.ConfigurationTarget.Global);
+    await applyPdfViewerAssociation(true);
+  }
+}
+
+// -------------------------------------------------
 
 export function activate(context: vscode.ExtensionContext): void {
   const xsdPath = path.join(context.extensionPath, 'schema', 'lpdf.xsd');
@@ -159,43 +192,44 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // CodeLens
   context.subscriptions.push(
-    vscode.languages.registerCodeLensProvider({ language: 'xml' }, new LpdfCodeLensProvider(context)),
+    vscode.languages.registerCodeLensProvider({ language: 'xml', pattern: '**/*.lpdf.xml' }, new LpdfCodeLensProvider(context)),
   );
 
-  // Schema association + status bar refresh
+  // Schema association — one-shot glob registration, version-agnostic.
+  void registerSchemaAssociation(xsdPath);
+
+  // Status bar refresh
   let _statusDebounce: ReturnType<typeof setTimeout> | undefined;
   context.subscriptions.push(
     vscode.window.onDidChangeActiveTextEditor(editor => {
       refreshStatusBar(editor);
-      if (editor) {
-        ensureSchemaAssociation(editor.document, xsdPath);
-        if (isLpdfDocument(editor.document)) {
-          ensureDataWatcher(context, editor.document.uri);
-          renderForUri(context, editor.document.uri, 'switch');
-        }
+      if (editor && isLpdfDocument(editor.document)) {
+        ensureDataWatcher(context, editor.document.uri);
+        renderForUri(context, editor.document.uri, 'switch');
       }
     }),
     vscode.workspace.onDidChangeTextDocument(event => {
-      // Refresh the status bar when the active file's content changes (e.g. user adds/removes <lpdf).
-      // Debounced at 300 ms to avoid thrashing on every keystroke.
       if (event.document !== vscode.window.activeTextEditor?.document) { return; }
       clearTimeout(_statusDebounce);
       _statusDebounce = setTimeout(() => refreshStatusBar(vscode.window.activeTextEditor), 300);
-    }),
-    vscode.workspace.onDidOpenTextDocument(doc => {
-      if (doc.languageId !== 'xml') { return; }
-      ensureSchemaAssociation(doc, xsdPath);
     }),
     vscode.workspace.onDidSaveTextDocument(doc => {
       if (isLpdfDocument(doc)) { renderForUri(context, doc.uri, 'save'); }
     }),
   );
 
-  // Seed state for already-open editors
-  for (const editor of vscode.window.visibleTextEditors) {
-    ensureSchemaAssociation(editor.document, xsdPath);
-  }
   refreshStatusBar(vscode.window.activeTextEditor);
+
+  // PDF default-viewer: sync association on startup, listen for setting changes, and show one-time opt-in prompt.
+  void applyPdfViewerAssociation(vscode.workspace.getConfiguration('lpdf').get<boolean>('defaultPdfViewer', false));
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration(e => {
+      if (e.affectsConfiguration('lpdf.defaultPdfViewer')) {
+        void applyPdfViewerAssociation(vscode.workspace.getConfiguration('lpdf').get<boolean>('defaultPdfViewer', false));
+      }
+    }),
+  );
+  void promptPdfViewerOptIn(context);
 }
 
 export function deactivate(): void {

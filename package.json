@@ -62,42 +62,47 @@
           "type": "boolean",
           "default": false,
           "description": "Enable verbose trace logging for lpdf in the extension output channel (useful for debugging)."
+        },
+        "lpdf.defaultPdfViewer": {
+          "type": "boolean",
+          "default": false,
+          "description": "Use the Lpdf viewer as the default viewer for PDF files. When enabled, clicking a .pdf file opens it in the Lpdf PDF viewer instead of VS Code's default binary viewer."
         }
       }
     },
     "commands": [
+      { "command": "lpdf.openPdf",        "title": "Lpdf: View PDF" },
       { "command": "lpdf.previewPdf",     "title": "Lpdf: Preview PDF" },
-      { "command": "lpdf.exportPdf",       "title": "Lpdf: Export PDF"  },
-      { "command": "lpdf.linkDataFile",    "title": "Lpdf: Link Data File..."  },
-      { "command": "lpdf.unlinkDataFile",  "title": "Lpdf: Unlink Data File"   },
-      { "command": "lpdf.generateTs",  "title": "Lpdf: Generate TypeScript from XML" },
-      { "command": "lpdf.generateCs",  "title": "Lpdf: Generate C# from XML" },
-      { "command": "lpdf.generatePy",  "title": "Lpdf: Generate Python from XML" },
-      { "command": "lpdf.generatePhp", "title": "Lpdf: Generate PHP from XML" },
-      { "command": "lpdf.generateHere","title": "Lpdf: Generate lpdf code here" },
-      { "command": "lpdf.openPdf",       "title": "Lpdf: Open PDF" }
+      { "command": "lpdf.exportPdf",      "title": "Lpdf: Export PDF"  },
+      { "command": "lpdf.generateHere",   "title": "Lpdf: Generate Code" },
+      { "command": "lpdf.linkDataFile",   "title": "Lpdf: Link Data File..."  },
+      { "command": "lpdf.unlinkDataFile", "title": "Lpdf: Unlink Data File"   },
+      { "command": "lpdf.generateTs",     "title": "Lpdf: Generate TypeScript from XML" },
+      { "command": "lpdf.generateCs",     "title": "Lpdf: Generate C# from XML" },
+      { "command": "lpdf.generatePy",     "title": "Lpdf: Generate Python from XML" },
+      { "command": "lpdf.generatePhp",    "title": "Lpdf: Generate PHP from XML" }
     ],
     "menus": {
       "explorer/context": [
         {
           "when": "resourceExtname == .pdf",
           "command": "lpdf.openPdf",
-          "group": "navigation@1"
+          "group": "2_z_lpdf@1"
         },
         {
-          "when": "resourceExtname == .xml",
+          "when": "resourceFilename =~ /\\.lpdf\\.xml$/",
           "command": "lpdf.previewPdf",
-          "group": "navigation@1"
+          "group": "2_z_lpdf@1"
         },
         {
-          "when": "resourceExtname == .xml",
+          "when": "resourceFilename =~ /\\.lpdf\\.xml$/",
           "command": "lpdf.exportPdf",
-          "group": "navigation@2"
+          "group": "2_z_lpdf@2"
         },
         {
-          "when": "resourceExtname == .xml",
+          "when": "resourceFilename =~ /\\.lpdf\\.xml$/",
           "command": "lpdf.generateHere",
-          "group": "navigation@3"
+          "group": "2_z_lpdf@3"
         }
       ]
     }

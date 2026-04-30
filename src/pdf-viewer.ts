@@ -20,6 +20,13 @@ export class LpdfPdfViewerProvider implements vscode.CustomReadonlyEditorProvide
     document: vscode.CustomDocument,
     panel: vscode.WebviewPanel,
   ): Promise<void> {
+    // Only handle real file URIs. A non-file scheme (e.g. git:) means VS Code
+    // opened this as the base side of a diff view — close that pane immediately.
+    if (document.uri.scheme !== 'file') {
+      panel.dispose();
+      return;
+    }
+
     const mediaUri = vscode.Uri.joinPath(this.context.extensionUri, 'media');
     panel.webview.options = {
       enableScripts: true,

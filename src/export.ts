@@ -10,7 +10,7 @@ export async function exportPdf(uri?: vscode.Uri): Promise<void> {
   const licenseKey = vscode.workspace.getConfiguration('lpdf').get<string>('licenseKey', '');
 
   const xmlDir     = path.dirname(doc.uri.fsPath);
-  const defaultName = path.basename(doc.uri.fsPath, '.xml') + '.pdf';
+  const defaultName = path.basename(doc.uri.fsPath, '.xml').replace(/\.lpdf$/, '') + '.pdf';
   const defaultUri  = vscode.Uri.file(path.join(xmlDir, defaultName));
 
   const saveUri = await vscode.window.showSaveDialog({

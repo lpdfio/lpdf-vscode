@@ -1,43 +1,33 @@
 import * as vscode from 'vscode';
-import { LPDF_HEAD_SCAN_BYTES } from './constants';
 
-interface XmlFileAssociation {
-  systemId: string;
-  pattern: string;
+/** Returns true if the document follows the *.lpdf.xml naming convention. */
+export function isLpdfDocument(doc: vscode.TextDocument): boolean {
+  return doc.uri.fsPath.endsWith('.lpdf.xml');
 }
 
-// Cache isLpdfDocument results keyed by URI → {version, result}.
-// Avoids re-scanning the document on every CodeLens / status-bar refresh.
-const _isLpdfCache = new Map<string, { version: number; result: boolean }>();
-
-export function isLpdfDocument(doc: vscode.TextDocument): boolean {
-  if (doc.languageId !== 'xml') return false;
-  const key    = doc.uri.toString();
-  const cached = _isLpdfCache.get(key);
-  if (cached && cached.version === doc.version) { return cached.result; }
-  const result = /<lpdf\b/.test(doc.getText().substring(0, LPDF_HEAD_SCAN_BYTES));
-  _isLpdfCache.set(key, { version: doc.version, result });
-  return result;
+/** Returns true if the systemId looks like an lpdf XSD from any extension version. */
+function isLpdfSchemaSystemId(systemId: string): boolean {
+  return /[/\\]lpdf[^/\\]*[/\\]schema[/\\]lpdf\.xsd$/i.test(systemId)
+    || /[/\\]docs[/\\]schema[/\\]lpdf\.xsd$/i.test(systemId)
+    || /[/\\]pages[/\\]schema[/\\]lpdf\.xsd$/i.test(systemId);
 }
 
 /**
- * Associate the Lpdf XSD with the specific file that was just confirmed to contain <lpdf.
- * Uses a per-file workspace pattern instead of **\/*.xml so only confirmed Lpdf files
- * get schema validation — unrelated XML files in the workspace are unaffected.
+ * Registers a single **\/*.lpdf.xml glob in xml.fileAssociations (workspace scope)
+ * pointing to the bundled XSD. Called once on activation.
  *
- * Also migrates away from any legacy **\/*.xml catch-all entry written by older versions,
- * and cleans up stale per-file entries the original implementation wrote to global config.
+ * Also cleans up any stale per-file entries or old-version entries written by
+ * previous extension versions, and removes any lpdf entries from global config.
  */
-export async function ensureSchemaAssociation(doc: vscode.TextDocument, xsdPath: string): Promise<void> {
-  if (!isLpdfDocument(doc)) return;
-
+export async function registerSchemaAssociation(xsdPath: string): Promise<void> {
   const systemId = vscode.Uri.file(xsdPath).toString();
+  const pattern  = '**/*.lpdf.xml';
   const config   = vscode.workspace.getConfiguration('xml');
-  const inspection = config.inspect<XmlFileAssociation[]>('fileAssociations');
+  const inspection = config.inspect<{ systemId: string; pattern: string }[]>('fileAssociations');
 
-  // 1. Clean up stale global entries written by the original implementation.
+  // Clean up stale global entries (any lpdf XSD, any version).
   const globalEntries = inspection?.globalValue ?? [];
-  const globalCleaned = globalEntries.filter(a => a.systemId !== systemId);
+  const globalCleaned = globalEntries.filter(a => !isLpdfSchemaSystemId(a.systemId));
   if (globalCleaned.length !== globalEntries.length) {
     await config.update(
       'fileAssociations',
@@ -46,22 +36,17 @@ export async function ensureSchemaAssociation(doc: vscode.TextDocument, xsdPath:
     );
   }
 
-  // 2. Add a per-file entry; migrate away from the legacy **/*.xml catch-all if present.
-  const filePattern = vscode.workspace.asRelativePath(doc.uri, false);
+  // Replace all lpdf entries with the single glob; keep non-lpdf entries.
   const workspaceEntries = inspection?.workspaceValue ?? [];
-
-  const hasLegacyWildcard = workspaceEntries.some(a => a.systemId === systemId && a.pattern === '**/*.xml');
-  const hasFileEntry      = workspaceEntries.some(a => a.systemId === systemId && a.pattern === filePattern);
-
-  if (!hasLegacyWildcard && hasFileEntry) { return; } // already correctly configured
-
-  const base = hasLegacyWildcard
-    ? workspaceEntries.filter(a => !(a.systemId === systemId && a.pattern === '**/*.xml'))
-    : workspaceEntries;
+  const base = workspaceEntries.filter(a => !isLpdfSchemaSystemId(a.systemId));
+  const alreadySet =
+    base.length === workspaceEntries.length - 1 &&
+    workspaceEntries.some(a => a.systemId === systemId && a.pattern === pattern);
+  if (alreadySet) { return; }
 
   await config.update(
     'fileAssociations',
-    [...base, ...(hasFileEntry ? [] : [{ systemId, pattern: filePattern }])],
+    [...base, { systemId, pattern }],
     vscode.ConfigurationTarget.Workspace,
   );
 }

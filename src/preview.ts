@@ -156,7 +156,7 @@ function ensurePanel(context: vscode.ExtensionContext): void {
     }
     if (msg.type !== 'download' || !previewUri || !msg.pdfBase64) { return; }
     const xmlDir = path.dirname(previewUri.fsPath);
-    const defaultName = path.basename(previewUri.fsPath, '.xml') + '.pdf';
+    const defaultName = path.basename(previewUri.fsPath, '.xml').replace(/\.lpdf$/, '') + '.pdf';
     const saveUri = await vscode.window.showSaveDialog({
       defaultUri: vscode.Uri.file(path.join(xmlDir, defaultName)),
       filters: { 'PDF': ['pdf'] },
@@ -184,7 +184,7 @@ async function doRender(context: vscode.ExtensionContext, uri: vscode.Uri): Prom
   }
 
   const xml   = doc.getText();
-  const title = path.basename(uri.fsPath, '.xml') + ' — Preview';
+  const title = path.basename(uri.fsPath, '.xml').replace(/\.lpdf$/, '') + ' — Preview';
 
   previewPanel.title = title;
   // Show loading overlay. If the webview isn't ready yet this gets queued and
@@ -204,7 +204,7 @@ async function doRender(context: vscode.ExtensionContext, uri: vscode.Uri): Prom
     }
     _lastRendered.set(uri.toString(), xml);
     const pdfBase64 = Buffer.from(bytes).toString('base64');
-    const filename  = path.basename(uri.fsPath, '.xml') + '.pdf';
+    const filename  = path.basename(uri.fsPath, '.xml').replace(/\.lpdf$/, '') + '.pdf';
     // Only pass zoom/scroll for new files; re-renders of the same file preserve the webview's state.
     const msg: Record<string, unknown> = { type: 'updatePdf', pdfBase64, filename, watermarked: !licenseKey };
     if (isNewFile) { msg.zoom = 'fit'; msg.scrollX = 0; msg.scrollY = 0; }
