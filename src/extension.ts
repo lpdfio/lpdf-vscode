@@ -6,6 +6,7 @@ import { previewPdf, renderForUri } from './preview';
 import { exportPdf } from './export';
 import { disposeRenderWorker } from './engine';
 import { LpdfPdfViewerProvider } from './pdf-viewer';
+import { diffPdf } from './pdf-diff';
 import {
   getLinkedDataUri,
   getExplicitDataUri,
@@ -186,6 +187,14 @@ export function activate(context: vscode.ExtensionContext): void {
       const target = uri ?? vscode.window.activeTextEditor?.document.uri;
       if (!target) { return; }
       void vscode.commands.executeCommand('vscode.openWith', target, LpdfPdfViewerProvider.viewType);
+    }),
+    vscode.commands.registerCommand('lpdf.diffPdf', (arg?: vscode.Uri | { resourceUri: vscode.Uri }) => {
+      // SCM resource state context passes a SourceControlResourceState (with resourceUri),
+      // while explorer context passes a plain Uri directly.
+      const uri = arg instanceof vscode.Uri
+        ? arg
+        : (arg as { resourceUri?: vscode.Uri } | undefined)?.resourceUri;
+      return diffPdf(context, uri);
     }),
   );
   registerCodegenCommands(context);

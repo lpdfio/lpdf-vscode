@@ -14,7 +14,10 @@ type Resolve = (bytes: Uint8Array) => void;
 type Reject  = (err: LpdfRenderError) => void;
 
 let _worker: Worker | undefined;
+// At most one in-flight render (the one the worker is currently executing).
 const _pending = new Map<string, { resolve: Resolve; reject: Reject; timer: ReturnType<typeof setTimeout> }>();
+// Latest render request waiting to be sent once the worker becomes free.
+let _queued: { xml: string; jsonData: string | null; resolve: Resolve; reject: Reject } | undefined;
 
 function getWorker(): Worker {
   if (_worker) { return _worker; }
@@ -27,7 +30,11 @@ function getWorker(): Worker {
   w.on('message', (msg: { id: string; bytes?: Uint8Array; error?: string }) => {
     if (w !== _worker) { return; } // stale worker — ignore
     const entry = _pending.get(msg.id);
-    if (!entry) { return; }
+    if (!entry) {
+      // Result arrived for a superseded render. Flush the queued request now.
+      flushQueued();
+      return;
+    }
     clearTimeout(entry.timer);
     _pending.delete(msg.id);
     if (msg.error !== undefined) {
@@ -35,6 +42,8 @@ function getWorker(): Worker {
     } else {
       entry.resolve(msg.bytes!);
     }
+    // Worker is now free — send any waiting request.
+    flushQueued();
   });
 
   w.on('error', (err) => {
@@ -42,6 +51,8 @@ function getWorker(): Worker {
     const msg = err.message;
     for (const entry of _pending.values()) { clearTimeout(entry.timer); entry.reject(new LpdfRenderError(msg)); }
     _pending.clear();
+    _queued?.reject(new LpdfRenderError(msg));
+    _queued = undefined;
     _worker = undefined;
   });
 
@@ -49,42 +60,62 @@ function getWorker(): Worker {
     if (w !== _worker) { return; } // stale worker — ignore
     for (const entry of _pending.values()) { clearTimeout(entry.timer); entry.reject(new LpdfRenderError('Render worker exited unexpectedly')); }
     _pending.clear();
+    _queued?.reject(new LpdfRenderError('Render worker exited unexpectedly'));
+    _queued = undefined;
     _worker = undefined;
   });
 
   return w;
 }
 
-export function renderPdf(xml: string, jsonData: string | null = null): Promise<Uint8Array> {
-  // Cancel any in-flight render before starting a new one.
-  // The stale-worker guard in the event handlers ensures the old worker's exit
-  // event cannot clobber the new pending entry.
-  if (_pending.size > 0) {
-    for (const entry of _pending.values()) {
-      clearTimeout(entry.timer);
-      entry.reject(new LpdfRenderError('Superseded by a newer render'));
+/** Dispatch the queued request to the (now-idle) worker, if one is waiting. */
+function flushQueued(): void {
+  if (!_queued || !_worker) { return; }
+  const { xml, jsonData, resolve, reject } = _queued;
+  _queued = undefined;
+  const id = randomUUID();
+  const timer = setTimeout(() => {
+    if (_pending.delete(id)) {
+      reject(new LpdfRenderError('Render timed out after 30 seconds'));
+      _worker?.terminate();
+      _worker = undefined;
     }
-    _pending.clear();
-    _worker?.terminate();
-    _worker = undefined;
+  }, RENDER_TIMEOUT_MS);
+  _pending.set(id, { resolve, reject, timer });
+  try {
+    _worker.postMessage({ id, xml, jsonData });
+  } catch (e) {
+    clearTimeout(timer);
+    _pending.delete(id);
+    reject(new LpdfRenderError(e instanceof Error ? e.message : String(e)));
   }
+}
 
+export function renderPdf(xml: string, jsonData: string | null = null): Promise<Uint8Array> {
   return new Promise<Uint8Array>((resolve, reject) => {
-    const id = randomUUID();
-    const timer = setTimeout(() => {
-      if (_pending.delete(id)) {
-        reject(new LpdfRenderError('Render timed out after 30 seconds'));
-        _worker?.terminate();
-        _worker = undefined;
+    // If the worker is idle (nothing in-flight), send immediately.
+    if (_pending.size === 0) {
+      const id = randomUUID();
+      const timer = setTimeout(() => {
+        if (_pending.delete(id)) {
+          reject(new LpdfRenderError('Render timed out after 30 seconds'));
+          _worker?.terminate();
+          _worker = undefined;
+        }
+      }, RENDER_TIMEOUT_MS);
+      _pending.set(id, { resolve, reject, timer });
+      try {
+        getWorker().postMessage({ id, xml, jsonData });
+      } catch (e) {
+        clearTimeout(timer);
+        _pending.delete(id);
+        reject(new LpdfRenderError(e instanceof Error ? e.message : String(e)));
       }
-    }, RENDER_TIMEOUT_MS);
-    _pending.set(id, { resolve, reject, timer });
-    try {
-      getWorker().postMessage({ id, xml, jsonData });
-    } catch (e) {
-      clearTimeout(timer);
-      _pending.delete(id);
-      reject(new LpdfRenderError(e instanceof Error ? e.message : String(e)));
+    } else {
+      // Worker is busy. Supersede any previously queued (but not yet sent) request,
+      // then park this one. It will be dispatched once the current render finishes.
+      _queued?.reject(new LpdfRenderError('Superseded by a newer render'));
+      _queued = { xml, jsonData, resolve, reject };
     }
   });
 }
@@ -95,13 +126,14 @@ export function cancelRender(): void {
     entry.reject(new LpdfRenderError('Render cancelled'));
   }
   _pending.clear();
-  _worker?.terminate();
-  _worker = undefined;
+  _queued?.reject(new LpdfRenderError('Render cancelled'));
+  _queued = undefined;
 }
 
 export function disposeRenderWorker(): void {
   for (const entry of _pending.values()) { clearTimeout(entry.timer); }
   _pending.clear();
+  _queued = undefined;
   _worker?.terminate();
   _worker = undefined;
 }

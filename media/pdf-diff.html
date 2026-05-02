@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy"
+          content="default-src 'none';
+                   script-src __CSP_SOURCE__ 'nonce-__NONCE__';
+                   worker-src blob:;
+                   connect-src __CSP_SOURCE__;
+                   style-src 'unsafe-inline';">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { height: 100%; display: flex; flex-direction: column; background: #525659; overflow: hidden; }
+        #toolbar {
+            flex-shrink: 0; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
+            padding: 5px 10px; background: #3c3c3c; border-bottom: 1px solid #252526;
+            font: 12px/1 sans-serif; color: #ccc; user-select: none;
+        }
+        #toolbar-left  { display: flex; align-items: center; gap: 6px; }
+        #toolbar-center { display: flex; align-items: center; gap: 6px; }
+        #toolbar button {
+            background: #4a4a4a; color: #ccc; border: 1px solid #555;
+            padding: 3px 8px; cursor: pointer; border-radius: 3px; font-size: 12px;
+        }
+        #toolbar button:hover { background: #5e5e5e; color: #fff; }
+        #zoom-select {
+            background: #4a4a4a; color: #ccc; border: 1px solid #555;
+            padding: 3px 6px; border-radius: 3px; font-size: 12px; cursor: pointer;
+            min-width: 62px;
+        }
+        #toolbar label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+        #diff-area { flex: 1; display: flex; overflow: hidden; }
+        .diff-pane { flex: 1; overflow: auto; position: relative; }
+        .diff-pane + .diff-pane { border-left: 2px solid #252526; }
+        .pane-label {
+            position: sticky; top: 0; z-index: 10;
+            background: #3a3a3a; color: #aaa; font: 11px/1 sans-serif;
+            padding: 4px 10px; border-bottom: 1px solid #2e2e2e;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .pane-meta { color: #666; }
+        .pane-inner {
+            display: flex; flex-direction: column; align-items: center;
+            min-width: min-content; padding: 16px 12px; gap: 12px; padding-bottom: 16px;
+        }
+        canvas { box-shadow: 0 2px 10px rgba(0,0,0,.55); display: block; }
+        #loading-overlay {
+            position: fixed; inset: 0; z-index: 200;
+            display: flex; align-items: center; justify-content: center;
+            background: #525659; color: #ccc; font: 14px/1.6 sans-serif;
+        }
+        #loading-overlay.hidden { display: none; }
+    </style>
+</head>
+<body>
+    <div id="toolbar">
+        <div id="toolbar-left">
+            <label>
+                <input type="checkbox" id="sync-scroll" checked>
+                Sync scroll
+            </label>
+        </div>
+        <div id="toolbar-center">
+            <button id="btn-zoom-out" title="Zoom out">&minus;</button>
+            <select id="zoom-select" title="Zoom level">
+                <option value="fit">Fit</option>
+                <option value="100pct">100%</option>
+            </select>
+            <button id="btn-zoom-in" title="Zoom in">+</button>
+        </div>
+        <div id="toolbar-right"></div>
+    </div>
+    <div id="diff-area">
+        <div class="diff-pane" id="left-pane">
+            <div class="pane-label">HEAD<span class="pane-meta" id="left-meta"></span></div>
+            <div class="pane-inner" id="left-inner"></div>
+        </div>
+        <div class="diff-pane" id="right-pane">
+            <div class="pane-label">Working copy<span class="pane-meta" id="right-meta"></span></div>
+            <div class="pane-inner" id="right-inner"></div>
+        </div>
+    </div>
+    <div id="loading-overlay">Loading&#x2026;</div>
+    <script nonce="__NONCE__">
+        // Polyfill for Map.prototype.getOrInsertComputed (TC39 Stage 2, not yet in stable V8).
+        // Required for pdf.min.mjs running in the main thread.
+        if (!Map.prototype.getOrInsertComputed) {
+            Map.prototype.getOrInsertComputed = function(key, callbackfn) {
+                if (!this.has(key)) { this.set(key, callbackfn(key)); }
+                return this.get(key);
+            };
+        }
+        const vscodeApi = acquireVsCodeApi();
+    </script>
+    <script type="module" nonce="__NONCE__">
+        import * as pdfjsLib from '__PDF_JS_URI__';
+
+        // VS Code webviews silently reject vscode-webview-resource: URIs when passed
+        // to new Worker(), causing pdf.js to fall back to a synchronous fake worker
+        // (30+ second renders). Fetch the script and register it as a blob: URL instead.
+        try {
+            const resp = await fetch('__WORKER_URI__');
+            const text = await resp.text();
+            pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(
+                new Blob([text], { type: 'text/javascript' })
+            );
+        } catch {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = '__WORKER_URI__';
+        }
+
+        const overlay    = document.getElementById('loading-overlay');
+        const leftPane   = document.getElementById('left-pane');
+        const rightPane  = document.getElementById('right-pane');
+        const leftInner  = document.getElementById('left-inner');
+        const rightInner = document.getElementById('right-inner');
+        const leftMeta   = document.getElementById('left-meta');
+        const rightMeta  = document.getElementById('right-meta');
+        const zoomSelect  = document.getElementById('zoom-select');
+        const syncCheckbox = document.getElementById('sync-scroll');
+
+        let currentScale = 1;
+        let fitScale     = 1;
+        let leftDoc      = null;
+        let rightDoc     = null;
+
+        function hideLoading() {
+            overlay.classList.add('hidden');
+        }
+
+        function showError(msg) {
+            overlay.style.color = '#e88';
+            overlay.textContent = 'Error: ' + msg;
+            overlay.classList.remove('hidden');
+        }
+
+        function base64ToUint8Array(b64) {
+            const bin = atob(b64);
+            const buf = new Uint8Array(bin.length);
+            for (let i = 0; i < bin.length; i++) { buf[i] = bin.charCodeAt(i); }
+            return buf;
+        }
+
+        async function renderSide(pdfDoc, inner, scale) {
+            inner.innerHTML = '';
+            for (let p = 1; p <= pdfDoc.numPages; p++) {
+                const page   = await pdfDoc.getPage(p);
+                const vp     = page.getViewport({ scale });
+                const canvas = document.createElement('canvas');
+                canvas.width  = vp.width;
+                canvas.height = vp.height;
+                inner.appendChild(canvas);
+                await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+            }
+        }
+
+        async function rerender() {
+            if (!leftDoc || !rightDoc) { return; }
+            await Promise.all([
+                renderSide(leftDoc,  leftInner,  currentScale),
+                renderSide(rightDoc, rightInner, currentScale),
+            ]);
+        }
+
+        function formatSize(bytes) {
+            if (bytes >= 1024 * 1024) { return (bytes / (1024 * 1024)).toFixed(1) + ' MB'; }
+            if (bytes >= 1024) { return (bytes / 1024).toFixed(1) + ' KB'; }
+            return bytes + ' B';
+        }
+
+        async function loadDiff(oldBase64, newBase64) {
+            const [oldBuf, newBuf] = [base64ToUint8Array(oldBase64), base64ToUint8Array(newBase64)];
+            const [oldSize, newSize] = [oldBuf.length, newBuf.length];
+            [leftDoc, rightDoc] = await Promise.all([
+                pdfjsLib.getDocument({ data: oldBuf }).promise,
+                pdfjsLib.getDocument({ data: newBuf }).promise,
+            ]);
+
+            // Compute fit scale from the left pane width and first page of the HEAD doc.
+            const firstPage = await leftDoc.getPage(1);
+            const natural   = firstPage.getViewport({ scale: 1 });
+            // Subtract padding (2×12px) and scrollbar allowance (17px).
+            fitScale = Math.max(0.25, (leftPane.clientWidth - 24 - 17) / natural.width);
+            currentScale = fitScale;
+
+            await Promise.all([
+                renderSide(leftDoc,  leftInner,  currentScale),
+                renderSide(rightDoc, rightInner, currentScale),
+            ]);
+
+            leftMeta.textContent  = `· ${leftDoc.numPages} page${leftDoc.numPages !== 1 ? 's' : ''} · ${formatSize(oldSize)}`;
+            rightMeta.textContent = `· ${rightDoc.numPages} page${rightDoc.numPages !== 1 ? 's' : ''} · ${formatSize(newSize)}`;
+            hideLoading();
+        }
+
+        // Synchronized scrolling — guard against re-entrancy.
+        let syncing = false;
+        leftPane.addEventListener('scroll', () => {
+            if (!syncCheckbox.checked || syncing) { return; }
+            syncing = true;
+            rightPane.scrollTop  = leftPane.scrollTop;
+            rightPane.scrollLeft = leftPane.scrollLeft;
+            syncing = false;
+        });
+        rightPane.addEventListener('scroll', () => {
+            if (!syncCheckbox.checked || syncing) { return; }
+            syncing = true;
+            leftPane.scrollTop  = rightPane.scrollTop;
+            leftPane.scrollLeft = rightPane.scrollLeft;
+            syncing = false;
+        });
+
+        // Zoom controls.
+        function updateZoomLabel() {
+            let custom = zoomSelect.querySelector('[data-custom]');
+            if (!custom) {
+                custom = document.createElement('option');
+                custom.setAttribute('data-custom', '');
+                zoomSelect.appendChild(custom);
+            }
+            custom.value = 'custom';
+            custom.textContent = Math.round(currentScale * 100) + '%';
+            zoomSelect.value = 'custom';
+        }
+
+        const STEP = 1.25;
+        document.getElementById('btn-zoom-in').addEventListener('click', async () => {
+            currentScale = Math.min(currentScale * STEP, fitScale * 4);
+            updateZoomLabel();
+            await rerender();
+        });
+        document.getElementById('btn-zoom-out').addEventListener('click', async () => {
+            currentScale = Math.max(currentScale / STEP, fitScale / 4);
+            updateZoomLabel();
+            await rerender();
+        });
+        zoomSelect.addEventListener('change', async (e) => {
+            const val    = e.target.value;
+            const custom = e.target.querySelector('[data-custom]');
+            if (custom) { e.target.removeChild(custom); }
+            if (val === 'fit') {
+                currentScale = fitScale;
+            } else if (val === '100pct') {
+                currentScale = 1;
+            }
+            await rerender();
+        });
+
+        // Messages from the extension host.
+        window.addEventListener('message', async event => {
+            const msg = event.data;
+            if (msg.type === 'updateDiff') {
+                try {
+                    await loadDiff(msg.oldBase64, msg.newBase64);
+                } catch (err) {
+                    showError(err.message);
+                }
+            }
+        });
+
+        // Signal the extension host that the message listener is registered.
+        vscodeApi.postMessage({ type: 'ready' });
+    </script>
+</body>
+</html>

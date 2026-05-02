@@ -75,7 +75,8 @@
       { "command": "lpdf.generateTs",     "title": "Lpdf: Generate TypeScript from XML" },
       { "command": "lpdf.generateCs",     "title": "Lpdf: Generate C# from XML" },
       { "command": "lpdf.generatePy",     "title": "Lpdf: Generate Python from XML" },
-      { "command": "lpdf.generatePhp",    "title": "Lpdf: Generate PHP from XML" }
+      { "command": "lpdf.generatePhp",    "title": "Lpdf: Generate PHP from XML" },
+      { "command": "lpdf.diffPdf",        "title": "Lpdf: Compare PDF with HEAD" }
     ],
     "menus": {
       "explorer/context": [
@@ -83,6 +84,11 @@
           "when": "resourceExtname == .pdf",
           "command": "lpdf.openPdf",
           "group": "2_z_lpdf@1"
+        },
+        {
+          "when": "resourceExtname == .pdf",
+          "command": "lpdf.diffPdf",
+          "group": "2_z_lpdf@2"
         },
         {
           "when": "resourceFilename =~ /\\.lpdf\\.xml$/",
@@ -98,8 +104,13 @@
           "when": "resourceFilename =~ /\\.lpdf\\.xml$/",
           "command": "lpdf.generateHere",
           "group": "2_z_lpdf@3"
-        }
-      ]
+        }      ],
+      "scm/resourceState/context": [
+        {
+          "when": "scmResourceGroup == workingTree && resourceExtname == .pdf",
+          "command": "lpdf.diffPdf",
+          "group": "inline"
+        }      ]
     }
   },
   "scripts": {

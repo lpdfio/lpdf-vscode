@@ -5,7 +5,8 @@
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'none';
                  script-src __CSP_SOURCE__ 'nonce-__NONCE__';
-                 worker-src __CSP_SOURCE__ blob:;
+                 worker-src blob:;
+                 connect-src __CSP_SOURCE__;
                  style-src 'unsafe-inline';">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -116,13 +117,6 @@
   </script>
   <script type="module" nonce="__NONCE__">
     import * as pdfjsLib from '__PDF_JS_URI__';
-    pdfjsLib.GlobalWorkerOptions.workerSrc = '__WORKER_URI__';
-
-    /** Relay a log message to the extension host debug console. */
-    function log(level, ...args) {
-      const message = args.map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ');
-      vscodeApi.postMessage({ type: 'log', level, message });
-    }
 
     let pdfDoc         = null;
     let currentScale   = 1;
@@ -137,7 +131,6 @@
     const viewer       = document.getElementById('viewer');
 
     function showLoading() {
-      log('info', 'showLoading');
       overlay.style.color = '#ccc';
       overlay.textContent = 'Rendering\u2026';
       overlay.classList.remove('hidden');
@@ -176,6 +169,7 @@
       totalBytes = buf.byteLength;
 
       pdfDoc = await pdfjsLib.getDocument({ data: buf }).promise;
+
       const firstPage = await pdfDoc.getPage(1);
       const natural   = firstPage.getViewport({ scale: 1 });
       // Subtract padding (2×12px) and scrollbar allowance (17px) to avoid a horizontal scrollbar at fit.
@@ -240,16 +234,12 @@
     // Receive messages from the extension host.
     window.addEventListener('message', async event => {
       const msg = event.data;
-      log('info', 'message received:', msg.type);
       if (msg.type === 'showLoading') {
         showLoading();
       } else if (msg.type === 'updatePdf') {
         try {
-          log('info', 'loadPdf start filename=' + msg.filename + ' bytes=' + msg.pdfBase64.length);
           await loadPdf(msg.pdfBase64, msg.filename, msg.zoom, msg.scrollX, msg.scrollY);
-          log('info', 'loadPdf done');
         } catch (err) {
-          log('error', 'loadPdf error: ' + err.message);
           showError(err.message);
         }
       } else if (msg.type === 'showError') {
@@ -258,7 +248,22 @@
     });
 
     // Signal the extension host that the message listener is registered and ready.
-    log('info', 'webview sending ready');
+    // First, fetch the pdf.js worker script and register it as a blob: URL so the
+    // browser can create a real Web Worker for it. VS Code webviews silently reject
+    // vscode-webview-resource: URIs when passed to `new Worker()`, causing pdf.js to
+    // fall back to a synchronous "fake worker" (30+ seconds for any PDF).
+    // worker-src blob: and connect-src __CSP_SOURCE__ are set in the CSP above.
+    try {
+      const resp = await fetch('__WORKER_URI__');
+      const text = await resp.text();
+      pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(
+        new Blob([text], { type: 'text/javascript' })
+      );
+    } catch (e) {
+      // Fallback: try setting the URI directly; pdf.js may still spin up a worker
+      // depending on the VS Code version.
+      pdfjsLib.GlobalWorkerOptions.workerSrc = '__WORKER_URI__';
+    }
     vscodeApi.postMessage({ type: 'ready' });
 
     function updateZoomSelect(pct) {

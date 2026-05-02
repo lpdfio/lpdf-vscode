@@ -5,7 +5,7 @@ interface IWasmEngine {
   free(): void;
 }
 interface IWasmModule {
-  LpdfEngine: new () => IWasmEngine;
+  LpdfEngine: new (license_key: string) => IWasmEngine;
 }
 
 interface RenderRequest {
@@ -29,7 +29,7 @@ let _engine: IWasmEngine | undefined;
 
 function getEngine(): IWasmEngine {
   if (_engine) { return _engine; }
-  _engine = new (getWasmModule()).LpdfEngine();
+  _engine = new (getWasmModule()).LpdfEngine('');
   return _engine;
 }
 
