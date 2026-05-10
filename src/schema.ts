@@ -5,6 +5,11 @@ export function isLpdfDocument(doc: vscode.TextDocument): boolean {
   return doc.uri.fsPath.endsWith('.lpdf.xml');
 }
 
+/** Returns true if the document content has `<lpdf` as the root element (first 512 chars). */
+export function hasLpdfRoot(doc: vscode.TextDocument): boolean {
+  return /<lpdf\b/.test(doc.getText().substring(0, 512));
+}
+
 /** Returns true if the systemId looks like an lpdf XSD from any extension version. */
 function isLpdfSchemaSystemId(systemId: string): boolean {
   return /[/\\]lpdf[^/\\]*[/\\]schema[/\\]lpdf\.xsd$/i.test(systemId)

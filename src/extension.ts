@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'node:path';
-import { isLpdfDocument, registerSchemaAssociation } from './schema';
+import { isLpdfDocument, hasLpdfRoot, registerSchemaAssociation } from './schema';
 import { registerCodegenCommands } from './codegen';
 import { previewPdf, renderForUri } from './preview';
 import { exportPdf } from './export';
@@ -29,8 +29,8 @@ class LpdfCodeLensProvider implements vscode.CodeLensProvider {
   }
 
   provideCodeLenses(doc: vscode.TextDocument): vscode.CodeLens[] {
-    if (!isLpdfDocument(doc)) { return []; }
-    // isLpdfDocument already confirmed <lpdf\b is within the first 512 chars — search only there.
+    if (!isLpdfDocument(doc) && !hasLpdfRoot(doc)) { return []; }
+    // Scan only the first 512 chars for the <lpdf root element.
     const head = doc.getText().substring(0, 512);
     const idx = head.search(/<lpdf\b/);
     if (idx === -1) { return []; }
@@ -201,7 +201,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // CodeLens
   context.subscriptions.push(
-    vscode.languages.registerCodeLensProvider({ language: 'xml', pattern: '**/*.lpdf.xml' }, new LpdfCodeLensProvider(context)),
+    vscode.languages.registerCodeLensProvider({ language: 'xml' }, new LpdfCodeLensProvider(context)),
   );
 
   // Schema association — one-shot glob registration, version-agnostic.
