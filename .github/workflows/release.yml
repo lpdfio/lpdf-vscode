@@ -62,15 +62,136 @@ jobs:
       - name: Install and build
         run: npm ci && npm run build
 
+      # ── Changelog: prepare ───────────────────────────────────────────────────
+      # Unlike the SDK adapters, the entry is written BEFORE packaging: the
+      # Marketplace's Changelog tab shows the CHANGELOG.md inside the .vsix, so an
+      # entry added after `vsce package` would always be one version behind.
+      #
+      # This step only edits the working tree. Nothing reaches main until
+      # "Commit CHANGELOG.md" below, which runs after publish — so a failed
+      # publish never leaves an entry on main for a version that didn't ship.
+      #
+      # Fails the job on error, deliberately — this path is unproven. Relax to
+      # warn-only once a release has exercised it (changelog-plan.md, "Rollout").
+      - name: Prepare CHANGELOG entry
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            # Core cascade. Nobody types notes on this path — nobody can — so
+            # copy core's verbatim. Core publishes its release before
+            # dispatching, so the body is always readable by now.
+            BODY=$(gh release view "$CORE_TAG" --repo lpdfio/lpdf --json body -q .body | tr -d '\r')
+            HEADER="## $ADAPTER_TAG (core) — $(date -u +%F)"
+          else
+            # Adapter-only patch: the notes typed on this repo's own release.
+            BODY=$(gh release view "$ADAPTER_TAG" --json body        -q .body        | tr -d '\r')
+            DATE=$(gh release view "$ADAPTER_TAG" --json publishedAt -q .publishedAt | cut -c1-10)
+            if [ -z "$DATE" ]; then
+              echo "::error::$ADAPTER_TAG has no published release — was the tag pushed without one?"
+              exit 1
+            fi
+            HEADER="## $ADAPTER_TAG — $DATE"
+          fi
+
+          # Hand the entry to the commit and release steps below (multi-line safe).
+          {
+            echo "CHANGELOG_HEADER=$HEADER"
+            echo 'RELEASE_BODY<<__LPDF_BODY__'
+            printf '%s\n' "$BODY"
+            echo '__LPDF_BODY__'
+          } >> "$GITHUB_ENV"
+
+          if ! head -n 1 CHANGELOG.md | grep -qx '# Changelog'; then
+            echo "::error::CHANGELOG.md must start with a '# Changelog' line"
+            exit 1
+          fi
+
+          # Re-runs must not duplicate an entry.
+          if grep -q "^## $ADAPTER_TAG " CHANGELOG.md; then
+            echo "$ADAPTER_TAG is already in CHANGELOG.md — nothing to do"
+            exit 0
+          fi
+
+          # Prepend only. Never reformat or reorder what is already there —
+          # the file is hand-editable by design.
+          {
+            echo "# Changelog"
+            echo
+            echo "$HEADER"
+            if [ -n "$BODY" ]; then printf '%s\n' "$BODY"; fi
+            tail -n +2 CHANGELOG.md
+          } > CHANGELOG.next
+          mv CHANGELOG.next CHANGELOG.md
+
       # ── Package and publish ───────────────────────────────────────────────────
       # No automated tests — add a test step here when a test suite is available.
       - name: Package extension
         run: npx vsce package --out lpdf.vsix
 
+      # Kept on the run so the packaged CHANGELOG.md — what the Marketplace's
+      # Changelog tab will show — can be checked, and the build installed by hand.
+      - name: Upload .vsix
+        uses: actions/upload-artifact@v4
+        with:
+          name: lpdf-${{ env.VERSION }}
+          path: lpdf.vsix
+
+      # TEMPORARILY DISABLED: releases create the changelog entry, tag and GitHub
+      # Release only, so that path can be verified before the first public
+      # Marketplace listing (lpdf-vscode-changelog.md). Re-enable by deleting
+      # the `if: false` line.
       - name: Publish to VS Code Marketplace
+        if: false
         run: npx vsce publish --pat "${{ secrets.VSCE_PAT }}" --packagePath lpdf.vsix
 
+      # ── Changelog: commit ────────────────────────────────────────────────────
+      # Writes the prepared entry onto main. Runs after publish, and before the
+      # tag is created so the tag contains its own entry.
+      - name: Commit CHANGELOG.md
+        run: |
+          set -euo pipefail
+
+          # Drop the in-job edits — the version bump is deliberately never
+          # committed and would block the branch switch, and the prepared entry
+          # is re-applied against main's tip below.
+          git checkout -- .
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch --depth=1 origin main
+          git checkout -B main FETCH_HEAD
+
+          if ! head -n 1 CHANGELOG.md | grep -qx '# Changelog'; then
+            echo "::error::CHANGELOG.md must start with a '# Changelog' line"
+            exit 1
+          fi
+
+          # Re-runs must not duplicate an entry.
+          if grep -q "^## $ADAPTER_TAG " CHANGELOG.md; then
+            echo "$ADAPTER_TAG is already in CHANGELOG.md on main — nothing to do"
+            exit 0
+          fi
+
+          {
+            echo "# Changelog"
+            echo
+            echo "$CHANGELOG_HEADER"
+            if [ -n "$RELEASE_BODY" ]; then printf '%s\n' "$RELEASE_BODY"; fi
+            tail -n +2 CHANGELOG.md
+          } > CHANGELOG.next
+          mv CHANGELOG.next CHANGELOG.md
+
+          git add CHANGELOG.md
+          git diff --cached --quiet || git commit -m "changelog: $ADAPTER_TAG"
+          git push origin main
+
       # ── Create GitHub Release (core-triggered only) ──────────────────────────
+      # --notes carries core's text onto this repo's Releases page, which
+      # otherwise shows a bare "Full Changelog" compare link. --generate-notes
+      # remains the fallback for an empty core body.
       - name: Create GitHub Release
         if: github.event_name == 'repository_dispatch'
         env:
@@ -78,6 +199,12 @@ jobs:
         run: |
           git tag "$ADAPTER_TAG"
           git push origin "$ADAPTER_TAG"
-          gh release create "$ADAPTER_TAG" \
-            --title "$ADAPTER_TAG" \
-            --generate-notes
+          if [ -n "${RELEASE_BODY:-}" ]; then
+            gh release create "$ADAPTER_TAG" \
+              --title "$ADAPTER_TAG" \
+              --notes "$RELEASE_BODY"
+          else
+            gh release create "$ADAPTER_TAG" \
+              --title "$ADAPTER_TAG" \
+              --generate-notes
+          fi
