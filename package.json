@@ -61,6 +61,7 @@
         "lpdf.defaultPdfViewer": {
           "type": "boolean",
           "default": false,
+          "scope": "application",
           "description": "Use the Lpdf viewer as the default viewer for PDF files. When enabled, clicking a .pdf file opens it in the Lpdf PDF viewer instead of VS Code's default binary viewer."
         }
       }
@@ -91,17 +92,17 @@
           "group": "2_z_lpdf@2"
         },
         {
-          "when": "resourceFilename =~ /\\.lpdf\\.xml$/",
+          "when": "resourceExtname == .xml",
           "command": "lpdf.previewPdf",
           "group": "2_z_lpdf@1"
         },
         {
-          "when": "resourceFilename =~ /\\.lpdf\\.xml$/",
+          "when": "resourceExtname == .xml",
           "command": "lpdf.exportPdf",
           "group": "2_z_lpdf@2"
         },
         {
-          "when": "resourceFilename =~ /\\.lpdf\\.xml$/",
+          "when": "resourceExtname == .xml",
           "command": "lpdf.generateHere",
           "group": "2_z_lpdf@3"
         }      ],

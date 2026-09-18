@@ -10,7 +10,7 @@ export async function exportPdf(context: vscode.ExtensionContext, uri?: vscode.U
   if (!doc) { return; }
 
   const xmlDir     = path.dirname(doc.uri.fsPath);
-  const defaultName = path.basename(doc.uri.fsPath, '.xml').replace(/\.lpdf$/, '') + '.pdf';
+  const defaultName = path.basename(doc.uri.fsPath, '.xml') + '.pdf';
   const defaultUri  = vscode.Uri.file(path.join(xmlDir, defaultName));
 
   const saveUri = await vscode.window.showSaveDialog({

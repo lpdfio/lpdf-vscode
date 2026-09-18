@@ -4,13 +4,21 @@ import { buildWebviewHtml } from './preview';
 
 /**
  * Custom readonly editor provider for `.pdf` files.
- * Registered with priority "default" so clicking a PDF in the Explorer opens it here.
- * Users can override via workbench.editorAssociations if they prefer a different viewer.
+ * Registered with priority "option", so a PDF opens here through "Lpdf: View PDF" or
+ * "Open With", or by default once `lpdf.defaultPdfViewer` associates `*.pdf` with it.
  */
 export class LpdfPdfViewerProvider implements vscode.CustomReadonlyEditorProvider<vscode.CustomDocument> {
   static readonly viewType = 'lpdf.pdfViewer';
 
-  constructor(private readonly context: vscode.ExtensionContext) {}
+  /**
+   * @param context The extension context.
+   * @param onDidOpenPdf Called each time a PDF opens in this viewer. The extension uses it
+   *   to offer making the viewer the default, at the moment the user is looking at it.
+   */
+  constructor(
+    private readonly context: vscode.ExtensionContext,
+    private readonly onDidOpenPdf: () => void = () => {},
+  ) {}
 
   openCustomDocument(uri: vscode.Uri): vscode.CustomDocument {
     return { uri, dispose() {} };
@@ -20,6 +28,7 @@ export class LpdfPdfViewerProvider implements vscode.CustomReadonlyEditorProvide
     document: vscode.CustomDocument,
     panel: vscode.WebviewPanel,
   ): Promise<void> {
+    this.onDidOpenPdf();
     const mediaUri = vscode.Uri.joinPath(this.context.extensionUri, 'media');
     panel.webview.options = {
       enableScripts: true,

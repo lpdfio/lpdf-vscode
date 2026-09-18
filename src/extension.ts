@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'node:path';
-import { isLpdfDocument, hasLpdfRoot, registerSchemaAssociation } from './schema';
+import { isLpdfDocument, startSchemaAssociations } from './schema';
+import { LPDF_HEAD_SCAN_BYTES } from './constants';
 import { registerCodegenCommands } from './codegen';
 import { previewPdf, renderForUri } from './preview';
 import { exportPdf } from './export';
@@ -29,9 +30,9 @@ class LpdfCodeLensProvider implements vscode.CodeLensProvider {
   }
 
   provideCodeLenses(doc: vscode.TextDocument): vscode.CodeLens[] {
-    if (!isLpdfDocument(doc) && !hasLpdfRoot(doc)) { return []; }
-    // Scan only the first 512 chars for the <lpdf root element.
-    const head = doc.getText().substring(0, 512);
+    if (!isLpdfDocument(doc)) { return []; }
+    // Scan only the head of the document for the <lpdf root element.
+    const head = doc.getText().substring(0, LPDF_HEAD_SCAN_BYTES);
     const idx = head.search(/<lpdf\b/);
     if (idx === -1) { return []; }
     const pos = doc.positionAt(idx);
@@ -109,20 +110,67 @@ function ensureDataWatcher(context: vscode.ExtensionContext, xmlUri: vscode.Uri)
 
 const PDF_ASSOC_GLOB = '*.pdf';
 
-async function applyPdfViewerAssociation(enable: boolean): Promise<void> {
-  const config = vscode.workspace.getConfiguration();
-  const current = config.get<Record<string, string>>('workbench.editorAssociations') ?? {};
-  const updated = { ...current };
-  if (enable) {
-    updated[PDF_ASSOC_GLOB] = LpdfPdfViewerProvider.viewType;
-  } else if (updated[PDF_ASSOC_GLOB] === LpdfPdfViewerProvider.viewType) {
-    delete updated[PDF_ASSOC_GLOB];
+// The lpdf.defaultPdfViewer value last applied to the user's editor associations. The
+// extension only activates when an XML file opens, so the setting can change while it isn't
+// running; comparing against this catches that on the next activation without rewriting
+// user settings on every start.
+const PDF_VIEWER_APPLIED_KEY = 'pdfViewerApplied';
+
+/**
+ * Brings the user's `workbench.editorAssociations` in line with `lpdf.defaultPdfViewer`,
+ * but only when the setting differs from what was last applied. Anyone who changes the
+ * `*.pdf` association themselves, e.g. through VS Code's "Configure default editor",
+ * keeps their choice until they change `lpdf.defaultPdfViewer` again.
+ *
+ * Reads and writes the user-level value only. The merged value also holds the open
+ * workspace's own associations, and writing that back would copy them into every other
+ * workspace.
+ */
+async function syncPdfViewerAssociation(context: vscode.ExtensionContext): Promise<void> {
+  const enable = vscode.workspace.getConfiguration('lpdf').get<boolean>('defaultPdfViewer', false);
+  if (enable === context.globalState.get<boolean>(PDF_VIEWER_APPLIED_KEY, false)) { return; }
+
+  const config  = vscode.workspace.getConfiguration();
+  const current = config.inspect<Record<string, string>>('workbench.editorAssociations')?.globalValue ?? {};
+  const ours    = current[PDF_ASSOC_GLOB] === LpdfPdfViewerProvider.viewType;
+  // Disabling leaves another viewer's *.pdf entry alone; only ours is removed.
+  if (enable !== ours) {
+    const updated = { ...current };
+    if (enable) {
+      updated[PDF_ASSOC_GLOB] = LpdfPdfViewerProvider.viewType;
+    } else {
+      delete updated[PDF_ASSOC_GLOB];
+    }
+    // Undefined removes the setting rather than leaving an empty object in the user's file.
+    await config.update(
+      'workbench.editorAssociations',
+      Object.keys(updated).length > 0 ? updated : undefined,
+      vscode.ConfigurationTarget.Global,
+    );
   }
-  await config.update('workbench.editorAssociations', updated, vscode.ConfigurationTarget.Global);
+  await context.globalState.update(PDF_VIEWER_APPLIED_KEY, enable);
 }
 
+/** Logs a failure to change the default PDF viewer; the viewer itself still works through "Open With". */
+function reportPdfViewerError(e: unknown): void {
+  console.error('[lpdf] could not update the default PDF viewer:', e);
+}
+
+// Set before the first await, so two triggers in quick succession show one prompt.
+let _pdfViewerPromptAsked = false;
+
+/**
+ * Offers, once per machine, to make the Lpdf viewer the default for PDF files.
+ *
+ * Only called in context: when an lpdf document is on screen, or when a PDF opens in the
+ * Lpdf viewer. The extension also activates for every other XML file (pom.xml, .csproj),
+ * and asking about PDFs there would come out of nowhere. Skipped when the viewer is
+ * already the default.
+ */
 async function promptPdfViewerOptIn(context: vscode.ExtensionContext): Promise<void> {
-  if (context.globalState.get<boolean>('pdfViewerPromptShown')) { return; }
+  if (_pdfViewerPromptAsked || context.globalState.get<boolean>('pdfViewerPromptShown')) { return; }
+  if (vscode.workspace.getConfiguration('lpdf').get<boolean>('defaultPdfViewer', false)) { return; }
+  _pdfViewerPromptAsked = true;
   await context.globalState.update('pdfViewerPromptShown', true);
   const choice = await vscode.window.showInformationMessage(
     'Open PDF files with the Lpdf viewer by default?',
@@ -131,7 +179,8 @@ async function promptPdfViewerOptIn(context: vscode.ExtensionContext): Promise<v
   );
   if (choice === 'Enable') {
     await vscode.workspace.getConfiguration('lpdf').update('defaultPdfViewer', true, vscode.ConfigurationTarget.Global);
-    await applyPdfViewerAssociation(true);
+    // The configuration listener also fires for this; the sync is a no-op the second time.
+    await syncPdfViewerAssociation(context);
   }
 }
 
@@ -147,9 +196,16 @@ export function activate(context: vscode.ExtensionContext): void {
   statusBar.command = 'lpdf.previewPdf';
   context.subscriptions.push(statusBar);
 
-  function refreshStatusBar(editor?: vscode.TextEditor): void {
+  /**
+   * Updates what depends on the active editor holding an lpdf document: the status bar
+   * item, and the one-time PDF viewer prompt, which is only asked once an lpdf document is
+   * on screen. Runs on start, on editor switch, and after typing, so a new file counts as
+   * soon as its <lpdf> root is typed.
+   */
+  function refreshLpdfContext(editor?: vscode.TextEditor): void {
     if (editor && isLpdfDocument(editor.document)) {
       statusBar.show();
+      promptPdfViewerOptIn(context).catch(reportPdfViewerError);
     } else {
       statusBar.hide();
     }
@@ -180,7 +236,7 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
     vscode.window.registerCustomEditorProvider(
       LpdfPdfViewerProvider.viewType,
-      new LpdfPdfViewerProvider(context),
+      new LpdfPdfViewerProvider(context, () => { promptPdfViewerOptIn(context).catch(reportPdfViewerError); }),
       { supportsMultipleEditorsPerDocument: false, webviewOptions: { retainContextWhenHidden: true } },
     ),
     vscode.commands.registerCommand('lpdf.openPdf', (uri?: vscode.Uri) => {
@@ -204,14 +260,18 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.languages.registerCodeLensProvider({ language: 'xml' }, new LpdfCodeLensProvider(context)),
   );
 
-  // Schema association — one-shot glob registration, version-agnostic.
-  void registerSchemaAssociation(xsdPath);
+  // Schema validation for every open lpdf document, registered in memory through Red Hat XML.
+  // Logged rather than shown: preview and export work without validation, and Red Hat XML
+  // reports its own start-up failures.
+  startSchemaAssociations(context, xsdPath).catch((e: unknown) => {
+    console.error('[lpdf] schema validation unavailable:', e);
+  });
 
   // Status bar refresh
   let _statusDebounce: ReturnType<typeof setTimeout> | undefined;
   context.subscriptions.push(
     vscode.window.onDidChangeActiveTextEditor(editor => {
-      refreshStatusBar(editor);
+      refreshLpdfContext(editor);
       if (editor && isLpdfDocument(editor.document)) {
         ensureDataWatcher(context, editor.document.uri);
         renderForUri(context, editor.document.uri, 'switch');
@@ -220,25 +280,27 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.workspace.onDidChangeTextDocument(event => {
       if (event.document !== vscode.window.activeTextEditor?.document) { return; }
       clearTimeout(_statusDebounce);
-      _statusDebounce = setTimeout(() => refreshStatusBar(vscode.window.activeTextEditor), 300);
+      _statusDebounce = setTimeout(() => refreshLpdfContext(vscode.window.activeTextEditor), 300);
     }),
     vscode.workspace.onDidSaveTextDocument(doc => {
       if (isLpdfDocument(doc)) { renderForUri(context, doc.uri, 'save'); }
     }),
   );
 
-  refreshStatusBar(vscode.window.activeTextEditor);
+  refreshLpdfContext(vscode.window.activeTextEditor);
 
-  // PDF default-viewer: sync association on startup, listen for setting changes, and show one-time opt-in prompt.
-  void applyPdfViewerAssociation(vscode.workspace.getConfiguration('lpdf').get<boolean>('defaultPdfViewer', false));
+  // PDF default-viewer. On start this only writes if lpdf.defaultPdfViewer changed while the
+  // extension wasn't running; after that, only when the setting changes.
+  syncPdfViewerAssociation(context).catch(reportPdfViewerError);
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration(e => {
       if (e.affectsConfiguration('lpdf.defaultPdfViewer')) {
-        void applyPdfViewerAssociation(vscode.workspace.getConfiguration('lpdf').get<boolean>('defaultPdfViewer', false));
+        syncPdfViewerAssociation(context).catch(reportPdfViewerError);
       }
     }),
   );
-  void promptPdfViewerOptIn(context);
+  // The opt-in prompt is not shown here: activation happens for any XML file. It waits for
+  // an lpdf document on screen (refreshLpdfContext) or a PDF in the Lpdf viewer.
 }
 
 export function deactivate(): void {
