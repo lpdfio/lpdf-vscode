@@ -1,21 +1,18 @@
 # Contributing to Lpdf for VS Code
 
-## CLA required
+## Reporting issues
 
-Before a pull request can be merged, you must agree to the
-[Contributor License Agreement](CLA.md). To agree, add this line to the pull
-request description or a comment:
+Lpdf is not open contribution: we don't accept pull requests. The most valuable
+contribution is a bug report with the smallest Lpdf XML that reproduces it. We
+fix it and credit you in the release notes.
 
-```
-I have read and agree to the Lpdf CLA.
-```
+Report bugs and request features at
+[github.com/lpdfio/lpdf/issues](https://github.com/lpdfio/lpdf/issues), the one
+tracker for the engine, the SDKs and this extension.
 
-The extension code is MIT licensed. The CLA lets Codesense LLC release future
-versions under different terms without asking every contributor again. You keep
-ownership of your contribution.
+## Building it yourself
 
-## Getting started
-
+The extension code is MIT licensed, so you can build and modify your own copy.
 The Lpdf engine is not in this repository. Download it from the Lpdf releases
 into `wasm/`, then build:
 
@@ -29,7 +26,3 @@ npm run build
 **Extensions: Install from VSIX...**.
 
 The engine files are not MIT licensed. See Part 2 of [LICENSE](LICENSE).
-
-## Questions
-
-Open an issue.
