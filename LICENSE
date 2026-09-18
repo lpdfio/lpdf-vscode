@@ -9,7 +9,7 @@ The extension is free to use. It has two parts, under different terms:
 - **Part 1, the extension code,** is MIT licensed.
 - **Part 2, the Lpdf engine** in `wasm/`, may be used through this extension by anyone, free of charge, for any purpose.
 
-Third-party components are listed in `THIRD_PARTY_LICENSES`, under their own terms. The Lpdf name and logo are trademarks of Codesense LLC and are not licensed under either part.
+Third-party components are listed in `THIRD_PARTY_LICENSES`, under their own terms. The Lpdf name and logo are trademarks of Codesense LLC and are not licensed under either part. Feedback about the extension is covered by the Feedback terms of the Lpdf License: https://lpdf.io/license
 
 ---
 
