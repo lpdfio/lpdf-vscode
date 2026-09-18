@@ -52,6 +52,10 @@ Right-click a `.pdf` in the Explorer and select **Lpdf: Compare PDF with HEAD**,
 
 - [Red Hat XML](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-xml) — required for XSD autocomplete and validation (installed automatically)
 
+## Versioning
+
+The first two numbers are the Lpdf engine the extension bundles, and the last number counts changes to the extension only. `0.22.1` runs engine `0.22`, with one extension-only change since that engine shipped. The Lpdf SDKs follow the same scheme, so the extension and an SDK with the same `X.Y` run the same engine.
+
 ## Docs
 
 [lpdf.io/docs](https://lpdf.io/docs)
