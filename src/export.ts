@@ -1,9 +1,10 @@
 import * as vscode from 'vscode';
 import * as path from 'node:path';
 import { renderPdf, LpdfRenderError } from './engine';
+import { getLinkedDataJson } from './data';
 import { resolveLpdfDocument } from './utils';
 
-export async function exportPdf(uri?: vscode.Uri): Promise<void> {
+export async function exportPdf(context: vscode.ExtensionContext, uri?: vscode.Uri): Promise<void> {
   const doc = await resolveLpdfDocument(uri);
   if (!doc) { return; }
 
@@ -17,9 +18,10 @@ export async function exportPdf(uri?: vscode.Uri): Promise<void> {
   });
   if (!saveUri) { return; }
 
-  const xml = doc.getText();
+  const xml      = doc.getText();
+  const jsonData = getLinkedDataJson(context, doc.uri);
   try {
-    const bytes = await renderPdf(xml);
+    const bytes = await renderPdf(xml, jsonData);
     await vscode.workspace.fs.writeFile(saveUri, bytes);
     vscode.window.showInformationMessage(`Lpdf: Saved ${path.basename(saveUri.fsPath)}`);
   } catch (e) {

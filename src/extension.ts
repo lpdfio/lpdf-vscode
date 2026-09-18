@@ -162,7 +162,7 @@ export function activate(context: vscode.ExtensionContext): void {
       if (resolvedUri) { ensureDataWatcher(context, resolvedUri); }
       return previewPdf(context, uri);
     }),
-    vscode.commands.registerCommand('lpdf.exportPdf',  (uri?: vscode.Uri) => exportPdf(uri)),
+    vscode.commands.registerCommand('lpdf.exportPdf',  (uri?: vscode.Uri) => exportPdf(context, uri)),
     vscode.commands.registerCommand('lpdf.linkDataFile', async (xmlUri?: vscode.Uri) => {
       const target = xmlUri ?? vscode.window.activeTextEditor?.document.uri;
       if (!target) { return; }
