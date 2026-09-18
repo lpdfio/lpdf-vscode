@@ -141,7 +141,7 @@ jobs:
 
       # TEMPORARILY DISABLED: releases create the changelog entry, tag and GitHub
       # Release only, so that path can be verified before the first public
-      # Marketplace listing (lpdf-vscode-changelog.md). Re-enable by deleting
+      # Marketplace listing (Lpdf-vscode-publish.md). Re-enable by deleting
       # the `if: false` line.
       - name: Publish to VS Code Marketplace
         if: false

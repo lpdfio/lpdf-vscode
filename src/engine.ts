@@ -10,6 +10,15 @@ export class LpdfRenderError extends Error {
   }
 }
 
+/**
+ * Font and image bytes for one render, keyed by the registry key the XML
+ * declares in `<assets>` (`ref`, else `name`).
+ */
+export interface RenderAssets {
+  fonts:  Map<string, Uint8Array>;
+  images: Map<string, Uint8Array>;
+}
+
 type Resolve = (bytes: Uint8Array) => void;
 type Reject  = (err: LpdfRenderError) => void;
 
@@ -17,7 +26,7 @@ let _worker: Worker | undefined;
 // At most one in-flight render (the one the worker is currently executing).
 const _pending = new Map<string, { resolve: Resolve; reject: Reject; timer: ReturnType<typeof setTimeout> }>();
 // Latest render request waiting to be sent once the worker becomes free.
-let _queued: { xml: string; jsonData: string | null; resolve: Resolve; reject: Reject } | undefined;
+let _queued: { xml: string; jsonData: string | null; assets: RenderAssets; resolve: Resolve; reject: Reject } | undefined;
 
 function getWorker(): Worker {
   if (_worker) { return _worker; }
@@ -71,7 +80,7 @@ function getWorker(): Worker {
 /** Dispatch the queued request to the (now-idle) worker, if one is waiting. */
 function flushQueued(): void {
   if (!_queued || !_worker) { return; }
-  const { xml, jsonData, resolve, reject } = _queued;
+  const { xml, jsonData, assets, resolve, reject } = _queued;
   _queued = undefined;
   const id = randomUUID();
   const timer = setTimeout(() => {
@@ -83,7 +92,7 @@ function flushQueued(): void {
   }, RENDER_TIMEOUT_MS);
   _pending.set(id, { resolve, reject, timer });
   try {
-    _worker.postMessage({ id, xml, jsonData });
+    _worker.postMessage({ id, xml, jsonData, assets });
   } catch (e) {
     clearTimeout(timer);
     _pending.delete(id);
@@ -91,7 +100,7 @@ function flushQueued(): void {
   }
 }
 
-export function renderPdf(xml: string, jsonData: string | null = null): Promise<Uint8Array> {
+export function renderPdf(xml: string, jsonData: string | null, assets: RenderAssets): Promise<Uint8Array> {
   return new Promise<Uint8Array>((resolve, reject) => {
     // If the worker is idle (nothing in-flight), send immediately.
     if (_pending.size === 0) {
@@ -105,7 +114,7 @@ export function renderPdf(xml: string, jsonData: string | null = null): Promise<
       }, RENDER_TIMEOUT_MS);
       _pending.set(id, { resolve, reject, timer });
       try {
-        getWorker().postMessage({ id, xml, jsonData });
+        getWorker().postMessage({ id, xml, jsonData, assets });
       } catch (e) {
         clearTimeout(timer);
         _pending.delete(id);
@@ -115,7 +124,7 @@ export function renderPdf(xml: string, jsonData: string | null = null): Promise<
       // Worker is busy. Supersede any previously queued (but not yet sent) request,
       // then park this one. It will be dispatched once the current render finishes.
       _queued?.reject(new LpdfRenderError('Superseded by a newer render'));
-      _queued = { xml, jsonData, resolve, reject };
+      _queued = { xml, jsonData, assets, resolve, reject };
     }
   });
 }

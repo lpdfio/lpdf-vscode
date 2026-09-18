@@ -3,6 +3,7 @@ import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { renderPdf, LpdfRenderError, cancelRender } from './engine';
+import { loadAssets } from './assets';
 import { getLinkedDataJson } from './data';
 import { resolveLpdfDocument } from './utils';
 
@@ -37,6 +38,8 @@ let renderGeneration = 0;
 // Per-URI cache of last successfully rendered XML content.
 // Keyed by URI string so switching between files doesn't pollute the stale-check.
 const _lastRendered = new Map<string, string>();
+// Per-URI asset warnings last shown, so re-rendering on every save doesn't repeat them.
+const _lastWarnings = new Map<string, string>();
 // Ready-handshake state: the webview signals 'ready' once its message listener is registered.
 // Any message sent before that point is queued and flushed on 'ready'.
 let _webviewReady = false;
@@ -133,6 +136,7 @@ function ensurePanel(context: vscode.ExtensionContext): void {
     previewPanel = undefined;
     previewUri = undefined;
     _lastRendered.clear();
+    _lastWarnings.clear();
     _webviewReady = false;
     _pendingMessage = undefined;
   });
@@ -202,10 +206,11 @@ async function doRender(context: vscode.ExtensionContext, uri: vscode.Uri): Prom
   const jsonData = getLinkedDataJson(context, uri);
 
   try {
+    const { assets, warnings } = await loadAssets(xml, uri);
     const tWasm = Date.now();
     trace(`[lpdf] doRender WASM start gen=${generation}`);
     console.log(`[lpdf perf] WASM render START +${tWasm - t0}ms gen=${generation}`);
-    const bytes = await renderPdf(xml, jsonData);
+    const bytes = await renderPdf(xml, jsonData, assets);
     console.log(`[lpdf perf] WASM render DONE  +${Date.now() - t0}ms gen=${generation} pdfBytes=${bytes.byteLength} wasmMs=${Date.now() - tWasm}`);
     trace(`[lpdf] doRender WASM done  gen=${generation} bytes=${bytes.byteLength}`);
     if (generation !== renderGeneration || !previewPanel) {
@@ -213,6 +218,11 @@ async function doRender(context: vscode.ExtensionContext, uri: vscode.Uri): Prom
       return;
     }
     _lastRendered.set(uri.toString(), xml);
+    const warningText = warnings.join(' ');
+    if (warningText && warningText !== _lastWarnings.get(uri.toString())) {
+      vscode.window.showWarningMessage(`Lpdf: ${warningText}`);
+    }
+    _lastWarnings.set(uri.toString(), warningText);
     const tB64 = Date.now();
     const pdfBase64 = Buffer.from(bytes).toString('base64');
     console.log(`[lpdf perf] base64 encode DONE +${Date.now() - t0}ms gen=${generation} base64Len=${pdfBase64.length} encodeMs=${Date.now() - tB64}`);
