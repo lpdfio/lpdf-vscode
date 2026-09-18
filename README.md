@@ -1,4 +1,4 @@
-<p align="center"><img src="media/icon.png" height="48" alt="Lpdf"></p>
+<img src="media/icon.png" height="48" alt="Lpdf - PDF as Code" />
 
 **VS Code extension for Lpdf — PDF as Code on every platform**
 
