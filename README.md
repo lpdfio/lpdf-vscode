@@ -40,8 +40,10 @@ Generate typed model code directly from your XML template. Supported languages: 
 
 [lpdf.io/docs](https://lpdf.io/docs)
 
---
+## License
 
-The extension source code is [MIT licensed](LICENSE).
+The extension is free to use, for any purpose. Previews and exports carry a "Made with Lpdf" line on every page.
 
-Lpdf is Dual-licensed: Community License (free) and Commercial License (paid). See [LICENSE](LICENSE) for full terms.
+The extension code is MIT licensed. The bundled Lpdf engine may be used through the extension by anyone, including for the PDFs it produces. See [LICENSE](LICENSE) for the terms. Using the engine in your own app is covered by the [Lpdf License](https://lpdf.io/license).
+
+Contributions are welcome under the [Contributor License Agreement](CLA.md).
