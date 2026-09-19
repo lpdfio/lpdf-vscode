@@ -1,0 +1,120 @@
+name: Release candidate
+run-name: "RC ${{ github.event.client_payload.version }}: build and package, no publish"
+
+# Answers core's `core-rc` dispatch for a vX.Y.0-rc.N tag (Lpdf-devcycle.md
+# §4.2 in lpdfio/lpdf). Builds and packages this repo's main with the RC
+# engine and keeps the .vsix as a run artifact. Publishes nothing: no
+# Marketplace, no tag, no changelog, no GitHub Release, and no publishing
+# secret is used. release.yml stays the only path to the Marketplace.
+#
+# The extension has no automated tests yet, so this run only proves it builds
+# and packages. Install the .vsix and check preview and export by hand.
+
+on:
+  repository_dispatch:
+    types: [core-rc]
+
+permissions:
+  contents: read
+
+jobs:
+  rc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history and tags, for "Unreleased commits"
+
+      # ── Resolve version ──────────────────────────────────────────────────────
+      # The payload is the core RC tag itself. Unlike release.yml, nothing is
+      # derived from it: stripping the last number of v0.17.0-rc.1 would give
+      # v0.17.0-rc.0.
+      - name: Resolve version
+        env:
+          PAYLOAD_VERSION: ${{ github.event.client_payload.version }}
+        run: |
+          if ! echo "$PAYLOAD_VERSION" | grep -qE '^v[0-9]+\.[0-9]+\.0-rc\.[0-9]+$'; then
+            echo "::error::Expected a core release-candidate tag like v0.17.0-rc.1, got '$PAYLOAD_VERSION'"
+            exit 1
+          fi
+          echo "CORE_TAG=$PAYLOAD_VERSION"          >> "$GITHUB_ENV"
+          echo "FINAL_TAG=${PAYLOAD_VERSION%-rc.*}" >> "$GITHUB_ENV"
+
+      # ── Download wasm-pack artifacts from the RC pre-release ─────────────────
+      # No fallback: a build with any other engine proves nothing about this RC.
+      - name: Download wasm-pack artifacts
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p wasm
+          DOWNLOADED=""
+          for attempt in 1 2 3; do
+            gh release download "$CORE_TAG" \
+              --repo lpdfio/lpdf \
+              --pattern "lpdf.js" \
+              --pattern "lpdf_bg.wasm" \
+              --dir wasm \
+              --clobber && DOWNLOADED=1 && break
+            echo "Attempt $attempt failed — retrying in 10s..."
+            sleep 10
+          done
+          if [ -z "$DOWNLOADED" ]; then
+            echo "::error::Could not download core RC $CORE_TAG."
+            exit 1
+          fi
+
+      # ── Build and package ────────────────────────────────────────────────────
+      # The package.json version stays the repo's placeholder: this .vsix is for
+      # installing by hand, never for the Marketplace.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install and build
+        run: npm ci && npm run build
+
+      - name: Package extension
+        run: npx vsce package --out lpdf.vsix
+
+      - name: Upload .vsix
+        uses: actions/upload-artifact@v4
+        with:
+          name: lpdf-${{ env.CORE_TAG }}
+          path: lpdf.vsix
+          retention-days: 14
+
+      # ── What ships from this repo ────────────────────────────────────────────
+      # The final core release publishes this repo's main as it stands. Anything
+      # on main since the last release tag ships in FINAL_TAG with only core's
+      # release notes (Lpdf-devcycle.md §4.1). Runs even if the build failed.
+      # Skips the bots' own "changelog: …" commits.
+      - name: Unreleased commits
+        if: always()
+        run: |
+          REPO="${GITHUB_REPOSITORY#*/}"
+          LAST=$(git describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null || true)
+          COMMITS=""
+          if [ -n "$LAST" ]; then
+            COMMITS=$(git log --oneline --no-merges --invert-grep \
+              --grep='^changelog: ' --grep='^release: ' "$LAST..HEAD")
+          fi
+          {
+            echo "### $REPO: release candidate $CORE_TAG"
+            echo
+            echo "No automated tests yet. Install lpdf.vsix from this run (\`code --install-extension lpdf.vsix\`), open an example, and check preview and export."
+            echo
+            if [ -z "$LAST" ]; then
+              echo "No release tag in this repo yet."
+            elif [ -z "$COMMITS" ]; then
+              echo "Nothing unreleased since $LAST. $FINAL_TAG changes only the engine."
+            else
+              echo "Unreleased since $LAST. These ship in $FINAL_TAG, with only core's release notes:"
+              echo
+              echo '```'
+              echo "$COMMITS"
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ -n "$COMMITS" ]; then
+            echo "::notice::$(echo "$COMMITS" | wc -l | tr -d ' ') unreleased commit(s) since $LAST will ship in $FINAL_TAG"
+          fi
