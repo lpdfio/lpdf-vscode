@@ -32,23 +32,22 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           mkdir -p wasm
+          DOWNLOADED=""
           for attempt in 1 2 3; do
             gh release download "$CORE_TAG" \
               --repo lpdfio/lpdf \
               --pattern "lpdf.js" \
               --pattern "lpdf_bg.wasm" \
-              --dir wasm && break
+              --dir wasm \
+              --clobber && DOWNLOADED=1 && break
             echo "Attempt $attempt failed — retrying in 10s..."
             sleep 10
           done
-          # Fallback to latest release when the derived tag doesn't exist yet
-          if [ ! -f wasm/lpdf.js ]; then
-            gh release download \
-              --repo lpdfio/lpdf \
-              --pattern "lpdf.js" \
-              --pattern "lpdf_bg.wasm" \
-              --dir wasm \
-              --clobber
+          # No fallback to the latest core: vX.Y.Z must ship engine vX.Y.0
+          # (var/VERSIONING.md in lpdfio/lpdf). ci.yml keeps its fallback.
+          if [ -z "$DOWNLOADED" ]; then
+            echo "::error::Could not download core $CORE_TAG. This release must ship engine $CORE_TAG — publish that core release first, or check the tag."
+            exit 1
           fi
 
       # ── Build ────────────────────────────────────────────────────────────────
