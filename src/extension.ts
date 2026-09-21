@@ -3,21 +3,30 @@ import * as path from 'node:path';
 import { isLpdfDocument, startSchemaAssociations } from './schema';
 import { LPDF_HEAD_SCAN_BYTES } from './constants';
 import { registerCodegenCommands } from './codegen';
-import { previewPdf, renderForUri } from './preview';
+import { previewPdf, renderForUri, closePreviewWhenSourceCloses } from './preview';
 import { exportPdf } from './export';
 import { disposeRenderWorker } from './engine';
 import { LpdfPdfViewerProvider } from './pdf-viewer';
 import { diffPdf } from './pdf-diff';
 import {
   getLinkedDataUri,
-  getExplicitDataUri,
   setLinkedDataUri,
+  unlinkDataUri,
   promptLinkDataFile,
   onDidChangeDataLinks,
 } from './data';
 
 // Tracks active JSON file watchers keyed by XML URI string.
 const _dataWatchers = new Map<string, vscode.FileSystemWatcher>();
+
+// A plain space leaves only a hairline between a codicon and its label in CodeLens. An en
+// space and a no-break space are not collapsed, so together they give a visible gap.
+const LENS_ICON_GAP = '\u2002\u00A0';
+
+/** A CodeLens title: the named codicon, a gap, then the label. */
+function lensTitle(icon: string, label: string): string {
+  return `$(${icon})${LENS_ICON_GAP}${label}`;
+}
 
 class LpdfCodeLensProvider implements vscode.CodeLensProvider {
   private readonly _context: vscode.ExtensionContext;
@@ -39,32 +48,34 @@ class LpdfCodeLensProvider implements vscode.CodeLensProvider {
     const range = new vscode.Range(pos, pos);
 
     const linked = getLinkedDataUri(this._context, doc.uri);
-    const explicit = getExplicitDataUri(this._context, doc.uri);
+    // CodeLens titles render $(name) as a codicon, so a file name holding "$(" would turn
+    // into an icon; the backslash keeps it literal.
+    const linkedName = linked ? path.basename(linked.fsPath).replace(/\$\(/g, '\\$(') : '';
     const dataLenses: vscode.CodeLens[] = linked
       ? [
           new vscode.CodeLens(range, {
-            title: `◈ ${path.basename(linked.fsPath)}`,
+            title: lensTitle('database', linkedName),
             command: 'lpdf.linkDataFile',
             arguments: [doc.uri],
           }),
-          ...(explicit ? [new vscode.CodeLens(range, {
-            title: '✕ Unlink',
+          new vscode.CodeLens(range, {
+            title: lensTitle('close', 'Unlink'),
             command: 'lpdf.unlinkDataFile',
             arguments: [doc.uri],
-          })] : []),
+          }),
         ]
       : [
           new vscode.CodeLens(range, {
-            title: '◈ Link Data...',
+            title: lensTitle('database', 'Link Data...'),
             command: 'lpdf.linkDataFile',
             arguments: [doc.uri],
           }),
         ];
 
     return [
-      new vscode.CodeLens(range, { title: '▶ Preview PDF',    command: 'lpdf.previewPdf' }),
-      new vscode.CodeLens(range, { title: '⬇ Export PDF',     command: 'lpdf.exportPdf'  }),
-      new vscode.CodeLens(range, { title: '⟨/⟩ Generate code', command: 'lpdf.generateHere', arguments: [doc.uri] }),
+      new vscode.CodeLens(range, { title: lensTitle('play', 'Preview PDF'),          command: 'lpdf.previewPdf' }),
+      new vscode.CodeLens(range, { title: lensTitle('share', 'Export PDF'),          command: 'lpdf.exportPdf'  }),
+      new vscode.CodeLens(range, { title: lensTitle('bracket-dot', 'Generate code'), command: 'lpdf.generateHere', arguments: [doc.uri] }),
       ...dataLenses,
     ];
   }
@@ -198,12 +209,15 @@ export function activate(context: vscode.ExtensionContext): void {
 
   /**
    * Updates what depends on the active editor holding an lpdf document: the status bar
-   * item, and the one-time PDF viewer prompt, which is only asked once an lpdf document is
-   * on screen. Runs on start, on editor switch, and after typing, so a new file counts as
-   * soon as its <lpdf> root is typed.
+   * item, the `lpdf.isLpdfDocument` context key that shows the editor-title button, and the
+   * one-time PDF viewer prompt, which is only asked once an lpdf document is on screen.
+   * Runs on start, on editor switch, and after typing, so a new file counts as soon as its
+   * <lpdf> root is typed.
    */
   function refreshLpdfContext(editor?: vscode.TextEditor): void {
-    if (editor && isLpdfDocument(editor.document)) {
+    const isLpdf = !!editor && isLpdfDocument(editor.document);
+    void vscode.commands.executeCommand('setContext', 'lpdf.isLpdfDocument', isLpdf);
+    if (isLpdf) {
       statusBar.show();
       promptPdfViewerOptIn(context).catch(reportPdfViewerError);
     } else {
@@ -231,7 +245,7 @@ export function activate(context: vscode.ExtensionContext): void {
       const target = xmlUri ?? vscode.window.activeTextEditor?.document.uri;
       if (!target) { return; }
       teardownDataWatcher(target);
-      await setLinkedDataUri(context, target, undefined);
+      await unlinkDataUri(context, target);
       void renderForUri(context, target, 'data');
     }),
     vscode.window.registerCustomEditorProvider(
@@ -277,6 +291,7 @@ export function activate(context: vscode.ExtensionContext): void {
         renderForUri(context, editor.document.uri, 'switch');
       }
     }),
+    vscode.window.tabGroups.onDidChangeTabs(event => closePreviewWhenSourceCloses(event.closed)),
     vscode.workspace.onDidChangeTextDocument(event => {
       if (event.document !== vscode.window.activeTextEditor?.document) { return; }
       clearTimeout(_statusDebounce);

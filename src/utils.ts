@@ -3,6 +3,15 @@ import * as path from 'node:path';
 import { isLpdfDocument } from './schema';
 
 /**
+ * The name a document's PDF and preview take from its XML file: the file name without `.xml`
+ * and without a trailing `.lpdf`, so `invoice.lpdf.xml` gives `invoice`. A file called just
+ * `.lpdf.xml` keeps its `.lpdf` rather than ending up nameless.
+ */
+export function documentStem(fsPath: string): string {
+  return path.basename(fsPath, '.xml').replace(/(?<=.)\.lpdf$/i, '');
+}
+
+/**
  * Resolve the target XML document from an explicit URI or the active editor, open it,
  * and validate that it is an XML file whose root element is `<lpdf>`.
  *

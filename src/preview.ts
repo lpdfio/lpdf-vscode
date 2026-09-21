@@ -5,7 +5,7 @@ import { randomBytes } from 'node:crypto';
 import { renderPdf, LpdfRenderError, cancelRender } from './engine';
 import { loadAssets } from './assets';
 import { getLinkedDataJson } from './data';
-import { resolveLpdfDocument } from './utils';
+import { documentStem, resolveLpdfDocument } from './utils';
 
 /** Log only when `lpdf.trace` is enabled. Errors are always written via console.error. */
 function trace(...args: unknown[]): void {
@@ -108,6 +108,34 @@ export async function renderForUri(
   await doRender(context, uri);
 }
 
+// Moving a tab to another editor group closes it and opens it again, so a closed tab is only
+// acted on after this delay, once a reopened tab, if any, has appeared.
+const PREVIEW_CLOSE_DELAY_MS = 250;
+let _closePreviewTimer: ReturnType<typeof setTimeout> | undefined;
+
+function isTextTabFor(tab: vscode.Tab, uri: string): boolean {
+  return tab.input instanceof vscode.TabInputText && tab.input.uri.toString() === uri;
+}
+
+/**
+ * Closes the preview when the XML file it shows is closed, so the panel isn't left showing a
+ * document that is no longer open. Only a closed tab counts: a preview started from the
+ * Explorer for a file with no tab must survive unrelated tab changes.
+ * @param closed The tabs a tab-change event reports as closed.
+ */
+export function closePreviewWhenSourceCloses(closed: readonly vscode.Tab[]): void {
+  if (!previewPanel || !previewUri) { return; }
+  const shown = previewUri.toString();
+  if (!closed.some(tab => isTextTabFor(tab, shown))) { return; }
+
+  clearTimeout(_closePreviewTimer);
+  _closePreviewTimer = setTimeout(() => {
+    const stillOpen = vscode.window.tabGroups.all.some(group => group.tabs.some(tab => isTextTabFor(tab, shown)));
+    // The panel may have moved on to another file in the meantime; only close it for this one.
+    if (!stillOpen && previewUri?.toString() === shown) { previewPanel?.dispose(); }
+  }, PREVIEW_CLOSE_DELAY_MS);
+}
+
 function ensurePanel(context: vscode.ExtensionContext): void {
   if (previewPanel) {
     previewPanel.reveal(vscode.ViewColumn.Beside, true);
@@ -165,7 +193,7 @@ function ensurePanel(context: vscode.ExtensionContext): void {
     }
     if (msg.type !== 'download' || !previewUri || !msg.pdfBase64) { return; }
     const xmlDir = path.dirname(previewUri.fsPath);
-    const defaultName = path.basename(previewUri.fsPath, '.xml') + '.pdf';
+    const defaultName = documentStem(previewUri.fsPath) + '.pdf';
     const saveUri = await vscode.window.showSaveDialog({
       defaultUri: vscode.Uri.file(path.join(xmlDir, defaultName)),
       filters: { 'PDF': ['pdf'] },
@@ -196,9 +224,9 @@ async function doRender(context: vscode.ExtensionContext, uri: vscode.Uri): Prom
   }
 
   const xml   = doc.getText();
-  const title = path.basename(uri.fsPath, '.xml') + ' — Preview';
+  const pdfName = documentStem(uri.fsPath) + '.pdf';
 
-  previewPanel.title = title;
+  previewPanel.title = `${pdfName} — Preview`;
   // Show loading overlay. If the webview isn't ready yet this gets queued and
   // will be superseded by updatePdf/showError when that arrives.
   postToWebview({ type: 'showLoading' });
@@ -226,9 +254,8 @@ async function doRender(context: vscode.ExtensionContext, uri: vscode.Uri): Prom
     const tB64 = Date.now();
     const pdfBase64 = Buffer.from(bytes).toString('base64');
     console.log(`[lpdf perf] base64 encode DONE +${Date.now() - t0}ms gen=${generation} base64Len=${pdfBase64.length} encodeMs=${Date.now() - tB64}`);
-    const filename  = path.basename(uri.fsPath, '.xml') + '.pdf';
     // Only pass zoom/scroll for new files; re-renders of the same file preserve the webview's state.
-    const msg: Record<string, unknown> = { type: 'updatePdf', pdfBase64, filename };
+    const msg: Record<string, unknown> = { type: 'updatePdf', pdfBase64, filename: pdfName };
     if (isNewFile) { msg.zoom = 'fit'; msg.scrollX = 0; msg.scrollY = 0; }
     const tPost = Date.now();
     postToWebview(msg);

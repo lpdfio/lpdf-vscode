@@ -3,14 +3,14 @@ import * as path from 'node:path';
 import { renderPdf, LpdfRenderError } from './engine';
 import { loadAssets } from './assets';
 import { getLinkedDataJson } from './data';
-import { resolveLpdfDocument } from './utils';
+import { documentStem, resolveLpdfDocument } from './utils';
 
 export async function exportPdf(context: vscode.ExtensionContext, uri?: vscode.Uri): Promise<void> {
   const doc = await resolveLpdfDocument(uri);
   if (!doc) { return; }
 
   const xmlDir     = path.dirname(doc.uri.fsPath);
-  const defaultName = path.basename(doc.uri.fsPath, '.xml') + '.pdf';
+  const defaultName = documentStem(doc.uri.fsPath) + '.pdf';
   const defaultUri  = vscode.Uri.file(path.join(xmlDir, defaultName));
 
   const saveUri = await vscode.window.showSaveDialog({

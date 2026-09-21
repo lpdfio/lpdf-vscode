@@ -8,25 +8,27 @@ const DATA_KEY_PREFIX = 'lpdf.dataFile:';
 const _changeEmitter = new vscode.EventEmitter<void>();
 export const onDidChangeDataLinks: vscode.Event<void> = _changeEmitter.event;
 
+// Stored in place of a URI once the user unlinks, so an auto-discovered <name>.json stays
+// ignored until a file is linked again.
+const UNLINKED = 'unlinked';
+
 function dataKey(xmlUri: vscode.Uri): string {
   return DATA_KEY_PREFIX + xmlUri.toString();
 }
 
-/**
- * Returns the explicitly-linked JSON URI stored in workspaceState, or undefined.
- * Use this to decide whether an "Unlink" action makes sense.
- */
-export function getExplicitDataUri(
+/** Returns the explicitly-linked JSON URI stored in workspaceState, or undefined. */
+function getExplicitDataUri(
   context: vscode.ExtensionContext,
   xmlUri: vscode.Uri,
 ): vscode.Uri | undefined {
   const stored = context.workspaceState.get<string>(dataKey(xmlUri));
-  return stored ? vscode.Uri.parse(stored) : undefined;
+  return stored && stored !== UNLINKED ? vscode.Uri.parse(stored) : undefined;
 }
 
 /**
  * Returns the effective linked JSON URI for an XML file.
- * Precedence: explicit workspaceState link > auto-discovered sidecar (<name>.json).
+ * Precedence: explicit workspaceState link > auto-discovered sidecar (<name>.json), unless
+ * the user has unlinked the document.
  */
 export function getLinkedDataUri(
   context: vscode.ExtensionContext,
@@ -34,6 +36,7 @@ export function getLinkedDataUri(
 ): vscode.Uri | undefined {
   const explicit = getExplicitDataUri(context, xmlUri);
   if (explicit) { return explicit; }
+  if (context.workspaceState.get<string>(dataKey(xmlUri)) === UNLINKED) { return undefined; }
 
   // Auto-discovery: look for a same-name .json file in the same directory.
   const jsonPath = path.join(
@@ -70,6 +73,18 @@ export async function setLinkedDataUri(
   jsonUri: vscode.Uri | undefined,
 ): Promise<void> {
   await context.workspaceState.update(dataKey(xmlUri), jsonUri?.toString());
+  _changeEmitter.fire();
+}
+
+/**
+ * Stops the XML file using any data file, an auto-discovered <name>.json included, and
+ * fires onDidChangeDataLinks. Linking a file again turns data back on.
+ */
+export async function unlinkDataUri(
+  context: vscode.ExtensionContext,
+  xmlUri: vscode.Uri,
+): Promise<void> {
+  await context.workspaceState.update(dataKey(xmlUri), UNLINKED);
   _changeEmitter.fire();
 }
 
