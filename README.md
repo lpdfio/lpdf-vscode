@@ -1,6 +1,6 @@
 <img src="media/icon.png" height="48" alt="Lpdf - PDF as Code" />
 
-**VS Code extension for Lpdf — PDF as Code on every platform**
+**VS Code extension for [Lpdf](https://lpdf.io?utm_source=readme&utm_medium=referral&utm_campaign=vscode) — PDF as Code on every platform**
 
 You describe a document as code or XML. Lpdf renders a compact, pixel-perfect PDF — identical across platforms.
 
@@ -54,7 +54,7 @@ Right-click a `.pdf` in the Explorer and select **Lpdf: Compare PDF with HEAD**,
 
 ## Docs
 
-[lpdf.io/docs](https://lpdf.io/docs?utm_source=readme&utm_medium=referral&utm_campaign=vscode)
+[lpdf.io/docs](https://lpdf.io/docs/?utm_source=readme&utm_medium=referral&utm_campaign=vscode)
 
 ## License
 
