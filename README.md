@@ -22,7 +22,7 @@ Buttons above the `<lpdf>` element preview, export, generate code, and link a da
 
 ### Live Preview
 
-Run **Lpdf: Preview PDF** to open the rendered PDF beside your XML. It updates each time you save, and its download button saves the PDF.
+Run **Lpdf: Preview PDF** to open the rendered PDF beside your XML. It updates each time you save, and keeps your place and zoom. The preview is a full PDF viewer: text search and selection, a sidebar of page thumbnails, zoom by field, buttons, pinch or Ctrl and the mouse wheel, a toggle between fit to width and fit to page, a two-page view, and document properties. It follows your light or dark theme, and its save button saves the PDF.
 
 ### Data Files
 
@@ -42,11 +42,11 @@ Run **Lpdf: Generate Code** to turn the saved XML into SDK code that builds the 
 
 ### PDF Viewer
 
-Open any `.pdf` file in VS Code: right-click it in the Explorer and select **Lpdf: View PDF**, or use the command palette. To open every PDF this way, turn on the `lpdf.defaultPdfViewer` setting.
+Open any `.pdf` file in VS Code: right-click it in the Explorer and select **Lpdf: View PDF**, or use the command palette. To open every PDF this way, turn on the `lpdf.defaultPdfViewer` setting. It is the same viewer as the preview.
 
 ### Compare PDF with HEAD
 
-Right-click a `.pdf` in the Explorer and select **Lpdf: Compare PDF with HEAD**, or use the button next to a changed PDF in the Source Control view. The version in your last commit and your working copy open side by side, with synced scrolling. The file needs a committed version in a git repository.
+Right-click a `.pdf` in the Explorer and select **Lpdf: Compare PDF with HEAD**, or use the button next to a changed PDF in the Source Control view. The version in your last commit and your working copy open side by side. Scrolling is synced, which a checkbox switches off, and one zoom applies to both sides: the zoom buttons, a typed percentage, the fit button, or a pinch. The info button opens a table of the two documents' properties, such as size, page count and producer, with the ones that differ marked. The file needs a committed version in a git repository.
 
 ## Requirements
 

@@ -3,6 +3,7 @@ import * as path from 'node:path';
 import { isLpdfDocument, startSchemaAssociations } from './schema';
 import { LPDF_HEAD_SCAN_BYTES } from './constants';
 import { registerCodegenCommands } from './codegen';
+import { registerHoverProvider } from './hover-provider';
 import { previewPdf, renderForUri, closePreviewWhenSourceCloses } from './preview';
 import { exportPdf } from './export';
 import { disposeRenderWorker } from './engine';
@@ -273,6 +274,9 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.languages.registerCodeLensProvider({ language: 'xml' }, new LpdfCodeLensProvider(context)),
   );
+
+  // Hover with the signature of the tag or attribute under the cursor, read from the same XSD.
+  registerHoverProvider(context, xsdPath);
 
   // Schema validation for every open lpdf document, registered in memory through Red Hat XML.
   // Logged rather than shown: preview and export work without validation, and Red Hat XML

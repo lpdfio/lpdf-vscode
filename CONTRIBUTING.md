@@ -26,3 +26,31 @@ npm run build
 **Extensions: Install from VSIX...**.
 
 The engine files are not MIT licensed. See Part 2 of [LICENSE](LICENSE).
+
+## Tests
+
+```bash
+npm test                 # unit tests (Vitest): fast, no browser
+npm run test:browser     # the viewer and the diff view in a real browser
+```
+
+The browser tests are in `test/browser/`. They serve the pages the way a VS Code webview gets
+them, open the fixture PDFs in `test/browser/fixtures/`, and check what a user would see: the
+header, zoom (buttons, keys, wheel, pinch, the 1000% limit), scrolling and memory in the diff view,
+the properties dialogs, the page shadow. They need `npm run build` first, and a Chromium-based
+browser: Edge or Chrome is found on the usual paths, or set `BROWSER_EXE` to one. Screenshots go to
+`test/browser/.out/`. A run takes about three minutes.
+
+To run one suite, `node test/browser/diff.mjs dark`. The suites for the themes take `dark` or
+`light`; those for display scaling take `2` or `3`.
+
+CI runs both on every push and pull request, and before a release package is built.
+
+## Upgrading PDF.js
+
+The PDF viewer and the diff view both run on one vendored copy of PDF.js in
+`media/viewer/`. Do not edit its files by hand: `npm test` checks them against
+`media/viewer/vendored.json`. To bring in a new release, run `scripts/vendor-pdfjs.mjs`, which
+keeps only what the extension uses; the steps, and what to test afterwards, are in
+[media/viewer/README.md](media/viewer/README.md). It must be PDF.js's legacy build, which is what
+lets the viewer run in the oldest VS Code the extension supports, 1.95.

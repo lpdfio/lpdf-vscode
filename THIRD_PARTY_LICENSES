@@ -4,12 +4,11 @@ This extension includes the following third-party open-source components.
 
 ---
 
-## pdf.js (pdfjs-dist)
+## PDF.js (media/viewer/)
 
-Used for: PDF rendering in the preview panel.
-License: Apache-2.0
+Used for: the full PDF viewer and the diff view. Both run on this one copy
+of the PDF.js library; the full viewer also uses PDF.js's own viewer.
 Homepage: https://mozilla.github.io/pdf.js/
-Source: https://github.com/mozilla/pdf.js
 
     Copyright 2012 Mozilla Foundation
 
@@ -24,6 +23,70 @@ Source: https://github.com/mozilla/pdf.js
     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
     See the License for the specific language governing permissions and
     limitations under the License.
+
+Version: 6.3.289, from Mozilla's release `pdfjs-6.3.289-legacy-dist.zip`: the legacy build, which
+carries polyfills (core-js, below) for the JavaScript that the browser of an older VS Code lacks.
+License: Apache-2.0 (the notice above); the license text is `media/viewer/LICENSE`.
+Source: https://github.com/mozilla/pdf.js
+
+The files are not modified, with three exceptions. The release is pruned: source maps, the
+scripting sandbox, the debugger and the viewer's languages other than English are left out, and
+`web/locale/locale.json`, its index of languages, lists only English. The four Liberation Sans
+font files are replaced, see below. And in `web/viewer.mjs` the highest zoom, `MAX_SCALE`, is 10
+(1000%) instead of 25 (2500%); the file says so in its first line, and `scripts/vendor-pdfjs.mjs`
+makes the change. `media/viewer/vendored.json` records the versions, that change and the
+SHA-256 of every file, and `node scripts/vendor-pdfjs.mjs --check` verifies them.
+
+`media/viewer/lpdf-host.mjs`, `lpdf-toolbar.mjs`, `lpdf-pdfjs.mjs`, `lpdf-diff-zoom.mjs`,
+`lpdf-diff-info.mjs` and `lpdf-theme.css` are Lpdf's own code and are covered by the MIT License of
+this extension.
+
+The release also contains parts under their own licenses. Each license text is in the
+folder of the files it covers:
+
+- `web/images/`: four icons (`altText_spinner.svg`, `annotation-paperclip.svg`,
+  `annotation-pushpin.svg`, `toolbarButton-editorStamp.svg`) are MPL-2.0 and carry that notice
+  in the file.
+- `web/standard_fonts/`: the Foxit fonts are BSD-3-Clause (PDFium authors, `LICENSE_FOXIT`).
+  The four Liberation Sans fonts are SIL Open Font License 1.1 (`LICENSE_LIBERATION`, with the
+  copyright notice). They are version 2.1.5, unmodified, from the Liberation Fonts release
+  `liberation-fonts-ttf-2.1.5.tar.gz`, and replace the 1.07.4 copies in the PDF.js release, which
+  are under the GNU GPL v2 with font exceptions. They stand in for the Helvetica and Arial that
+  Lpdf's PDFs name but do not embed, on systems that have no such font of their own.
+  Source: https://github.com/liberationfonts/liberation-fonts
+- `web/wasm/`: OpenJPEG (BSD-2-Clause), JBIG2 (BSD-3-Clause) and QCMS (MIT), with PDF.js's own
+  bindings to them under their own notices (`LICENSE_OPENJPEG`, `LICENSE_JBIG2`,
+  `LICENSE_QCMS`, `LICENSE_PDFJS_*`).
+- `web/cmaps/`: Adobe CMap resources, BSD-3-Clause (`LICENSE`), for PDFs that use the predefined
+  CJK encodings.
+- `build/` and `web/viewer.mjs`: the legacy build has core-js 3.50.0 bundled into it, MIT, whose
+  notice follows.
+
+### core-js (bundled in the legacy build of PDF.js)
+
+Used for: polyfills of JavaScript that older browsers lack, such as `Promise.try` and `RegExp.escape`.
+Source: https://github.com/zloirock/core-js
+
+    Copyright (c) 2013-2025 Denis Pushkarev (zloirock.ru)
+    Copyright (c) 2025-2026 CoreJS Company (core-js.io)
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in
+    all copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+    THE SOFTWARE.
 
 ---
 

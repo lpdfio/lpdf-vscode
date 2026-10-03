@@ -2,53 +2,130 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy"
-          content="default-src 'none';
-                   script-src __CSP_SOURCE__ 'nonce-__NONCE__';
-                   worker-src blob:;
-                   connect-src __CSP_SOURCE__;
-                   style-src 'unsafe-inline';">
+    <meta http-equiv="Content-Security-Policy" content="__CSP__">
+    <link rel="stylesheet" href="__VIEWER_HREF__lpdf-theme.css">
     <style>
+        /*
+         * The colours and the icons are those of the full viewer, from lpdf-theme.css, which both
+         * pages load: the header and the area behind the pages are the same in light and dark, and
+         * a change to the shared file changes both. The light or dark of the page follows the VS
+         * Code theme. Nothing here has a colour of its own.
+         *
+         * The header is laid out as the viewer's is: 36px high, buttons of 32px with 18px icons,
+         * and 6px between controls, with 6px more on each side of a divider.
+         */
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        html, body { height: 100%; display: flex; flex-direction: column; background: #525659; overflow: hidden; }
+        /* VS Code pads every webview body by 20px at the sides; the header and the panes run edge to edge. */
+        html body { padding: 0; }
+        body { color-scheme: dark; }
+        body.vscode-light, body.vscode-high-contrast-light { color-scheme: light; }
+        html, body {
+            height: 100%; display: flex; flex-direction: column; overflow: hidden;
+            background: var(--lpdf-desk-bg); color: var(--lpdf-text);
+            font-family: var(--vscode-font-family, system-ui, sans-serif);
+        }
         #toolbar {
-            flex-shrink: 0; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
-            padding: 5px 10px; background: #3c3c3c; border-bottom: 1px solid #252526;
-            font: 12px/1 sans-serif; color: #ccc; user-select: none;
+            position: relative; z-index: 1; flex-shrink: 0; height: 36px; padding: 2px 8px;
+            display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
+            background: var(--lpdf-header-bg); box-shadow: 0 1px 0 var(--lpdf-header-border);
+            font-size: 12px; line-height: 1; user-select: none;
         }
-        #toolbar-left  { display: flex; align-items: center; gap: 6px; }
-        #toolbar-center { display: flex; align-items: center; gap: 6px; }
-        #toolbar button {
-            background: #4a4a4a; color: #ccc; border: 1px solid #555;
-            padding: 3px 8px; cursor: pointer; border-radius: 3px; font-size: 12px;
+        #toolbar-left, #toolbar-center, #toolbar-right { display: flex; align-items: center; gap: 6px; }
+        #toolbar-right { justify-content: flex-end; }
+        #toolbar label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+        #sync-scroll { accent-color: var(--lpdf-accent); }
+        .tool {
+            width: 32px; height: 32px; flex: none; display: flex; align-items: center; justify-content: center;
+            background: none; border: none; border-radius: 2px; color: var(--lpdf-text); cursor: pointer;
         }
-        #toolbar button:hover { background: #5e5e5e; color: #fff; }
-        #zoom-select {
-            background: #4a4a4a; color: #ccc; border: 1px solid #555;
-            padding: 3px 6px; border-radius: 3px; font-size: 12px; cursor: pointer;
-            min-width: 62px;
+        .tool::before {
+            content: ''; width: 18px; height: 18px;
+            background-color: var(--lpdf-icon-color); opacity: var(--lpdf-icon-opacity);
+            -webkit-mask-size: cover; mask-size: cover; -webkit-mask-position: center; mask-position: center;
         }
-        #toolbar label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
-        #diff-area { flex: 1; display: flex; overflow: hidden; }
-        .diff-pane { flex: 1; overflow: auto; position: relative; }
-        .diff-pane + .diff-pane { border-left: 2px solid #252526; }
+        .tool:hover { background-color: var(--lpdf-button-hover-bg); }
+        .tool:focus-visible, #sync-scroll:focus-visible { outline: 1px solid var(--lpdf-accent); outline-offset: 1px; }
+        #btn-zoom-out::before { -webkit-mask-image: var(--lpdf-icon-minus); mask-image: var(--lpdf-icon-minus); }
+        #btn-zoom-in::before { -webkit-mask-image: var(--lpdf-icon-plus); mask-image: var(--lpdf-icon-plus); }
+        #btn-fit[data-next="width"]::before { -webkit-mask-image: var(--lpdf-icon-fit-width); mask-image: var(--lpdf-icon-fit-width); }
+        #btn-fit[data-next="page"]::before { -webkit-mask-image: var(--lpdf-icon-fit-page); mask-image: var(--lpdf-icon-fit-page); }
+        /* The viewer's own info icon; the script sets --info-icon, as it is an address in the viewer's folder. */
+        #btn-info::before { -webkit-mask-image: var(--info-icon); mask-image: var(--info-icon); }
+        #zoom-input {
+            width: 6ch; height: 22px; padding: 2px; flex: none; text-align: center; outline: none;
+            font: inherit; font-size: 12px; line-height: 16px;
+            background: var(--lpdf-field-bg); color: var(--lpdf-field-text);
+            border: 1px solid var(--lpdf-field-border); border-radius: 2px;
+        }
+        #zoom-input:focus { border-color: var(--lpdf-accent); }
+        .separator { width: 0; height: 80%; margin-inline: 6px; border-left: 1px solid var(--lpdf-separator); }
+        #diff-area { flex: 1; display: flex; overflow: hidden; min-height: 0; }
+        /* A pane is its label above its scrolling area, so the label stays put when the pages scroll, sideways too. */
+        .diff-pane { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
+        .diff-pane + .diff-pane { border-left: 2px solid var(--lpdf-header-border); }
         .pane-label {
-            position: sticky; top: 0; z-index: 10;
-            background: #3a3a3a; color: #aaa; font: 11px/1 sans-serif;
-            padding: 4px 10px; border-bottom: 1px solid #2e2e2e;
-            display: flex; align-items: center; gap: 6px;
+            flex-shrink: 0; display: flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px;
+            background: var(--lpdf-header-bg); color: var(--lpdf-text); box-shadow: 0 1px 0 var(--lpdf-header-border);
+            font-size: 11px; line-height: 1;
         }
-        .pane-meta { color: #666; }
+        .pane-meta { color: color-mix(in srgb, var(--lpdf-text) 60%, transparent); }
+        .pane-scroll {
+            flex: 1; min-height: 0; overflow: auto;
+            background: var(--lpdf-desk-bg); scrollbar-color: var(--lpdf-scrollbar) var(--lpdf-scrollbar-bg);
+        }
         .pane-inner {
             display: flex; flex-direction: column; align-items: center;
             min-width: min-content; padding: 16px 12px; gap: 12px; padding-bottom: 16px;
         }
-        canvas { box-shadow: 0 2px 10px rgba(0,0,0,.55); display: block; }
+        /* A page is a blank sheet of its size, which holds a canvas only while the page is in or near the view. */
+        .page-slot { position: relative; flex-shrink: 0; background: var(--lpdf-page-bg); box-shadow: var(--lpdf-page-shadow); }
+        /* The script places a canvas by percentages of the sheet: all of it, or for a large page the part in view. */
+        .page-slot canvas { position: absolute; display: block; }
+        /*
+         * The document properties dialog is the viewer's: the header's background, the same border
+         * and shadow, 15px of padding and 12px text, and its Close button. It has a column for each
+         * document, and a row that differs takes the tint of the shared stylesheet.
+         */
+        #info-dialog {
+            margin: auto; padding: 15px; max-width: calc(100vw - 32px); max-height: calc(100vh - 32px); overflow: auto;
+            color: var(--lpdf-text); background-color: var(--lpdf-header-bg);
+            font: message-box; font-size: 12px; line-height: 14px;
+            border: 1px solid var(--lpdf-dialog-border); border-radius: 4px; box-shadow: var(--lpdf-dialog-shadow);
+        }
+        #info-dialog::backdrop { background-color: var(--lpdf-dialog-backdrop); }
+        .info-table { margin-inline: -8px; border-collapse: separate; border-spacing: 0; }
+        .info-table th, .info-table td {
+            padding: 2px 8px; text-align: start; vertical-align: top; font-weight: normal;
+            min-width: 100px; max-width: 225px; overflow-wrap: anywhere;
+        }
+        .info-table thead th { font-weight: 600; }
+        .info-table tbody th { width: 125px; }
+        .info-table tr.changed > * { background-color: var(--lpdf-changed-bg); }
+        .info-gap > td {
+            height: 9px; padding: 0; min-width: 0;
+            background: linear-gradient(var(--lpdf-separator), var(--lpdf-separator)) center / 100% 1px no-repeat;
+        }
+        .visually-hidden {
+            position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+        }
+        #info-summary { margin-top: 8px; color: color-mix(in srgb, var(--lpdf-text) 70%, transparent); }
+        .button-row { display: flex; justify-content: center; margin-top: 10px; }
+        .secondary-button {
+            min-height: 32px; padding: 4px 16px; border-radius: 4px; cursor: pointer;
+            font: menu; font-size: 13px; font-weight: 590;
+            color: var(--lpdf-dialog-button-text);
+            background-color: var(--lpdf-dialog-button-bg); border: 1px solid var(--lpdf-dialog-button-bg);
+        }
+        .secondary-button:hover { background-color: var(--lpdf-dialog-button-hover-bg); border-color: var(--lpdf-dialog-button-hover-bg); }
+        .secondary-button:active { background-color: var(--lpdf-dialog-button-active-bg); border-color: var(--lpdf-dialog-button-active-bg); }
+        .secondary-button:focus-visible { outline: 1px solid var(--lpdf-accent); outline-offset: 1px; }
         #loading-overlay {
             position: fixed; inset: 0; z-index: 200;
             display: flex; align-items: center; justify-content: center;
-            background: #525659; color: #ccc; font: 14px/1.6 sans-serif;
+            background: var(--lpdf-desk-bg); color: var(--lpdf-text);
+            font-size: 14px; line-height: 1.6;
         }
+        #loading-overlay.error { color: var(--lpdf-error); }
         #loading-overlay.hidden { display: none; }
     </style>
 </head>
@@ -61,52 +138,65 @@
             </label>
         </div>
         <div id="toolbar-center">
-            <button id="btn-zoom-out" title="Zoom out">&minus;</button>
-            <select id="zoom-select" title="Zoom level">
-                <option value="fit">Fit</option>
-                <option value="100pct">100%</option>
-            </select>
-            <button id="btn-zoom-in" title="Zoom in">+</button>
+            <button class="tool" id="btn-zoom-out" type="button" title="Zoom out" aria-label="Zoom out"></button>
+            <input id="zoom-input" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" title="Zoom: type a percentage" aria-label="Zoom">
+            <button class="tool" id="btn-zoom-in" type="button" title="Zoom in" aria-label="Zoom in"></button>
+            <div class="separator"></div>
+            <button class="tool" id="btn-fit" type="button" data-next="page" title="Fit to page" aria-label="Fit to page"></button>
         </div>
-        <div id="toolbar-right"></div>
+        <div id="toolbar-right">
+            <button class="tool" id="btn-info" type="button" title="Document properties" aria-label="Document properties" aria-haspopup="dialog"></button>
+        </div>
     </div>
     <div id="diff-area">
-        <div class="diff-pane" id="left-pane">
+        <div class="diff-pane">
             <div class="pane-label">HEAD<span class="pane-meta" id="left-meta"></span></div>
-            <div class="pane-inner" id="left-inner"></div>
+            <div class="pane-scroll" id="left-pane">
+                <div class="pane-inner" id="left-inner"></div>
+            </div>
         </div>
-        <div class="diff-pane" id="right-pane">
+        <div class="diff-pane">
             <div class="pane-label">Working copy<span class="pane-meta" id="right-meta"></span></div>
-            <div class="pane-inner" id="right-inner"></div>
+            <div class="pane-scroll" id="right-pane">
+                <div class="pane-inner" id="right-inner"></div>
+            </div>
         </div>
     </div>
+    <dialog id="info-dialog" aria-label="Document properties">
+        <table class="info-table">
+            <thead>
+                <tr><th scope="col"></th><th scope="col">HEAD</th><th scope="col">Working copy</th></tr>
+                <tr class="info-gap"><td colspan="3"></td></tr>
+            </thead>
+            <tbody id="info-body"></tbody>
+        </table>
+        <p id="info-summary"></p>
+        <div class="button-row">
+            <button class="secondary-button" id="info-close" type="button">Close</button>
+        </div>
+    </dialog>
     <div id="loading-overlay">Loading&#x2026;</div>
     <script nonce="__NONCE__">
-        // Polyfill for Map.prototype.getOrInsertComputed (TC39 Stage 2, not yet in stable V8).
-        // Required for pdf.min.mjs running in the main thread.
-        if (!Map.prototype.getOrInsertComputed) {
-            Map.prototype.getOrInsertComputed = function(key, callbackfn) {
-                if (!this.has(key)) { this.set(key, callbackfn(key)); }
-                return this.get(key);
-            };
-        }
         const vscodeApi = acquireVsCodeApi();
     </script>
     <script type="module" nonce="__NONCE__">
-        import * as pdfjsLib from '__PDF_JS_URI__';
+        import { loadPdfjsLibrary } from '__VIEWER_URI__lpdf-pdfjs.mjs';
+        import { anchorIn, clampScale, isZoomGesture, nearestPage, nextFitMode, scrollShift, wheelZoomFactor } from '__VIEWER_URI__lpdf-diff-zoom.mjs';
+        import { canvasRatio, DRAW_MARGIN, fitsWhole, planPages, REDRAW_MARGIN, visibleRegion } from '__VIEWER_URI__lpdf-diff-pages.mjs';
+        import { parseZoomPercent } from '__VIEWER_URI__lpdf-toolbar.mjs';
+        import { compareProperties, fillComparisonTable, readDocumentProperties, summarizeComparison } from '__VIEWER_URI__lpdf-diff-info.mjs';
 
-        // VS Code webviews silently reject vscode-webview-resource: URIs when passed
-        // to new Worker(), causing pdf.js to fall back to a synchronous fake worker
-        // (30+ second renders). Fetch the script and register it as a blob: URL instead.
-        try {
-            const resp = await fetch('__WORKER_URI__');
-            const text = await resp.text();
-            pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(
-                new Blob([text], { type: 'text/javascript' })
-            );
-        } catch {
-            pdfjsLib.GlobalWorkerOptions.workerSrc = '__WORKER_URI__';
-        }
+        const viewerRoot = '__VIEWER_URI__';
+
+        // The PDF.js library of media/viewer/, with its worker; documentOptions locate its fonts,
+        // character maps and decoders, and go with every getDocument call.
+        const { pdfjsLib, documentOptions } = await loadPdfjsLibrary(
+            viewerRoot,
+            message => vscodeApi.postMessage({ type: 'log', level: 'error', message }),
+        );
+
+        // The info button wears the viewer's own icon for document properties.
+        document.documentElement.style.setProperty('--info-icon', `url("${viewerRoot}web/images/secondaryToolbarButton-documentProperties.svg")`);
 
         const overlay    = document.getElementById('loading-overlay');
         const leftPane   = document.getElementById('left-pane');
@@ -115,20 +205,57 @@
         const rightInner = document.getElementById('right-inner');
         const leftMeta   = document.getElementById('left-meta');
         const rightMeta  = document.getElementById('right-meta');
-        const zoomSelect  = document.getElementById('zoom-select');
+        const zoomInput  = document.getElementById('zoom-input');
+        const fitButton  = document.getElementById('btn-fit');
         const syncCheckbox = document.getElementById('sync-scroll');
+        const infoButton = document.getElementById('btn-info');
+        const infoDialog = document.getElementById('info-dialog');
+        const infoBody   = document.getElementById('info-body');
+        const infoSummary = document.getElementById('info-summary');
 
-        let currentScale = 1;
-        let fitScale     = 1;
-        let leftDoc      = null;
-        let rightDoc     = null;
+        const STEP = 1.25;
+
+        // After the last zoom change, how long to wait before drawing the pages sharply at the new zoom.
+        const SETTLE_MS = 150;
+
+        // How far above and below a pane, as a percentage of its height, a page is still drawn.
+        const NEAR_VIEW_PERCENT = 50;
+
+        /**
+         * One document in one pane. Its pages are blank sheets of the right size, and only those in or
+         * near the view are drawn, so what the page holds does not grow with the length of the document.
+         */
+        const makeSide = (pane, inner) => ({
+            pane, inner,
+            doc: null,                // the PDF.js document
+            pages: [],                // its pages
+            drawn: [],                // for each page, how its canvas is drawn: { target, region }, or undefined for none
+            visible: new Set(),       // the indexes of the pages in or near the view
+            observer: null,           // tells which pages those are
+            working: null,            // the drawing that is going on, if any
+        });
+        const leftSide  = makeSide(leftPane, leftInner);
+        const rightSide = makeSide(rightPane, rightInner);
+        const sides = [leftSide, rightSide];
+
+        let displayScale  = 1;        // the zoom the pages are shown at
+        let fitWidthScale = 1;        // the zoom that fits the width of a pane
+        let fitPageScale  = 1;        // the zoom that fits the whole first page in a pane
+        let fitMode       = 'width';  // how the zoom was last set: 'width' or 'page' (a fit), else 'manual'
+        let pageSize      = null;     // the first page of the HEAD document, at zoom 1
+        let source        = null;     // what the documents were read from: { fileName, leftBytes, rightBytes }
+        let comparison    = null;     // the properties of the two documents side by side, read when first asked for
+        let generation    = 0;        // counts zoom changes and renders; a render that is not the latest gives up
+        let settleTimer;
+        let settled       = Promise.resolve();  // done when the pages in view are drawn at the zoom, once it has settled
+        let finishSettled;
 
         function hideLoading() {
             overlay.classList.add('hidden');
         }
 
         function showError(msg) {
-            overlay.style.color = '#e88';
+            overlay.classList.add('error');
             overlay.textContent = 'Error: ' + msg;
             overlay.classList.remove('hidden');
         }
@@ -140,25 +267,184 @@
             return buf;
         }
 
-        async function renderSide(pdfDoc, inner, scale) {
-            inner.innerHTML = '';
-            for (let p = 1; p <= pdfDoc.numPages; p++) {
-                const page   = await pdfDoc.getPage(p);
-                const vp     = page.getViewport({ scale });
-                const canvas = document.createElement('canvas');
-                canvas.width  = vp.width;
-                canvas.height = vp.height;
-                inner.appendChild(canvas);
-                await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+        function logError(message) {
+            vscodeApi.postMessage({ type: 'log', level: 'error', message });
+        }
+
+        /** Gives every page of a side the size it has at a zoom, from its size at zoom 1. */
+        function sizePages(inner, scale) {
+            for (const slot of inner.children) {
+                slot.style.width  = `${slot.dataset.pageWidth * scale}px`;
+                slot.style.height = `${slot.dataset.pageHeight * scale}px`;
             }
         }
 
-        async function rerender() {
-            if (!leftDoc || !rightDoc) { return; }
-            await Promise.all([
-                renderSide(leftDoc,  leftInner,  currentScale),
-                renderSide(rightDoc, rightInner, currentScale),
-            ]);
+        /** Empties a page's sheet, and gives the memory of the canvas back at once rather than when it is collected. */
+        function clearSlot(slot) {
+            for (const canvas of slot.querySelectorAll('canvas')) { canvas.width = 0; canvas.height = 0; }
+            slot.replaceChildren();
+        }
+
+        /**
+         * Opens a document in a side: a blank sheet for each page, of its size at zoom 1, and
+         * nothing drawn. The sheets are laid out at once, so the length of the document and the
+         * scroll position are right before any page is drawn.
+         */
+        async function openSide(side, bytes) {
+            side.observer?.disconnect();
+            side.visible.clear();
+            side.doc   = await pdfjsLib.getDocument({ data: bytes, ...documentOptions }).promise;
+            side.pages = await Promise.all(Array.from({ length: side.doc.numPages }, (_, index) => side.doc.getPage(index + 1)));
+            side.drawn = new Array(side.pages.length).fill(undefined);
+            side.inner.replaceChildren(...side.pages.map((page, index) => {
+                const natural = page.getViewport({ scale: 1 });
+                const slot = document.createElement('div');
+                slot.className = 'page-slot';
+                slot.dataset.index = index;
+                slot.dataset.pageWidth  = natural.width;
+                slot.dataset.pageHeight = natural.height;
+                return slot;
+            }));
+        }
+
+        /**
+         * The pages of a side that are to be drawn: those in or near the view. A page that is drawn
+         * whole has undefined. A page too large for that, as pages are at a high zoom, has the part of
+         * it that must be on show, which is the view with a margin; one that is near the view but has
+         * none of that in it is not wanted.
+         * @returns {Map<number, object | undefined>}
+         */
+        function wantedPages(side) {
+            const deviceRatio = window.devicePixelRatio || 1;
+            const view = side.pane.getBoundingClientRect();
+            const wanted = new Map();
+            for (const index of side.visible) {
+                const box = side.inner.children[index].getBoundingClientRect();
+                if (fitsWhole(box.width, box.height, deviceRatio)) { wanted.set(index, undefined); continue; }
+                const needed = visibleRegion(view, box, REDRAW_MARGIN);
+                if (needed) { wanted.set(index, needed); }
+            }
+            return wanted;
+        }
+
+        /**
+         * Draws one page at the zoom it is shown at: the whole page, or for a large page the part of it
+         * in view with a margin, on a canvas of no more pixels than a canvas may have. A page that is
+         * drawn again is swapped in when it is ready, so the old one stays in view until then and the
+         * layout does not move. The result is dropped when a newer zoom has been asked for in the
+         * meantime, or the page has left the view.
+         * @param {object | undefined} needed From {@link wantedPages}: undefined to draw the whole page.
+         */
+        async function drawPage(side, index, target, needed) {
+            const token  = generation;
+            const slot   = side.inner.children[index];
+            const box    = slot.getBoundingClientRect();
+            const region = needed === undefined
+                ? { left: 0, top: 0, width: box.width, height: box.height }
+                : visibleRegion(side.pane.getBoundingClientRect(), box, DRAW_MARGIN) ?? needed;
+            const ratio    = canvasRatio(region.width, region.height, window.devicePixelRatio || 1);
+            const viewport = side.pages[index].getViewport({
+                scale: displayScale * ratio, offsetX: -region.left * ratio, offsetY: -region.top * ratio,
+            });
+            const canvas  = document.createElement('canvas');
+            canvas.width  = Math.ceil(region.width * ratio);
+            canvas.height = Math.ceil(region.height * ratio);
+            // In percentages of the sheet, so the canvas follows the sheet when the zoom changes before it is drawn again.
+            Object.assign(canvas.style, {
+                left:   `${region.left / box.width * 100}%`,
+                top:    `${region.top / box.height * 100}%`,
+                width:  `${region.width / box.width * 100}%`,
+                height: `${region.height / box.height * 100}%`,
+            });
+            const drawn = { target, region: needed === undefined ? undefined : region };
+            try {
+                await side.pages[index].render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+            } catch (err) {
+                // The sheet stays blank; saying it is drawn keeps the page from being tried again until the zoom changes.
+                logError(`Page ${index + 1} could not be drawn: ${err.message}`);
+                canvas.width = 0;
+                canvas.height = 0;
+                if (token === generation) { side.drawn[index] = drawn; }
+                return;
+            }
+            if (token !== generation || !side.visible.has(index)) {
+                canvas.width = 0;
+                canvas.height = 0;
+                return;
+            }
+            const before = slot.firstElementChild;
+            slot.replaceChildren(canvas);
+            if (before) { before.width = 0; before.height = 0; }
+            side.drawn[index] = drawn;
+        }
+
+        /**
+         * Brings the drawn pages of a side in line with the view: frees those that are out of it, and
+         * draws those in it that are not drawn at the zoom, or are large and not drawn where the view
+         * now is. One page at a time, planned again after each, so a scroll in the middle of it is
+         * followed; and not at all while the zoom is still changing, because the zoom is drawn once
+         * it has settled.
+         * @returns {Promise<void>} The drawing in progress: a call during it does not start another.
+         */
+        function drawPages(side) {
+            side.working ??= (async () => {
+                for (;;) {
+                    if (settleTimer !== undefined) { return; }
+                    const target = displayScale * (window.devicePixelRatio || 1);
+                    const wanted = wantedPages(side);
+                    const { draw, free } = planPages({ wanted, drawn: side.drawn, target });
+                    for (const index of free) {
+                        clearSlot(side.inner.children[index]);
+                        side.pages[index].cleanup();
+                        side.drawn[index] = undefined;
+                    }
+                    if (draw.length === 0) { return; }
+                    await drawPage(side, draw[0], target, wanted.get(draw[0]));
+                }
+            })().finally(() => { side.working = null; });
+            return side.working;
+        }
+
+        // A large page is drawn only where it is in view, so a scroll can need it drawn again. Once a frame is enough.
+        for (const side of sides) {
+            let frame = 0;
+            side.pane.addEventListener('scroll', () => {
+                if (frame) { return; }
+                frame = requestAnimationFrame(() => {
+                    frame = 0;
+                    if (side.doc) { drawPages(side).catch(err => showError(err.message)); }
+                });
+            });
+        }
+
+        /**
+         * Watches which pages of a side are in or near the view, and draws and frees pages to match.
+         * @returns {Promise<void>} Settles once the view has been looked at for the first time.
+         */
+        function watchPages(side) {
+            return new Promise(looked => {
+                side.observer = new IntersectionObserver(entries => {
+                    for (const { target, isIntersecting } of entries) {
+                        const index = Number(target.dataset.index);
+                        if (isIntersecting) { side.visible.add(index); } else { side.visible.delete(index); }
+                    }
+                    looked();
+                    drawPages(side).catch(err => showError(err.message));
+                }, { root: side.pane, rootMargin: `${NEAR_VIEW_PERCENT}% 0px` });
+                for (const slot of side.inner.children) { side.observer.observe(slot); }
+            });
+        }
+
+        /** Draws the pages in view at the new zoom once it has stopped changing; `settled` is done when they are. */
+        function scheduleRender() {
+            if (settleTimer === undefined) { settled = new Promise(resolve => { finishSettled = resolve; }); }
+            clearTimeout(settleTimer);
+            settleTimer = setTimeout(async () => {
+                const finish = finishSettled;
+                settleTimer = undefined;
+                await Promise.all(sides.map(side => drawPages(side).catch(err => showError(err.message))));
+                finish();
+            }, SETTLE_MS);
         }
 
         function formatSize(bytes) {
@@ -167,28 +453,56 @@
             return bytes + ' B';
         }
 
-        async function loadDiff(oldBase64, newBase64) {
+        /** The two fits, from the size of a pane and of the first page of the HEAD document. */
+        function computeFitScales() {
+            if (!pageSize) { return; }
+            // Subtract padding (2×12px) and scrollbar allowance (17px).
+            fitWidthScale = Math.max(0.25, (leftPane.clientWidth - 24 - 17) / pageSize.width);
+            // The whole page: 16px of padding above and below.
+            fitPageScale = Math.min(fitWidthScale, Math.max(0.1, (leftPane.clientHeight - 32) / pageSize.height));
+        }
+
+        const fitScaleOf = mode => (mode === 'page' ? fitPageScale : fitWidthScale);
+
+        /** The zoom field shows the zoom, unless it is being typed in. */
+        function showZoom() {
+            if (document.activeElement !== zoomInput) { zoomInput.value = `${Math.round(displayScale * 100)}%`; }
+        }
+
+        /** The fit button shows the fit that a click switches to. */
+        function showFit() {
+            const next  = nextFitMode(fitMode);
+            const label = next === 'page' ? 'Fit to page' : 'Fit to width';
+            fitButton.dataset.next = next;
+            fitButton.title = label;
+            fitButton.setAttribute('aria-label', label);
+        }
+
+        async function loadDiff(oldBase64, newBase64, fileName) {
             const [oldBuf, newBuf] = [base64ToUint8Array(oldBase64), base64ToUint8Array(newBase64)];
             const [oldSize, newSize] = [oldBuf.length, newBuf.length];
-            [leftDoc, rightDoc] = await Promise.all([
-                pdfjsLib.getDocument({ data: oldBuf }).promise,
-                pdfjsLib.getDocument({ data: newBuf }).promise,
-            ]);
+            source = { fileName, leftBytes: oldSize, rightBytes: newSize };
+            comparison = null;
+            generation++;
+            await Promise.all([openSide(leftSide, oldBuf), openSide(rightSide, newBuf)]);
 
-            // Compute fit scale from the left pane width and first page of the HEAD doc.
-            const firstPage = await leftDoc.getPage(1);
-            const natural   = firstPage.getViewport({ scale: 1 });
-            // Subtract padding (2×12px) and scrollbar allowance (17px).
-            fitScale = Math.max(0.25, (leftPane.clientWidth - 24 - 17) / natural.width);
-            currentScale = fitScale;
+            pageSize = leftSide.pages[0].getViewport({ scale: 1 });
+            computeFitScales();
+            fitMode = 'width';
+            displayScale = fitWidthScale;
+            showFit();
+            showZoom();
 
-            await Promise.all([
-                renderSide(leftDoc,  leftInner,  currentScale),
-                renderSide(rightDoc, rightInner, currentScale),
-            ]);
+            // The pages are laid out at the zoom before they are watched, so the first look at the view finds the right ones.
+            for (const side of sides) { sizePages(side.inner, displayScale); }
+            await Promise.all(sides.map(watchPages));
+            await Promise.all(sides.map(drawPages));
+            // The scrollbars that the pages bring can change a pane's width, and with it the fit, which draws again once settled.
+            await settled;
 
-            leftMeta.textContent  = `· ${leftDoc.numPages} page${leftDoc.numPages !== 1 ? 's' : ''} · ${formatSize(oldSize)}`;
-            rightMeta.textContent = `· ${rightDoc.numPages} page${rightDoc.numPages !== 1 ? 's' : ''} · ${formatSize(newSize)}`;
+            const describe = (doc, bytes) => `· ${doc.numPages} page${doc.numPages !== 1 ? 's' : ''} · ${formatSize(bytes)}`;
+            leftMeta.textContent  = describe(leftSide.doc, oldSize);
+            rightMeta.textContent = describe(rightSide.doc, newSize);
             hideLoading();
         }
 
@@ -209,40 +523,120 @@
             syncing = false;
         });
 
-        // Zoom controls.
-        function updateZoomLabel() {
-            let custom = zoomSelect.querySelector('[data-custom]');
-            if (!custom) {
-                custom = document.createElement('option');
-                custom.setAttribute('data-custom', '');
-                zoomSelect.appendChild(custom);
+        /**
+         * Zooms both panes to the same zoom, around a point: the part of each page that is under it
+         * stays under it. The pages take their new size at once, and are drawn sharply once the zoom
+         * has stopped changing. The point is the same place in each pane; the centre by default.
+         * The zoom is kept to the range of the full viewer, 10% to 1000%; at a high zoom a page is
+         * drawn only where it is in view, so the range does not cost memory.
+         * @param {number} scale The zoom asked for.
+         * @param {{ x: number, y: number }} [offset] The point, from the top left of the pane it is in.
+         * @param {{ limit?: boolean, fit?: 'width' | 'page' | 'manual' }} [options] `limit: false` for a fit, which is
+         *     whatever it is; `fit` says which fit the zoom is, or that it is not one.
+         */
+        function zoomTo(scale, offset, { limit = true, fit = 'manual' } = {}) {
+            fitMode = fit;
+            showFit();
+            const target = limit ? clampScale(scale) : scale;
+            if (!leftSide.doc || target === displayScale) { showZoom(); return; }
+            const anchors = [[leftPane, leftInner], [rightPane, rightInner]].map(([pane, inner]) => {
+                const box   = pane.getBoundingClientRect();
+                const point = { x: box.left + (offset?.x ?? box.width / 2), y: box.top + (offset?.y ?? box.height / 2) };
+                const rects = Array.from(inner.children, child => child.getBoundingClientRect());
+                const index = nearestPage(rects, point.y);
+                return index < 0 ? null : { pane, page: inner.children[index], point, anchor: anchorIn(rects[index], point) };
+            });
+            displayScale = target;
+            generation++;
+            sizePages(leftInner, target);
+            sizePages(rightInner, target);
+            for (const entry of anchors) {
+                if (!entry) { continue; }
+                const { dx, dy } = scrollShift(entry.anchor, entry.page.getBoundingClientRect(), entry.point);
+                entry.pane.scrollLeft += dx;
+                entry.pane.scrollTop  += dy;
             }
-            custom.value = 'custom';
-            custom.textContent = Math.round(currentScale * 100) + '%';
-            zoomSelect.value = 'custom';
+            showZoom();
+            scheduleRender();
         }
 
-        const STEP = 1.25;
-        document.getElementById('btn-zoom-in').addEventListener('click', async () => {
-            currentScale = Math.min(currentScale * STEP, fitScale * 4);
-            updateZoomLabel();
-            await rerender();
+        // Pinch, and Ctrl or Cmd with the mouse wheel, zoom both panes, whichever one the pointer is over.
+        document.addEventListener('wheel', event => {
+            if (!isZoomGesture(event)) { return; }
+            event.preventDefault();
+            const pane = event.clientX < rightPane.getBoundingClientRect().left ? leftPane : rightPane;
+            const box  = pane.getBoundingClientRect();
+            zoomTo(displayScale * wheelZoomFactor(event), { x: event.clientX - box.left, y: event.clientY - box.top });
+        }, { passive: false });
+
+        document.getElementById('btn-zoom-in').addEventListener('click', () => zoomTo(displayScale * STEP));
+        document.getElementById('btn-zoom-out').addEventListener('click', () => zoomTo(displayScale / STEP));
+        fitButton.addEventListener('click', () => {
+            if (!leftSide.doc) { return; }
+            const mode = nextFitMode(fitMode);
+            zoomTo(fitScaleOf(mode), undefined, { limit: false, fit: mode });
         });
-        document.getElementById('btn-zoom-out').addEventListener('click', async () => {
-            currentScale = Math.max(currentScale / STEP, fitScale / 4);
-            updateZoomLabel();
-            await rerender();
+
+        // A fit stays a fit when the pane changes size.
+        new ResizeObserver(() => {
+            if (!leftSide.doc) { return; }
+            computeFitScales();
+            if (fitMode !== 'manual') { zoomTo(fitScaleOf(fitMode), undefined, { limit: false, fit: fitMode }); }
+        }).observe(leftPane);
+
+        // The zoom field: a click into it selects the zoom, so typing replaces it; a typed percentage
+        // applies when it is entered, text that is not one puts the old zoom back, and Esc gives up.
+        let selectOnMouseUp = false;
+        zoomInput.addEventListener('mousedown', () => { selectOnMouseUp = document.activeElement !== zoomInput; });
+        zoomInput.addEventListener('mouseup', event => {
+            if (!selectOnMouseUp) { return; }
+            selectOnMouseUp = false;
+            event.preventDefault();
+            zoomInput.select();
         });
-        zoomSelect.addEventListener('change', async (e) => {
-            const val    = e.target.value;
-            const custom = e.target.querySelector('[data-custom]');
-            if (custom) { e.target.removeChild(custom); }
-            if (val === 'fit') {
-                currentScale = fitScale;
-            } else if (val === '100pct') {
-                currentScale = 1;
+        zoomInput.addEventListener('focus', () => zoomInput.select());
+        zoomInput.addEventListener('change', () => {
+            const percent = parseZoomPercent(zoomInput.value);
+            if (percent !== undefined && leftSide.doc) { zoomTo(percent / 100); }
+            zoomInput.value = `${Math.round(displayScale * 100)}%`;
+        });
+        zoomInput.addEventListener('keydown', event => {
+            if (event.key !== 'Escape') { return; }
+            zoomInput.value = `${Math.round(displayScale * 100)}%`;
+            zoomInput.blur();
+        });
+
+        /** The properties of both documents, side by side: read the first time they are asked for. */
+        async function readComparison() {
+            if (comparison) { return comparison; }
+            const parseDate = value => pdfjsLib.PDFDateString.toDateObject(value);
+            const [left, right] = await Promise.all([
+                readDocumentProperties(leftSide.doc,  { fileName: source.fileName, byteLength: source.leftBytes,  parseDate }),
+                readDocumentProperties(rightSide.doc, { fileName: source.fileName, byteLength: source.rightBytes, parseDate }),
+            ]);
+            comparison = compareProperties(left, right);
+            return comparison;
+        }
+
+        // The info button opens the document properties of both documents, with what differs marked.
+        infoButton.addEventListener('click', async () => {
+            if (!leftSide.doc || !rightSide.doc) { return; }
+            try {
+                const result = await readComparison();
+                fillComparisonTable(infoBody, result);
+                infoSummary.textContent = summarizeComparison(result);
+            } catch (err) {
+                infoBody.replaceChildren();
+                infoSummary.textContent = `The document properties could not be read: ${err.message}`;
             }
-            await rerender();
+            infoDialog.showModal();
+        });
+        document.getElementById('info-close').addEventListener('click', () => infoDialog.close());
+        // A click on the veil behind the dialog closes it; one on the dialog's own padding does not.
+        infoDialog.addEventListener('click', event => {
+            const box = infoDialog.getBoundingClientRect();
+            const inside = event.clientX >= box.left && event.clientX <= box.right && event.clientY >= box.top && event.clientY <= box.bottom;
+            if (!inside) { infoDialog.close(); }
         });
 
         // Messages from the extension host.
@@ -250,7 +644,7 @@
             const msg = event.data;
             if (msg.type === 'updateDiff') {
                 try {
-                    await loadDiff(msg.oldBase64, msg.newBase64);
+                    await loadDiff(msg.oldBase64, msg.newBase64, msg.filename);
                 } catch (err) {
                     showError(err.message);
                 }

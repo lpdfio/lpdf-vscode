@@ -42,14 +42,11 @@ export class LpdfPdfViewerProvider implements vscode.CustomReadonlyEditorProvide
 
     const fileBasename = path.basename(document.uri.fsPath || document.uri.path);
     const t0 = Date.now();
-    console.log(`[lpdf perf] pdfViewer readFile START file=${fileBasename}`);
-    const bytes = await vscode.workspace.fs.readFile(document.uri);
-    console.log(`[lpdf perf] pdfViewer readFile DONE  +${Date.now() - t0}ms bytes=${bytes.byteLength}`);
-    const tB64 = Date.now();
-    const pdfBase64 = Buffer.from(bytes).toString('base64');
-    console.log(`[lpdf perf] pdfViewer base64 encode DONE +${Date.now() - t0}ms base64Len=${pdfBase64.length} encodeMs=${Date.now() - tB64}`);
 
-    if (disposed) { return; }
+    // The page can report that it is ready as soon as its HTML is set, which for a large PDF is
+    // before the file has been read. The read starts here and the listener goes in before anything
+    // waits for it, so that message is never missed: the page is sent the PDF once it is both ready and read.
+    const pdfBase64 = readPdfBase64(document.uri, fileBasename, t0);
 
     panel.webview.onDidReceiveMessage((msg: { type: string; level?: string; message?: string; pdfBase64?: string }) => {
       if (msg.type === 'log') {
@@ -58,18 +55,41 @@ export class LpdfPdfViewerProvider implements vscode.CustomReadonlyEditorProvide
         return;
       }
       if (msg.type === 'ready') {
-        const tPost = Date.now();
-        console.log(`[lpdf perf] pdfViewer postMessage START +${tPost - t0}ms (after ready)`);
-        void panel.webview.postMessage({ type: 'updatePdf', pdfBase64, filename: fileBasename, zoom: 'fit', scrollX: 0, scrollY: 0 }).then(() => {
-          console.log(`[lpdf perf] pdfViewer postMessage delivered +${Date.now() - t0}ms postMs=${Date.now() - tPost}`);
-        });
+        void pdfBase64.then(
+          base64 => {
+            if (disposed) { return; }
+            const tPost = Date.now();
+            console.log(`[lpdf perf] pdfViewer postMessage START +${tPost - t0}ms (after ready)`);
+            return panel.webview.postMessage({ type: 'updatePdf', pdfBase64: base64, filename: fileBasename, zoom: 'fit' }).then(() => {
+              console.log(`[lpdf perf] pdfViewer postMessage delivered +${Date.now() - t0}ms postMs=${Date.now() - tPost}`);
+            });
+          },
+          (error: unknown) => {
+            if (disposed) { return; }
+            void panel.webview.postMessage({ type: 'showError', message: `Could not read ${fileBasename}: ${error instanceof Error ? error.message : String(error)}` });
+          },
+        );
         return;
       }
       if (msg.type === 'download' && msg.pdfBase64) {
         void handleDownload(document.uri, msg.pdfBase64);
       }
     });
+
+    // A file that cannot be read is also reported to VS Code, which says so where the editor was to open.
+    await pdfBase64;
   }
+}
+
+/** Reads a PDF as base64, which is how the page receives it. */
+async function readPdfBase64(uri: vscode.Uri, fileBasename: string, t0: number): Promise<string> {
+  console.log(`[lpdf perf] pdfViewer readFile START file=${fileBasename}`);
+  const bytes = await vscode.workspace.fs.readFile(uri);
+  console.log(`[lpdf perf] pdfViewer readFile DONE  +${Date.now() - t0}ms bytes=${bytes.byteLength}`);
+  const tB64 = Date.now();
+  const pdfBase64 = Buffer.from(bytes).toString('base64');
+  console.log(`[lpdf perf] pdfViewer base64 encode DONE +${Date.now() - t0}ms base64Len=${pdfBase64.length} encodeMs=${Date.now() - tB64}`);
+  return pdfBase64;
 }
 
 async function handleDownload(sourceUri: vscode.Uri, pdfBase64: string): Promise<void> {

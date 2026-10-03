@@ -6,6 +6,7 @@ import { renderPdf, LpdfRenderError, cancelRender } from './engine';
 import { loadAssets } from './assets';
 import { getLinkedDataJson } from './data';
 import { documentStem, resolveLpdfDocument } from './utils';
+import { buildViewerHtml } from './viewer-html';
 
 /** Log only when `lpdf.trace` is enabled. Errors are always written via console.error. */
 function trace(...args: unknown[]): void {
@@ -15,21 +16,17 @@ function trace(...args: unknown[]): void {
 }
 
 /**
- * Build the webview HTML for the Lpdf pdf.js viewer, substituting all resource URIs and CSP values.
- * Shared between the XML-preview panel and the direct PDF viewer.
+ * Build the webview HTML for the Lpdf PDF viewer, the PDF.js viewer in `media/viewer/`, substituting
+ * all resource URIs and CSP values. Shared between the XML-preview panel and the direct PDF viewer.
  */
 export function buildWebviewHtml(context: vscode.ExtensionContext, webview: vscode.Webview): string {
-  const mediaUri = vscode.Uri.joinPath(context.extensionUri, 'media');
-  const pdfJsUri  = webview.asWebviewUri(vscode.Uri.joinPath(mediaUri, 'pdf.min.mjs'));
-  const workerUri = webview.asWebviewUri(vscode.Uri.joinPath(mediaUri, 'pdf.worker.min.mjs'));
-  const cspSource = webview.cspSource;
-  const nonce     = randomBytes(16).toString('hex');
-  const htmlPath  = path.join(context.extensionPath, 'media', 'preview.html');
-  return fs.readFileSync(htmlPath, 'utf8')
-    .replace(/__CSP_SOURCE__/g, cspSource)
-    .replace(/__NONCE__/g, nonce)
-    .replace('__PDF_JS_URI__', pdfJsUri.toString())
-    .replace('__WORKER_URI__', workerUri.toString());
+  const viewerDir = vscode.Uri.joinPath(context.extensionUri, 'media', 'viewer');
+  return buildViewerHtml({
+    viewerHtml: fs.readFileSync(path.join(viewerDir.fsPath, 'web', 'viewer.html'), 'utf8'),
+    viewerRoot: webview.asWebviewUri(viewerDir).toString(),
+    cspSource: webview.cspSource,
+    nonce: randomBytes(16).toString('hex'),
+  });
 }
 
 let previewPanel: vscode.WebviewPanel | undefined;
@@ -256,7 +253,7 @@ async function doRender(context: vscode.ExtensionContext, uri: vscode.Uri): Prom
     console.log(`[lpdf perf] base64 encode DONE +${Date.now() - t0}ms gen=${generation} base64Len=${pdfBase64.length} encodeMs=${Date.now() - tB64}`);
     // Only pass zoom/scroll for new files; re-renders of the same file preserve the webview's state.
     const msg: Record<string, unknown> = { type: 'updatePdf', pdfBase64, filename: pdfName };
-    if (isNewFile) { msg.zoom = 'fit'; msg.scrollX = 0; msg.scrollY = 0; }
+    if (isNewFile) { msg.zoom = 'fit'; }
     const tPost = Date.now();
     postToWebview(msg);
     console.log(`[lpdf perf] postToWebview called +${Date.now() - t0}ms gen=${generation} (postMessage queued, not yet delivered)`);

@@ -3,6 +3,7 @@ import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
+import { buildLibraryPageHtml } from './library-page-html';
 
 /** Runs `git show <ref>:<relPath>` and returns the raw stdout bytes as a Buffer. */
 function gitShowBuffer(repoPath: string, relPath: string): Promise<Buffer> {
@@ -34,16 +35,13 @@ interface GitExtension {
 }
 
 function buildDiffWebviewHtml(context: vscode.ExtensionContext, webview: vscode.Webview): string {
-    const mediaUri  = vscode.Uri.joinPath(context.extensionUri, 'media');
-    const pdfJsUri  = webview.asWebviewUri(vscode.Uri.joinPath(mediaUri, 'pdf.min.mjs'));
-    const workerUri = webview.asWebviewUri(vscode.Uri.joinPath(mediaUri, 'pdf.worker.min.mjs'));
-    const nonce     = randomBytes(16).toString('hex');
-    const htmlPath  = path.join(context.extensionPath, 'media', 'pdf-diff.html');
-    return fs.readFileSync(htmlPath, 'utf8')
-        .replace(/__CSP_SOURCE__/g, webview.cspSource)
-        .replace(/__NONCE__/g, nonce)
-        .replace('__PDF_JS_URI__', pdfJsUri.toString())
-        .replace('__WORKER_URI__', workerUri.toString());
+    const viewerDir = vscode.Uri.joinPath(context.extensionUri, 'media', 'viewer');
+    return buildLibraryPageHtml({
+        pageHtml: fs.readFileSync(path.join(context.extensionPath, 'media', 'pdf-diff.html'), 'utf8'),
+        viewerRoot: webview.asWebviewUri(viewerDir).toString(),
+        cspSource: webview.cspSource,
+        nonce: randomBytes(16).toString('hex'),
+    });
 }
 
 export async function diffPdf(context: vscode.ExtensionContext, uri?: vscode.Uri): Promise<void> {

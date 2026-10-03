@@ -4,3 +4,6 @@ dist/
 
 # Generated WASM artifacts (wasm-pack output)
 wasm/
+
+# Screenshots left by the browser suites
+test/browser/.out/
