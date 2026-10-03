@@ -27,6 +27,19 @@ npm run build
 
 The engine files are not MIT licensed. See Part 2 of [LICENSE](LICENSE).
 
+## Tracing
+
+The extension can write a trace of what it does (renders and their timings, messages to and from
+the webviews) to an **Lpdf** channel in the Output panel. It is off for users and has no setting.
+It is on when the extension runs in an Extension Development Host (F5), and when VS Code was
+started with `LPDF_TRACE` set, which also works for an installed `.vsix`:
+
+```powershell
+$env:LPDF_TRACE = '1'; code .
+```
+
+The code writes to it with `trace()` from `src/trace.ts`; errors still go to `console.error`.
+
 ## Tests
 
 ```bash

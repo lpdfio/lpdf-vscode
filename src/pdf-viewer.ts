@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'node:path';
 import { buildWebviewHtml } from './preview';
+import { trace } from './trace';
 
 /**
  * Custom readonly editor provider for `.pdf` files.
@@ -51,7 +52,7 @@ export class LpdfPdfViewerProvider implements vscode.CustomReadonlyEditorProvide
     panel.webview.onDidReceiveMessage((msg: { type: string; level?: string; message?: string; pdfBase64?: string }) => {
       if (msg.type === 'log') {
         if (msg.level === 'error') { console.error('[lpdf pdfViewer]', msg.message); }
-        else { console.log('[lpdf pdfViewer]', msg.message); }
+        else { trace(`pdfViewer webview: ${msg.message}`); }
         return;
       }
       if (msg.type === 'ready') {
@@ -59,9 +60,9 @@ export class LpdfPdfViewerProvider implements vscode.CustomReadonlyEditorProvide
           base64 => {
             if (disposed) { return; }
             const tPost = Date.now();
-            console.log(`[lpdf perf] pdfViewer postMessage START +${tPost - t0}ms (after ready)`);
+            trace(`pdfViewer post +${tPost - t0}ms (after ready)`);
             return panel.webview.postMessage({ type: 'updatePdf', pdfBase64: base64, filename: fileBasename, zoom: 'fit' }).then(() => {
-              console.log(`[lpdf perf] pdfViewer postMessage delivered +${Date.now() - t0}ms postMs=${Date.now() - tPost}`);
+              trace(`pdfViewer delivered +${Date.now() - t0}ms postMs=${Date.now() - tPost}`);
             });
           },
           (error: unknown) => {
@@ -83,12 +84,12 @@ export class LpdfPdfViewerProvider implements vscode.CustomReadonlyEditorProvide
 
 /** Reads a PDF as base64, which is how the page receives it. */
 async function readPdfBase64(uri: vscode.Uri, fileBasename: string, t0: number): Promise<string> {
-  console.log(`[lpdf perf] pdfViewer readFile START file=${fileBasename}`);
+  trace(`pdfViewer read start file=${fileBasename}`);
   const bytes = await vscode.workspace.fs.readFile(uri);
-  console.log(`[lpdf perf] pdfViewer readFile DONE  +${Date.now() - t0}ms bytes=${bytes.byteLength}`);
+  trace(`pdfViewer read done +${Date.now() - t0}ms bytes=${bytes.byteLength}`);
   const tB64 = Date.now();
   const pdfBase64 = Buffer.from(bytes).toString('base64');
-  console.log(`[lpdf perf] pdfViewer base64 encode DONE +${Date.now() - t0}ms base64Len=${pdfBase64.length} encodeMs=${Date.now() - tB64}`);
+  trace(`pdfViewer base64 +${Date.now() - t0}ms base64Len=${pdfBase64.length} encodeMs=${Date.now() - tB64}`);
   return pdfBase64;
 }
 

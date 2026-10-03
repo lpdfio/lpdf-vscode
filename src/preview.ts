@@ -6,14 +6,8 @@ import { renderPdf, LpdfRenderError, cancelRender } from './engine';
 import { loadAssets } from './assets';
 import { getLinkedDataJson } from './data';
 import { documentStem, resolveLpdfDocument } from './utils';
+import { trace } from './trace';
 import { buildViewerHtml } from './viewer-html';
-
-/** Log only when `lpdf.trace` is enabled. Errors are always written via console.error. */
-function trace(...args: unknown[]): void {
-  if (vscode.workspace.getConfiguration('lpdf').get<boolean>('trace', false)) {
-    console.log(...args);
-  }
-}
 
 /**
  * Build the webview HTML for the Lpdf PDF viewer, the PDF.js viewer in `media/viewer/`, substituting
@@ -48,7 +42,7 @@ function postToWebview(msg: Record<string, unknown>): void {
   if (!previewPanel) { return; }
   if (_webviewReady) {
     previewPanel.webview.postMessage(msg).then(
-      () => { trace(`[lpdf] → webview: ${msg.type}`); },
+      () => { trace(`→ webview: ${msg.type}`); },
       (err: unknown) => {
         console.error('[lpdf] postMessage failed:', err);
         vscode.window.showErrorMessage('Lpdf: Failed to communicate with the preview panel. Try reopening it.');
@@ -59,7 +53,7 @@ function postToWebview(msg: Record<string, unknown>): void {
     // showLoading may be replaced by any newer message.
     const isContent = (t: unknown): boolean => t === 'updatePdf' || t === 'showError';
     if (!isContent(_pendingMessage?.type) || isContent(msg.type)) {
-      trace(`[lpdf] webview not ready — queuing: ${msg.type} (replaces: ${_pendingMessage?.type ?? 'none'})`);
+      trace(`webview not ready, queuing: ${msg.type} (replaces: ${_pendingMessage?.type ?? 'none'})`);
       _pendingMessage = msg;
     }
   }
@@ -141,7 +135,7 @@ function ensurePanel(context: vscode.ExtensionContext): void {
 
   const mediaUri = vscode.Uri.joinPath(context.extensionUri, 'media');
   _panelCreatedAt = Date.now();
-  console.log('[lpdf perf] panel created (waiting for webview ready)');
+  trace('panel created, waiting for the webview');
   previewPanel = vscode.window.createWebviewPanel(
     'lpdfPreview',
     'Lpdf Preview',
@@ -156,7 +150,7 @@ function ensurePanel(context: vscode.ExtensionContext): void {
   previewPanel.webview.html = buildWebviewHtml(context, previewPanel.webview);
 
   previewPanel.onDidDispose(() => {
-    trace('[lpdf] preview panel disposed');
+    trace('preview panel disposed');
     cancelRender();
     previewPanel = undefined;
     previewUri = undefined;
@@ -166,23 +160,22 @@ function ensurePanel(context: vscode.ExtensionContext): void {
     _pendingMessage = undefined;
   });
   previewPanel.webview.onDidReceiveMessage(async (msg: { type: string; level?: string; message?: string; pdfBase64?: string }) => {
-    // Relay console messages from the webview to the extension host debug console.
+    // Relay console messages from the webview: errors to the extension host console, the rest to the trace.
     if (msg.type === 'log') {
       if (msg.level === 'error') { console.error('[lpdf webview]', msg.message); }
-      else { console.log('[lpdf webview]', msg.message); }
+      else { trace(`webview: ${msg.message}`); }
       return;
     }
     // Webview signals that its message listener is fully registered.
     if (msg.type === 'ready') {
-      const readyMs = Date.now() - _panelCreatedAt;
-      console.log(`[lpdf perf] webview READY +${readyMs}ms since panel creation (panel→ready gap)`);
+      trace(`webview ready +${Date.now() - _panelCreatedAt}ms after the panel was created`);
       _webviewReady = true;
       if (_pendingMessage && previewPanel) {
         const pending = _pendingMessage;
         _pendingMessage = undefined;
         const tFlush = Date.now();
         previewPanel.webview.postMessage(pending).then(
-          () => { console.log(`[lpdf perf] flushed pending postMessage delivered +${Date.now() - tFlush}ms (type=${pending.type})`); },
+          () => { trace(`flushed ${pending.type} +${Date.now() - tFlush}ms`); },
           (err: unknown) => { console.error('[lpdf] flush postMessage failed:', err); },
         );
       }
@@ -210,17 +203,16 @@ async function doRender(context: vscode.ExtensionContext, uri: vscode.Uri): Prom
   const file = path.basename(uri.fsPath);
   const t0 = Date.now();
 
-  console.log(`[lpdf perf] doRender START gen=${generation} file=${file} isNewFile=${isNewFile} webviewReady=${_webviewReady}`);
-  trace(`[lpdf] doRender start  gen=${generation} file=${file} isNewFile=${isNewFile} webviewReady=${_webviewReady}`);
+  trace(`doRender start gen=${generation} file=${file} isNewFile=${isNewFile} webviewReady=${_webviewReady}`);
 
   const doc = await vscode.workspace.openTextDocument(uri);
-  console.log(`[lpdf perf] openTextDocument done +${Date.now() - t0}ms gen=${generation} xmlBytes=${doc.getText().length}`);
+  const xml = doc.getText();
+  trace(`doRender text opened +${Date.now() - t0}ms gen=${generation} xmlBytes=${xml.length}`);
   if (generation !== renderGeneration || !previewPanel) {
-    trace(`[lpdf] doRender stale after openTextDocument gen=${generation}`);
+    trace(`doRender stale after opening the text gen=${generation}`);
     return;
   }
 
-  const xml   = doc.getText();
   const pdfName = documentStem(uri.fsPath) + '.pdf';
 
   previewPanel.title = `${pdfName} — Preview`;
@@ -233,13 +225,11 @@ async function doRender(context: vscode.ExtensionContext, uri: vscode.Uri): Prom
   try {
     const { assets, warnings } = await loadAssets(xml, uri);
     const tWasm = Date.now();
-    trace(`[lpdf] doRender WASM start gen=${generation}`);
-    console.log(`[lpdf perf] WASM render START +${tWasm - t0}ms gen=${generation}`);
+    trace(`doRender engine start +${tWasm - t0}ms gen=${generation}`);
     const bytes = await renderPdf(xml, jsonData, assets);
-    console.log(`[lpdf perf] WASM render DONE  +${Date.now() - t0}ms gen=${generation} pdfBytes=${bytes.byteLength} wasmMs=${Date.now() - tWasm}`);
-    trace(`[lpdf] doRender WASM done  gen=${generation} bytes=${bytes.byteLength}`);
+    trace(`doRender engine done +${Date.now() - t0}ms gen=${generation} pdfBytes=${bytes.byteLength} engineMs=${Date.now() - tWasm}`);
     if (generation !== renderGeneration || !previewPanel) {
-      trace(`[lpdf] doRender stale after WASM gen=${generation} current=${renderGeneration}`);
+      trace(`doRender stale after the engine gen=${generation} current=${renderGeneration}`);
       return;
     }
     _lastRendered.set(uri.toString(), xml);
@@ -250,21 +240,15 @@ async function doRender(context: vscode.ExtensionContext, uri: vscode.Uri): Prom
     _lastWarnings.set(uri.toString(), warningText);
     const tB64 = Date.now();
     const pdfBase64 = Buffer.from(bytes).toString('base64');
-    console.log(`[lpdf perf] base64 encode DONE +${Date.now() - t0}ms gen=${generation} base64Len=${pdfBase64.length} encodeMs=${Date.now() - tB64}`);
+    trace(`doRender base64 +${Date.now() - t0}ms gen=${generation} base64Len=${pdfBase64.length} encodeMs=${Date.now() - tB64}`);
     // Only pass zoom/scroll for new files; re-renders of the same file preserve the webview's state.
     const msg: Record<string, unknown> = { type: 'updatePdf', pdfBase64, filename: pdfName };
     if (isNewFile) { msg.zoom = 'fit'; }
-    const tPost = Date.now();
     postToWebview(msg);
-    console.log(`[lpdf perf] postToWebview called +${Date.now() - t0}ms gen=${generation} (postMessage queued, not yet delivered)`);
-    // Log when postMessage delivery is confirmed (resolves after the webview ACKs receipt).
-    if (previewPanel && _webviewReady) {
-      void Promise.resolve(previewPanel.webview.postMessage({ type: '__perfAck__', gen: generation, t0 })).catch(() => { /* ignore */ });
-    }
-    void tPost;
+    trace(`doRender posted +${Date.now() - t0}ms gen=${generation}`);
   } catch (e) {
     if (generation !== renderGeneration || !previewPanel) {
-      trace(`[lpdf] doRender stale after error gen=${generation}`);
+      trace(`doRender stale after an error gen=${generation}`);
       return;
     }
     const message = e instanceof LpdfRenderError ? e.message : String(e);

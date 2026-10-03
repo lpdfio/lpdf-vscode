@@ -8,6 +8,7 @@ import { previewPdf, renderForUri, closePreviewWhenSourceCloses } from './previe
 import { exportPdf } from './export';
 import { disposeRenderWorker } from './engine';
 import { LpdfPdfViewerProvider } from './pdf-viewer';
+import { initTrace } from './trace';
 import { diffPdf } from './pdf-diff';
 import {
   getLinkedDataUri,
@@ -199,6 +200,7 @@ async function promptPdfViewerOptIn(context: vscode.ExtensionContext): Promise<v
 // -------------------------------------------------
 
 export function activate(context: vscode.ExtensionContext): void {
+  initTrace(context);
   const xsdPath = path.join(context.extensionPath, 'schema', 'lpdf.xsd');
 
   // Status bar

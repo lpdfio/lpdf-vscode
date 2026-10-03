@@ -56,11 +56,6 @@
     "configuration": {
       "title": "lpdf",
       "properties": {
-        "lpdf.trace": {
-          "type": "boolean",
-          "default": false,
-          "description": "Enable verbose trace logging for lpdf in the extension output channel (useful for debugging)."
-        },
         "lpdf.defaultPdfViewer": {
           "type": "boolean",
           "default": false,
