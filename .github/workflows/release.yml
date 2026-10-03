@@ -61,6 +61,25 @@ jobs:
       - name: Install and build
         run: npm ci && npm run build
 
+      # ── Test ─────────────────────────────────────────────────────────────────
+      # Unit tests, then the browser tests: the viewer and the diff view driven in
+      # the Chrome that the runner image carries (test/browser/support.mjs finds it).
+      - name: Unit tests
+        run: npm test
+
+      - name: Browser tests
+        run: npm run test:browser
+
+      # What the browser suites saw, for working out why one failed.
+      - name: Upload browser test screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-test-screenshots
+          path: test/browser/.out/
+          if-no-files-found: ignore
+          retention-days: 7
+
       # ── Changelog: prepare ───────────────────────────────────────────────────
       # Unlike the SDK adapters, the entry is written BEFORE packaging: the
       # Marketplace's Changelog tab shows the CHANGELOG.md inside the .vsix, so an
@@ -126,7 +145,7 @@ jobs:
           mv CHANGELOG.next CHANGELOG.md
 
       # ── Package and publish ───────────────────────────────────────────────────
-      # No automated tests — add a test step here when a test suite is available.
+      # The tests ran after the build above, before anything was changed for the release.
       - name: Package extension
         run: npx vsce package --out lpdf.vsix
 

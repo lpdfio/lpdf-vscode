@@ -73,6 +73,25 @@ jobs:
       - name: Install and build
         run: npm ci && npm run build
 
+      # ── Test ─────────────────────────────────────────────────────────────────
+      # Unit tests, then the browser tests: the viewer and the diff view driven in
+      # the Chrome that the runner image carries (test/browser/support.mjs finds it).
+      - name: Unit tests
+        run: npm test
+
+      - name: Browser tests
+        run: npm run test:browser
+
+      # What the browser suites saw, for working out why one failed.
+      - name: Upload browser test screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-test-screenshots
+          path: test/browser/.out/
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Package extension
         run: npx vsce package --out lpdf.vsix
 
@@ -101,7 +120,7 @@ jobs:
           {
             echo "### $REPO: release candidate $CORE_TAG"
             echo
-            echo "No automated tests yet. Install lpdf.vsix from this run (\`code --install-extension lpdf.vsix\`), open an example, and check preview and export."
+            echo "The unit and browser tests ran before this package was built, and the job fails if they do not pass. The browser tests drive the viewer and the diff view in Chrome, not in VS Code, so install lpdf.vsix from this run (\`code --install-extension lpdf.vsix\`), open an example, and check preview and export."
             echo
             if [ -z "$LAST" ]; then
               echo "No release tag in this repo yet."
