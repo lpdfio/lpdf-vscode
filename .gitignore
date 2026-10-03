@@ -2,8 +2,8 @@ node_modules/
 dist/
 *.vsix
 
-# Generated WASM artifacts (wasm-pack output)
-wasm/
+# Generated WASM artifacts (wasm-pack output), the engine at the root only: PDF.js has its own media/viewer/web/wasm/
+/wasm/
 
 # Screenshots left by the browser suites
 test/browser/.out/

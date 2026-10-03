@@ -3,7 +3,7 @@
 import { createChecker, fixturePdf, shotPath, startEnvironment, wait } from './support.mjs';
 
 const scheme = process.argv[2] ?? 'dark';
-const outPrefix = `info-${scheme}`;
+const outPrefix = 'info';
 const a = fixturePdf('example10.pdf');
 const b = fixturePdf('example9.pdf');
 const env = await startEnvironment();
