@@ -40,6 +40,25 @@ $env:LPDF_TRACE = '1'; code .
 
 The code writes to it with `trace()` from `src/trace.ts`; errors still go to `console.error`.
 
+## README screenshots
+
+The README's pictures are in `docs/images/`. They are not in the package: `vsce` points the README at
+them on GitHub (`raw/HEAD/docs/images/...`), so they must be on the default branch, in a public
+repository, before a release is published.
+
+Each one is made from a raw screenshot in `docs/images/source/`, taken in VS Code in a dark theme
+(Dark Modern; `light.png` is Light Modern), cropped, and given numbered labels. `docs/images/labels.json`
+says how to crop each and where the labels go, in pixels of the raw screenshot. After replacing a raw
+screenshot or moving a label:
+
+```bash
+npm run docs:images            # all of them, or: npm run docs:images -- diff hover
+```
+
+The numbers on a picture must match the list under it in the README, because text in an image is not
+read out or searched. A full-window screenshot goes the full width of the README; only a tight crop
+is wide enough in half the width to read, and the `<table>` rows with text next to an image use those.
+
 ## Tests
 
 ```bash

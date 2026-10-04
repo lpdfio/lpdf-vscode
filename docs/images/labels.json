@@ -1,0 +1,68 @@
+{
+  "diff": {
+    "source": "diff.png",
+    "crop": { "x": 0, "y": 0, "width": 1458, "height": 570 },
+    "labels": [
+      { "n": 1, "x": 214, "y": 119 },
+      { "n": 2, "x": 996, "y": 119 },
+      { "n": 3, "x": 1060, "y": 208 },
+      { "n": 4, "x": 160, "y": 73 },
+      { "n": 5, "x": 890, "y": 73 },
+      { "n": 6, "x": 1362, "y": 73 }
+    ]
+  },
+  "diff-info": {
+    "source": "diff-info.png",
+    "crop": { "x": 355, "y": 120, "width": 750, "height": 645 },
+    "labels": [
+      { "n": 1, "x": 378, "y": 245 },
+      { "n": 2, "x": 650, "y": 645 }
+    ]
+  },
+  "viewer": {
+    "source": "viewer.png",
+    "labels": [
+      { "n": 1, "x": 322, "y": 300 },
+      { "n": 2, "x": 1032, "y": 165 },
+      { "n": 3, "x": 792, "y": 60 },
+      { "n": 4, "x": 998, "y": 106 },
+      { "n": 5, "x": 1312, "y": 106 }
+    ]
+  },
+  "editor": {
+    "source": "editor.png",
+    "labels": [
+      { "n": 1, "x": 270, "y": 637 },
+      { "n": 2, "x": 800, "y": 730 }
+    ],
+    "crop": { "x": 90, "y": 540, "width": 780, "height": 367 }
+  },
+  "preview": {
+    "source": "preview.png",
+    "labels": [
+      { "n": 1, "x": 704, "y": 98 },
+      { "n": 2, "x": 1085, "y": 28 },
+      { "n": 3, "x": 1322, "y": 79 }
+    ]
+  },
+  "generate": {
+    "source": "generate.png",
+    "crop": { "x": 22, "y": 42, "width": 1467, "height": 940 },
+    "labels": [
+      { "n": 1, "x": 1000, "y": 146 },
+      { "n": 2, "x": 470, "y": 250 },
+      { "n": 3, "x": 1330, "y": 306 }
+    ]
+  },
+  "hover": {
+    "source": "hover.png",
+    "labels": [
+      { "n": 1, "x": 968, "y": 428 }
+    ],
+    "crop": { "x": 180, "y": 340, "width": 830, "height": 450 }
+  },
+  "light": {
+    "source": "light.png",
+    "labels": []
+  }
+}

@@ -1,7 +1,7 @@
 {
   "name": "lpdf",
   "displayName": "Lpdf",
-  "description": "VS Code extension for Lpdf — PDF as Code on every platform. You describe a document as code or XML. Lpdf renders a compact, pixel-perfect PDF — identical across platforms.",
+  "description": "View PDFs, compare modified PDFs with your last commit, and author PDFs in XML. Lpdf: PDF as Code on every platform.",
   "license": "SEE LICENSE IN LICENSE",
   "publisher": "lpdfio",
   "version": "0.0.0",
@@ -28,6 +28,9 @@
   "keywords": [
     "pdf",
     "xml",
+    "pdf viewer",
+    "pdf diff",
+    "pdf compare",
     "pdf preview",
     "pdf export",
     "pdf create",
@@ -122,7 +125,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
-    "test:browser": "vitest run --config vitest.browser.config.ts"
+    "test:browser": "vitest run --config vitest.browser.config.ts",
+    "docs:images": "node scripts/label-screenshots.mjs"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

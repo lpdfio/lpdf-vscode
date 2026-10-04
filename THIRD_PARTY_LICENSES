@@ -59,6 +59,8 @@ folder of the files it covers:
   `LICENSE_QCMS`, `LICENSE_PDFJS_*`).
 - `web/cmaps/`: Adobe CMap resources, BSD-3-Clause (`LICENSE`), for PDFs that use the predefined
   CJK encodings.
+- `web/iccs/`: a colour profile (`CGATS001Compat-v2-micro.icc`) for PDFs that use CMYK colour,
+  dedicated to the public domain under CC0 1.0 (`LICENSE`).
 - `build/` and `web/viewer.mjs`: the legacy build has core-js 3.50.0 bundled into it, MIT, whose
   notice follows.
 

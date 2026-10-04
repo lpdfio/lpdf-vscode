@@ -354,6 +354,26 @@ describe('the viewer folder that ships in the extension', () => {
         expect(source('lpdf-toolbar.mjs')).toMatch(/const MAX_ZOOM_PERCENT = 1000;/);
     });
 
+    it('lists in THIRD_PARTY_LICENSES every folder of the viewer that carries a licence of its own', () => {
+        const thirdParty = fs.readFileSync(path.join(__dirname, '..', 'THIRD_PARTY_LICENSES'), 'utf8');
+        const folders = new Set(listFiles(realViewerDir)
+            .filter(file => /^LICENSE/.test(path.basename(file)) && path.dirname(file) !== '.')
+            .map(file => path.dirname(file)));
+        expect([...folders].length).toBeGreaterThan(0);
+        for (const folder of folders) {
+            expect(thirdParty, `${folder}/ has a licence file but is not in THIRD_PARTY_LICENSES`).toContain(`\`${folder}/\``);
+        }
+    });
+
+    it('credits PDF.js, with its licence, in the README and in THIRD_PARTY_LICENSES', () => {
+        const readme = fs.readFileSync(path.join(__dirname, '..', 'README.md'), 'utf8');
+        const thirdParty = fs.readFileSync(path.join(__dirname, '..', 'THIRD_PARTY_LICENSES'), 'utf8');
+        expect(readme).toMatch(/PDF\.js[^\n]*Apache License 2\.0/);
+        expect(readme).toContain('(THIRD_PARTY_LICENSES)');
+        expect(thirdParty).toContain('Apache License, Version 2.0');
+        expect(fs.existsSync(path.join(realViewerDir, 'LICENSE'))).toBe(true);
+    });
+
     it('has only the English text of the viewer', () => {
         expect(fs.readdirSync(path.join(realViewerDir, 'web', 'locale')).sort()).toEqual(['en-US', 'locale.json']);
     });
