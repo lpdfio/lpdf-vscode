@@ -60,10 +60,15 @@ export function viewerLocations(viewerRoot) {
  * profiles, the standard fonts for the Helvetica, Times and Courier that a PDF may name without
  * embedding, and the WebAssembly decoders for JPEG 2000, JBIG2 and colour management. The full
  * viewer is given the same locations through its own options.
+ *
+ * The page fetches those files, not the worker (`useWorkerFetch: false`). The worker is a blob: worker,
+ * and a request from it to a webview resource can wait for the webview's 30 second resource timeout
+ * before it fails. That made the first page of a PDF that does not embed its fonts take 30 seconds.
  * @param {string} webRoot Address of the `web/` folder, ending in `/`.
  */
 export function documentOptions(webRoot) {
     return {
+        useWorkerFetch: false,
         cMapUrl: `${webRoot}cmaps/`,
         cMapPacked: true,
         iccUrl: `${webRoot}iccs/`,

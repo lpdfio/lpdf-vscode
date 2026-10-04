@@ -48,15 +48,22 @@ The code writes to it with `trace()` from `src/trace.ts`; errors still go to `co
 templates/<id>/template.json   { "label": "...", "description": "...", "fileName": "...", "order": 1 }
 templates/<id>/document.xml    the document, with an <lpdf> root and no schema location
 templates/<id>/document.json   its data, optional; saved next to the new document under its name
+templates/<id>/assets/...      the fonts and images it names, optional; saved next to the new document
+                               under the same relative paths, which is where its `src` values look
 templates/<id>/preview.png     a picture of it, optional; for a gallery later, not shown yet
 ```
 
 To add one, add a folder; nothing else lists them. `label` and `description` are what the list
 shows, `fileName` is the name the save dialog offers (letters, digits, `-` and `_`), and `order`
 sorts the list, lowest first (100 when left out). `npm test` reads every template and renders it with
-the engine, with its data and without, so a template that the engine no longer accepts fails
-the build. Check a new template against the schema in the editor too: the tests do not. The text inside each element is what shows without data, so a template
-should render sensibly on its own.
+the engine, with its fonts, images and data, and without the data, so a template that the engine no
+longer accepts fails the build. Check a new template against the schema in the editor too: the tests do
+not. The text inside each element is what shows without data, so a template should render sensibly on its own.
+
+**The seven that ship are the examples.** They are not written here: `scripts/sync-examples.mjs` in the
+Lpdf repository copies each folder of `examples/` to `templates/<id>/`, with a `.synced-from` file that marks
+it as written by the script. Change an example there and run `make sync-examples`, not the copy; a test
+fails when the two differ. A template folder without that file is yours and the script leaves it alone.
 
 ## README screenshots
 

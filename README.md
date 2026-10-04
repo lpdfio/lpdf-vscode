@@ -55,7 +55,7 @@ Lpdf describes a document in XML, or in code, and renders a compact PDF that is 
 
 ### Start from a template
 
-Run **Lpdf: New Document...**, or choose it under **File > New File...** or on a folder in the Explorer. Pick a template and where to save it: the invoice template writes the XML and its JSON data side by side, and opens the document with its preview beside it. Change a value in the JSON and the preview follows.
+Run **Lpdf: New Document...**, or choose it under **File > New File...** or on a folder in the Explorer. Pick a template and where to save it. The templates are seven documents, from a one-page admission letter to a 117-page book: a résumé, an invoice, a report, an installment contract and a brochure are the others. A template that has data, such as the invoice and the report, writes its JSON beside the XML, and one that has fonts or images writes them to an `assets` folder next to it. The document opens with its preview beside it. Change a value in the JSON and the preview follows.
 
 ### Live preview
 

@@ -8,6 +8,8 @@ import * as path from 'node:path';
  *   templates/<id>/document.xml    the document
  *   templates/<id>/document.json   its data, if it has any; saved next to the new document under its
  *                                  name, where the preview and export find data without a link
+ *   templates/<id>/assets/...      the fonts and images it names, if any; saved next to the new document under
+ *                                  the same relative paths, which is where its <font src> and <image src> look
  *   templates/<id>/preview.png     a picture of it, if there is one; not shown yet
  *
  * Adding a template is adding a folder: nothing else lists them.
@@ -38,12 +40,23 @@ export interface DocumentTemplate {
   dataPath?: string;
   /** A picture of it, if there is one. */
   previewPath?: string;
+  /** The files of its `assets/` folder, if it has one. */
+  assets: TemplateAsset[];
+}
+
+/** One file of a template's `assets/` folder. */
+export interface TemplateAsset {
+  /** Where it goes next to the new document, with `/` between folders: `assets/fonts/Brand.ttf`. */
+  relativePath: string;
+  /** Where it is in the extension. */
+  sourcePath: string;
 }
 
 const MANIFEST = 'template.json';
 const DOCUMENT_XML = 'document.xml';
 const DOCUMENT_DATA = 'document.json';
 const PREVIEW = 'preview.png';
+const ASSETS_FOLDER = 'assets';
 const DEFAULT_ORDER = 100;
 const FILE_NAME = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
 const LPDF_ROOT = /<lpdf[\s>]/;
@@ -102,5 +115,16 @@ function loadTemplate(folder: string): DocumentTemplate {
     id, label, description, fileName, order, xmlPath,
     dataPath: hasData ? dataPath : undefined,
     previewPath: fs.existsSync(previewPath) ? previewPath : undefined,
+    assets: listAssets(path.join(folder, ASSETS_FOLDER), ASSETS_FOLDER),
   };
+}
+
+/** Every file under a template's assets folder, in a stable order; none when it has no such folder. */
+function listAssets(folder: string, relative: string): TemplateAsset[] {
+  if (!fs.existsSync(folder)) { return []; }
+  return fs.readdirSync(folder, { withFileTypes: true })
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .flatMap(entry => entry.isDirectory()
+      ? listAssets(path.join(folder, entry.name), `${relative}/${entry.name}`)
+      : [{ relativePath: `${relative}/${entry.name}`, sourcePath: path.join(folder, entry.name) }]);
 }

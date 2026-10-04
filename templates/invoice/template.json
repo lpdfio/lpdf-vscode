@@ -1,6 +1,6 @@
 {
-  "label": "Invoice with data",
-  "description": "An A4 invoice whose values come from a JSON file next to it",
+  "label": "Invoice",
+  "description": "A two-page invoice filled from JSON: a repeating table, totals, a QR code, and page numbers.",
   "fileName": "invoice",
-  "order": 1
+  "order": 2
 }

@@ -25,6 +25,11 @@ describe('documentOptions', () => {
             iccUrl: 'https://file.example/media/viewer/web/iccs/',
             standardFontDataUrl: 'https://file.example/media/viewer/web/standard_fonts/',
             wasmUrl: 'https://file.example/media/viewer/web/wasm/',
+            useWorkerFetch: false,
         });
+    });
+
+    it('has the page fetch the data files, because a request from the blob worker can wait 30 seconds', () => {
+        expect(documentOptions('https://file.example/media/viewer/web/').useWorkerFetch).toBe(false);
     });
 });

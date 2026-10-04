@@ -23,8 +23,9 @@ export function registerNewDocumentCommand(context: vscode.ExtensionContext): vo
 }
 
 /**
- * Starts a document from a template: the user picks a template and where to save it; the XML, and
- * the template's data next to it, are written there; the XML opens with its preview beside it.
+ * Starts a document from a template: the user picks a template and where to save it; the XML, the
+ * template's data and its fonts and images next to it, are written there; the XML opens with its
+ * preview beside it.
  * @param extensionPath The extension's folder, which holds the templates.
  * @param target The folder the Explorer's context menu was opened on, if it was; the file's folder for a file.
  * @returns The new document, or undefined when nothing was created.
@@ -66,9 +67,26 @@ export async function newDocument(extensionPath: string, target?: vscode.Uri): P
     if (answer !== replace) { return undefined; }
   }
 
+  // The fonts and images go where the XML names them, `assets/...` next to it. A file that is there
+  // already and the same is left alone; one that differs is asked about, as the data is.
+  const assets = await assetsToWrite(template, xmlUri);
+  const differing = assets.filter(asset => asset.differs);
+  if (differing.length > 0) {
+    const replace = 'Replace';
+    const answer = await vscode.window.showWarningMessage(
+      `${differing.length === 1 ? differing[0].relativePath + ' is' : differing.length + ' files in assets/ are'} already there. Replace ${differing.length === 1 ? 'it' : 'them'} with the template's?`,
+      { modal: true, detail: 'The new document names its fonts and images in the assets folder next to it.' },
+      replace,
+    );
+    if (answer !== replace) { return undefined; }
+  }
+
   try {
     await vscode.workspace.fs.writeFile(xmlUri, fs.readFileSync(template.xmlPath));
     if (dataUri && template.dataPath) { await vscode.workspace.fs.writeFile(dataUri, fs.readFileSync(template.dataPath)); }
+    for (const asset of assets) {
+      if (asset.write) { await vscode.workspace.fs.writeFile(asset.uri, fs.readFileSync(asset.sourcePath)); }
+    }
   } catch (error) {
     void vscode.window.showErrorMessage(`Lpdf: could not create ${path.basename(xmlUri.fsPath)}: ${(error as Error).message}`);
     return undefined;
@@ -77,6 +95,37 @@ export async function newDocument(extensionPath: string, target?: vscode.Uri): P
   await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(xmlUri));
   await vscode.commands.executeCommand('lpdf.previewPdf', xmlUri);
   return xmlUri;
+}
+
+interface PlannedAsset {
+  relativePath: string;
+  sourcePath: string;
+  /** Where it is written. */
+  uri: vscode.Uri;
+  /** False when the same file is there already. */
+  write: boolean;
+  /** True when a different file is there. */
+  differs: boolean;
+}
+
+/** Where each of a template's assets goes next to the new document, and whether it needs writing. */
+async function assetsToWrite(template: DocumentTemplate, xmlUri: vscode.Uri): Promise<PlannedAsset[]> {
+  const planned: PlannedAsset[] = [];
+  for (const asset of template.assets) {
+    const uri = vscode.Uri.joinPath(xmlUri, '..', ...asset.relativePath.split('/'));
+    const present = await readIfThere(uri);
+    const same = present !== undefined && Buffer.from(present).equals(fs.readFileSync(asset.sourcePath));
+    planned.push({ ...asset, uri, write: !same, differs: present !== undefined && !same });
+  }
+  return planned;
+}
+
+async function readIfThere(uri: vscode.Uri): Promise<Uint8Array | undefined> {
+  try {
+    return await vscode.workspace.fs.readFile(uri);
+  } catch {
+    return undefined;
+  }
 }
 
 /** The folder the save dialog starts in: the one the Explorer menu was opened on, else the first workspace folder. */

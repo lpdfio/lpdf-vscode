@@ -84,13 +84,84 @@ describe('loadTemplates', () => {
   });
 });
 
+describe('assets', () => {
+  it('lists the files under the assets folder of a template, with the path they go to next to the document', () => {
+    writeTemplate('book', VALID);
+    fs.mkdirSync(path.join(work, 'book', 'assets', 'fonts'), { recursive: true });
+    fs.writeFileSync(path.join(work, 'book', 'assets', 'fonts', 'Face.ttf'), 'f');
+    fs.writeFileSync(path.join(work, 'book', 'assets', 'logo.png'), 'p');
+    const [template] = loadTemplates(work);
+    expect(template.assets.map(asset => asset.relativePath)).toEqual(['assets/fonts/Face.ttf', 'assets/logo.png']);
+    expect(fs.readFileSync(template.assets[0].sourcePath, 'utf8')).toBe('f');
+  });
+
+  it('lists none for a template without an assets folder', () => {
+    writeTemplate('letter', VALID);
+    expect(loadTemplates(work)[0].assets).toEqual([]);
+  });
+});
+
+/** The files a document names with src, outside its comments: relative paths only. */
+function namedFiles(xml: string): string[] {
+  return [...withoutComments(xml).matchAll(/\bsrc="([^"]+)"/g)].map(match => match[1]).filter(src => !/^[a-z]+:|^\//i.test(src));
+}
+
+function withoutComments(xml: string): string {
+  return xml.replace(/<!--[\s\S]*?-->/g, '');
+}
+
+/** A path as the XML writes it, with / between folders. */
+function forwardSlashes(src: string): string {
+  return src.replace(/\\/g, '/');
+}
+
 describe('the templates that ship in the extension', () => {
   const templates = loadTemplates(TEMPLATES_DIR);
 
+  it('are the seven examples, from the letter to the book', () => {
+    expect(templates.map(template => template.id)).toEqual([
+      'admission-letter', 'resume', 'invoice', 'report', 'installment-contract', 'brochure', 'book',
+    ]);
+  });
+
   it('include the invoice with its data', () => {
     const invoice = templates.find(template => template.id === 'invoice');
-    expect(invoice).toMatchObject({ label: 'Invoice with data', fileName: 'invoice' });
+    expect(invoice).toMatchObject({ label: 'Invoice', fileName: 'invoice' });
     expect(invoice?.dataPath).toBeDefined();
+  });
+
+  it('carry every font and image their XML names', () => {
+    for (const template of templates) {
+      const present = new Set(template.assets.map(asset => asset.relativePath));
+      for (const src of namedFiles(fs.readFileSync(template.xmlPath, 'utf8'))) {
+        expect(present.has(forwardSlashes(src)), `${template.id}: ${src}`).toBe(true);
+      }
+    }
+  });
+
+  it('carry the licence of every font they embed', () => {
+    for (const template of templates) {
+      const fonts = template.assets.filter(asset => /\.(ttf|otf)$/i.test(asset.relativePath));
+      for (const font of fonts) {
+        const folder = path.posix.dirname(font.relativePath);
+        const licences = template.assets.filter(asset => path.posix.dirname(asset.relativePath) === folder && /^OFL/i.test(path.posix.basename(asset.relativePath)));
+        expect(licences.length, `${template.id}: no licence text beside ${font.relativePath}`).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  // The examples are the source; this guards the copy in the extension against drifting. The folder is
+  // beside the extension in the repository, and absent where the extension is built from its own checkout.
+  const EXAMPLES_DIR = path.join(__dirname, '..', '..', '..', 'examples');
+  describe.skipIf(!fs.existsSync(EXAMPLES_DIR))('against examples/', () => {
+    it('are the same files as the examples: run node scripts/sync-examples.mjs from the repository root if this fails', () => {
+      for (const folder of fs.readdirSync(EXAMPLES_DIR).filter(name => /^\d+-/.test(name))) {
+        const id = folder.replace(/^\d+-/, '');
+        const template = templates.find(candidate => candidate.id === id);
+        expect(template, `no template for examples/${folder}`).toBeDefined();
+        expect(fs.readFileSync(template!.xmlPath).equals(fs.readFileSync(path.join(EXAMPLES_DIR, folder, 'document.xml'))), `${id}: document.xml`).toBe(true);
+      }
+    });
   });
 
   it('carry no schema location: the extension finds the schema by the <lpdf> root wherever the file is saved', () => {
@@ -104,28 +175,37 @@ describe('the templates that ship in the extension', () => {
     const { LpdfEngine } = createRequire(__filename)(ENGINE) as {
       LpdfEngine: new (key: string) => { render_pdf(xml: string, data?: string | null): Uint8Array; free(): void };
     };
-    const render = (xml: string, data: string | null): Uint8Array => {
-      const engine = new LpdfEngine('');
-      try { return engine.render_pdf(xml, data); } finally { engine.free(); }
+    // A template's fonts and images are registered by the names its <assets> give them, as the extension does.
+    const render = (template: { xmlPath: string; assets: { relativePath: string; sourcePath: string }[] }, data: string | null): Uint8Array => {
+      const xml = fs.readFileSync(template.xmlPath, 'utf8');
+      const engine = new LpdfEngine('') as unknown as {
+        load_font(name: string, bytes: Uint8Array): void; load_image(name: string, bytes: Uint8Array): void;
+        render_pdf(xml: string, data?: string | null): Uint8Array; free(): void;
+      };
+      try {
+        const source = (src: string): string => template.assets.find(asset => asset.relativePath === forwardSlashes(src))!.sourcePath;
+        const body = withoutComments(xml);
+        for (const match of body.matchAll(/<font\s+name="([^"]+)"\s+src="([^"]+)"/g)) { engine.load_font(match[1], fs.readFileSync(source(match[2]))); }
+        for (const match of body.matchAll(/<image\s+name="([^"]+)"\s+src="([^"]+)"/g)) { engine.load_image(match[1], fs.readFileSync(source(match[2]))); }
+        return engine.render_pdf(xml, data);
+      } finally { engine.free(); }
     };
     const pdfHeader = (bytes: Uint8Array): string => Buffer.from(bytes.subarray(0, 5)).toString('latin1');
 
     it.each(templates.map(template => [template.id, template] as const))('%s renders, with its data and without', (_id, template) => {
-      const xml = fs.readFileSync(template.xmlPath, 'utf8');
-      expect(pdfHeader(render(xml, null))).toBe('%PDF-');
+      expect(pdfHeader(render(template, null))).toBe('%PDF-');
       if (template.dataPath) {
-        expect(pdfHeader(render(xml, fs.readFileSync(template.dataPath, 'utf8')))).toBe('%PDF-');
+        expect(pdfHeader(render(template, fs.readFileSync(template.dataPath, 'utf8')))).toBe('%PDF-');
       }
     });
 
     it.each(templates.filter(template => template.dataPath).map(template => [template.id, template] as const))(
       '%s uses its data: a different value gives a different PDF',
       (_id, template) => {
-        const xml = fs.readFileSync(template.xmlPath, 'utf8');
         const data = fs.readFileSync(template.dataPath as string, 'utf8');
         const changed = data.replace(/"([^"]+)"\s*:\s*"([^"]+)"/, '"$1": "$2, changed"');
         expect(changed).not.toBe(data);
-        expect(Buffer.from(render(xml, changed)).equals(Buffer.from(render(xml, data)))).toBe(false);
+        expect(Buffer.from(render(template, changed)).equals(Buffer.from(render(template, data)))).toBe(false);
       },
     );
   });

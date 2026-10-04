@@ -163,7 +163,8 @@ async function showPdf(app, message) {
     current = { pdfBase64: message.pdfBase64, filename: message.filename };
     // The viewer opens a document at this bookmark, in the form it writes into its own links.
     app.initialBookmark = isNewFile || !lastLocation ? null : lastLocation.pdfOpenParams.substring(1);
-    await app.open({ data: base64ToBytes(message.pdfBase64), filename: message.filename });
+    // The open arguments go to PDF.js's getDocument as they are; see documentOptions for why the page fetches its data files.
+    await app.open({ data: base64ToBytes(message.pdfBase64), filename: message.filename, useWorkerFetch: false });
     hideStatus();
 }
 
