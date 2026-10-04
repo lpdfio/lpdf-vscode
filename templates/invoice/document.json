@@ -1,0 +1,48 @@
+{
+  "seller": {
+    "name": "Acme Corp",
+    "street": "123 Business Ave, Suite 4",
+    "city": "San Francisco, CA 94107",
+    "email": "billing@acmecorp.example"
+  },
+  "customer": {
+    "name": "Bright Labs LLC",
+    "street": "456 Client Street",
+    "city": "Austin, TX 78701",
+    "email": "accounts@brightlabs.example"
+  },
+  "invoice": {
+    "number": "INV-1042",
+    "issued": "April 1, 2026",
+    "due": "April 30, 2026",
+    "terms": "Net 30"
+  },
+  "items": [
+    {
+      "description": "Platform license, Pro tier (annual)",
+      "detail": "Unlimited users, SSO, audit logs",
+      "quantity": "1",
+      "unitPrice": "$4,800.00",
+      "amount": "$4,800.00"
+    },
+    {
+      "description": "Implementation and onboarding",
+      "detail": "8 hours at the contracted hourly rate",
+      "quantity": "8",
+      "unitPrice": "$200.00",
+      "amount": "$1,600.00"
+    },
+    {
+      "description": "Priority support add-on (12 months)",
+      "detail": "24/7, with a 4-hour response",
+      "quantity": "1",
+      "unitPrice": "$600.00",
+      "amount": "$600.00"
+    }
+  ],
+  "subtotal": "$7,000.00",
+  "tax": { "label": "Tax (8.625%)", "amount": "$603.75" },
+  "total": "$7,603.75",
+  "payment": "Wire transfer to First National Bank, routing 021000021, account 987654321, reference INV-1042",
+  "notes": "Thank you for your business."
+}

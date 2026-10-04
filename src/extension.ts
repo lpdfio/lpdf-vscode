@@ -4,6 +4,7 @@ import { isLpdfDocument, startSchemaAssociations } from './schema';
 import { LPDF_HEAD_SCAN_BYTES } from './constants';
 import { registerCodegenCommands } from './codegen';
 import { registerHoverProvider } from './hover-provider';
+import { registerNewDocumentCommand } from './new-document';
 import { previewPdf, renderForUri, closePreviewWhenSourceCloses } from './preview';
 import { exportPdf } from './export';
 import { disposeRenderWorker } from './engine';
@@ -261,16 +262,10 @@ export function activate(context: vscode.ExtensionContext): void {
       if (!target) { return; }
       void vscode.commands.executeCommand('vscode.openWith', target, LpdfPdfViewerProvider.viewType);
     }),
-    vscode.commands.registerCommand('lpdf.diffPdf', (arg?: vscode.Uri | { resourceUri: vscode.Uri }) => {
-      // SCM resource state context passes a SourceControlResourceState (with resourceUri),
-      // while explorer context passes a plain Uri directly.
-      const uri = arg instanceof vscode.Uri
-        ? arg
-        : (arg as { resourceUri?: vscode.Uri } | undefined)?.resourceUri;
-      return diffPdf(context, uri);
-    }),
+    vscode.commands.registerCommand('lpdf.diffPdf', (uri?: vscode.Uri) => diffPdf(context, uri)),
   );
   registerCodegenCommands(context);
+  registerNewDocumentCommand(context);
 
   // CodeLens
   context.subscriptions.push(

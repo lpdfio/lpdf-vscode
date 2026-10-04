@@ -1,0 +1,6 @@
+{
+  "label": "Invoice with data",
+  "description": "An A4 invoice whose values come from a JSON file next to it",
+  "fileName": "invoice",
+  "order": 1
+}

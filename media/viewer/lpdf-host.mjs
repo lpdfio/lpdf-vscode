@@ -12,7 +12,7 @@
  *
  * Messages to the extension host:
  *   ready                                 messages can now be received
- *   download   { pdfBase64, filename }    the user asked to save the PDF
+ *   download   { pdfBase64, filename }    the user asked to save the PDF, with any form input in it
  *   log        { level, message }         written to the extension's output
  *
  * What this relies on in the stock viewer. These are internals of PDF.js's `web/viewer.mjs`, not a
@@ -26,6 +26,7 @@
  * The toolbar's own dependencies are listed in lpdf-toolbar.mjs.
  */
 
+import { base64ToBytes, bytesToBase64 } from './lpdf-bytes.mjs';
 import { arrangeToolbar, connectToolbar } from './lpdf-toolbar.mjs';
 import { createWorkerUrl, installMapPolyfill } from './lpdf-pdfjs.mjs';
 
@@ -46,7 +47,7 @@ const statusElement = document.getElementById('lpdf-status');
 /** Where the user was in the document, as the viewer reports it; used to return there after a re-render. */
 let lastLocation;
 
-/** The PDF being shown, kept as base64 so a save does not have to encode it again. */
+/** The PDF being shown, as the extension host sent it: base64 and the file name. */
 let current;
 
 /** Serializes incoming PDFs: the viewer cannot open one while another is still opening. */
@@ -68,13 +69,6 @@ function followEditorTheme() {
     };
     apply();
     new MutationObserver(apply).observe(document.body, { attributes: true, attributeFilter: ['class'] });
-}
-
-function base64ToBytes(base64) {
-    const binary = atob(base64);
-    const bytes = new Uint8Array(binary.length);
-    for (let index = 0; index < binary.length; index++) { bytes[index] = binary.charCodeAt(index); }
-    return bytes;
 }
 
 function showStatus(text, isError) {
@@ -148,9 +142,13 @@ async function startViewer() {
     app.rotatePages = () => {};
     // There is no presentation mode here; this stops Ctrl+Alt+P, which the viewer would still act on.
     app.requestPresentationMode = () => {};
-    // Saving goes through the extension host's save dialog, not a browser download.
-    app.downloadManager.download = () => {
-        if (current) { vscodeApi.postMessage({ type: 'download', ...current }); }
+    // Saving goes through the extension host's save dialog, not a browser download. The viewer passes
+    // the bytes to save: the PDF as it was opened, or, once a form field has been filled in, a copy
+    // with the values in it. Sending the bytes it was opened with instead would lose what was typed.
+    app.downloadManager.download = data => {
+        if (!current) { return; }
+        const pdfBase64 = data instanceof Uint8Array ? bytesToBase64(data) : current.pdfBase64;
+        vscodeApi.postMessage({ type: 'download', pdfBase64, filename: current.filename });
     };
     return app;
 }

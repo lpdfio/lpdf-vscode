@@ -26,6 +26,16 @@ function getExplicitDataUri(
 }
 
 /**
+ * Where an XML file's data is found without being linked: a `.json` file next to it, under the
+ * same name.
+ * @param xmlPath The XML file.
+ * @returns The path of its `.json`.
+ */
+export function sidecarDataPath(xmlPath: string): string {
+  return path.join(path.dirname(xmlPath), path.basename(xmlPath, '.xml') + '.json');
+}
+
+/**
  * Returns the effective linked JSON URI for an XML file.
  * Precedence: explicit workspaceState link > auto-discovered sidecar (<name>.json), unless
  * the user has unlinked the document.
@@ -39,10 +49,7 @@ export function getLinkedDataUri(
   if (context.workspaceState.get<string>(dataKey(xmlUri)) === UNLINKED) { return undefined; }
 
   // Auto-discovery: look for a same-name .json file in the same directory.
-  const jsonPath = path.join(
-    path.dirname(xmlUri.fsPath),
-    path.basename(xmlUri.fsPath, '.xml') + '.json',
-  );
+  const jsonPath = sidecarDataPath(xmlUri.fsPath);
   return fs.existsSync(jsonPath) ? vscode.Uri.file(jsonPath) : undefined;
 }
 

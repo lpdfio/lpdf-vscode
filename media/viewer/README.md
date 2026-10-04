@@ -11,6 +11,7 @@ Lpdf's own files, edited by hand:
 | File | What it does |
 | --- | --- |
 | `lpdf-pdfjs.mjs` | Loads the PDF.js library for every page: the worker as a blob, the Map polyfill, the locations of the fonts, character maps and decoders. |
+| `lpdf-bytes.mjs` | PDF bytes to and from base64, the form in which a PDF travels between the extension host and a page. |
 | `lpdf-host.mjs` | Starts the stock viewer as a read-only viewer and talks to the extension. Lists the viewer internals it relies on. |
 | `lpdf-toolbar.mjs` | The Lpdf header: moves the viewer's controls and adds the zoom field, fit toggle, two-page and cover buttons. Lists the markup it relies on. |
 | `lpdf-theme.css` | The viewer's palette and the icons Lpdf draws, loaded by the full viewer and the diff view so they look alike. A test fails if an upgrade changes a colour it mirrors. |

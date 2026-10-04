@@ -7,6 +7,7 @@ const SUITES: ReadonlyArray<{ name: string; file: string; args?: string[] }> = [
     { name: 'full viewer page', file: 'viewer.mjs' },
     { name: 'full viewer header', file: 'header.mjs' },
     { name: 'full viewer zoom cap', file: 'zoom-cap.mjs' },
+    { name: 'full viewer save, with form input', file: 'save.mjs' },
     { name: 'full viewer page shadow, dark', file: 'page-shadow.mjs', args: ['dark'] },
     { name: 'full viewer page shadow, light', file: 'page-shadow.mjs', args: ['light'] },
     { name: 'diff view, dark', file: 'diff.mjs', args: ['dark'] },

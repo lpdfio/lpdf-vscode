@@ -40,6 +40,24 @@ $env:LPDF_TRACE = '1'; code .
 
 The code writes to it with `trace()` from `src/trace.ts`; errors still go to `console.error`.
 
+## Templates
+
+**Lpdf: New Document...** offers the templates in `templates/`, one folder each:
+
+```
+templates/<id>/template.json   { "label": "...", "description": "...", "fileName": "...", "order": 1 }
+templates/<id>/document.xml    the document, with an <lpdf> root and no schema location
+templates/<id>/document.json   its data, optional; saved next to the new document under its name
+templates/<id>/preview.png     a picture of it, optional; for a gallery later, not shown yet
+```
+
+To add one, add a folder; nothing else lists them. `label` and `description` are what the list
+shows, `fileName` is the name the save dialog offers (letters, digits, `-` and `_`), and `order`
+sorts the list, lowest first (100 when left out). `npm test` reads every template and renders it with
+the engine, with its data and without, so a template that the engine no longer accepts fails
+the build. Check a new template against the schema in the editor too: the tests do not. The text inside each element is what shows without data, so a template
+should render sensibly on its own.
+
 ## README screenshots
 
 The README's pictures are in `docs/images/`. They are not in the package: `vsce` points the README at

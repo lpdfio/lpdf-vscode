@@ -57,7 +57,7 @@
       }
     ],
     "configuration": {
-      "title": "lpdf",
+      "title": "Lpdf",
       "properties": {
         "lpdf.defaultPdfViewer": {
           "type": "boolean",
@@ -68,6 +68,7 @@
       }
     },
     "commands": [
+      { "command": "lpdf.newDocument",    "title": "Lpdf: New Document..." },
       { "command": "lpdf.openPdf",        "title": "Lpdf: View PDF" },
       { "command": "lpdf.previewPdf",     "title": "Lpdf: Preview PDF", "icon": "media/lpdf-mark.svg" },
       { "command": "lpdf.exportPdf",      "title": "Lpdf: Export PDF"  },
@@ -81,14 +82,30 @@
       { "command": "lpdf.diffPdf",        "title": "Lpdf: Compare PDF with HEAD" }
     ],
     "menus": {
+      "file/newFile": [
+        {
+          "command": "lpdf.newDocument",
+          "group": "file"
+        }
+      ],
       "editor/title": [
         {
           "when": "lpdf.isLpdfDocument",
           "command": "lpdf.previewPdf",
           "group": "navigation"
+        },
+        {
+          "when": "resourceExtname == .pdf",
+          "command": "lpdf.diffPdf",
+          "group": "1_lpdf"
         }
       ],
       "explorer/context": [
+        {
+          "when": "explorerResourceIsFolder",
+          "command": "lpdf.newDocument",
+          "group": "2_z_lpdf@0"
+        },
         {
           "when": "resourceExtname == .pdf",
           "command": "lpdf.openPdf",
@@ -113,12 +130,6 @@
           "when": "resourceExtname == .xml",
           "command": "lpdf.generateHere",
           "group": "2_z_lpdf@3"
-        }      ],
-      "scm/resourceState/context": [
-        {
-          "when": "scmResourceGroup == workingTree && resourceExtname == .pdf",
-          "command": "lpdf.diffPdf",
-          "group": "inline"
         }      ]
     }
   },
@@ -130,7 +141,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
-    "@types/vscode": "^1.85.0",
+    "@types/vscode": "~1.95.0",
     "@vscode/vsce": "^2.0.0",
     "happy-dom": "^20.14.5",
     "puppeteer-core": "^24.43.1",

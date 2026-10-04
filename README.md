@@ -20,7 +20,7 @@ Open any `.pdf` file in VS Code: right-click it in the Explorer and select **Lpd
 
 ### Compare PDF with HEAD
 
-See what changed in a modified PDF. Right-click it in the Explorer and select **Lpdf: Compare PDF with HEAD**, or use the button next to a changed PDF in the Source Control view. The version in your last commit and your working copy open side by side. The file needs a committed version in a git repository.
+See what changed in a modified PDF. Right-click it in the Explorer and select **Lpdf: Compare PDF with HEAD**, or choose it from the **...** menu of an open PDF's tab. The version in your last commit and your working copy open side by side. The file needs a committed version in a git repository.
 
 ![Compare PDF with HEAD: the PDF from the last commit on the left and the working copy on the right, with numbered labels explained in the list below](docs/images/diff.png)
 
@@ -52,6 +52,10 @@ The info button opens the two documents' properties, such as size, page count an
 ## Write PDFs in XML
 
 Lpdf describes a document in XML, or in code, and renders a compact PDF that is identical on every platform. This extension is where you author them.
+
+### Start from a template
+
+Run **Lpdf: New Document...**, or choose it under **File > New File...** or on a folder in the Explorer. Pick a template and where to save it: the invoice template writes the XML and its JSON data side by side, and opens the document with its preview beside it. Change a value in the JSON and the preview follows.
 
 ### Live preview
 

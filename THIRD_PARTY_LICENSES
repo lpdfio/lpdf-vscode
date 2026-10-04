@@ -37,9 +37,8 @@ font files are replaced, see below. And in `web/viewer.mjs` the highest zoom, `M
 makes the change. `media/viewer/vendored.json` records the versions, that change and the
 SHA-256 of every file, and `node scripts/vendor-pdfjs.mjs --check` verifies them.
 
-`media/viewer/lpdf-host.mjs`, `lpdf-toolbar.mjs`, `lpdf-pdfjs.mjs`, `lpdf-diff-zoom.mjs`,
-`lpdf-diff-info.mjs` and `lpdf-theme.css` are Lpdf's own code and are covered by the MIT License of
-this extension.
+The files in `media/viewer/` whose names start with `lpdf-` are Lpdf's own code and are covered by
+the MIT License of this extension; `build/`, `web/` and `LICENSE` there are PDF.js's.
 
 The release also contains parts under their own licenses. Each license text is in the
 folder of the files it covers:
