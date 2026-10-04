@@ -5,6 +5,7 @@ import { LPDF_HEAD_SCAN_BYTES } from './constants';
 import { registerCodegenCommands } from './codegen';
 import { registerHoverProvider } from './hover-provider';
 import { registerNewDocumentCommand } from './new-document';
+import { registerPdfDiffPrompt } from './pdf-diff-prompt';
 import { previewPdf, renderForUri, closePreviewWhenSourceCloses } from './preview';
 import { exportPdf } from './export';
 import { disposeRenderWorker } from './engine';
@@ -266,6 +267,7 @@ export function activate(context: vscode.ExtensionContext): void {
   );
   registerCodegenCommands(context);
   registerNewDocumentCommand(context);
+  registerPdfDiffPrompt(context);
 
   // CodeLens
   context.subscriptions.push(

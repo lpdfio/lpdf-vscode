@@ -44,7 +44,8 @@
     "Other"
   ],
   "activationEvents": [
-    "onLanguage:xml"
+    "onLanguage:xml",
+    "workspaceContains:**/*.pdf"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -64,6 +65,12 @@
           "default": false,
           "scope": "application",
           "description": "Use the Lpdf viewer as the default viewer for PDF files. When enabled, clicking a .pdf file opens it in the Lpdf PDF viewer instead of VS Code's default binary viewer."
+        },
+        "lpdf.promptPdfDiff": {
+          "type": "boolean",
+          "default": true,
+          "scope": "application",
+          "description": "When a changed PDF opens as a text diff, for example from the Source Control view, offer to open it in the Lpdf visual diff instead."
         }
       }
     },

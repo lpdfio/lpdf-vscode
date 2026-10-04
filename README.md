@@ -20,7 +20,7 @@ Open any `.pdf` file in VS Code: right-click it in the Explorer and select **Lpd
 
 ### Compare PDF with HEAD
 
-See what changed in a modified PDF. Right-click it in the Explorer and select **Lpdf: Compare PDF with HEAD**, or choose it from the **...** menu of an open PDF's tab. The version in your last commit and your working copy open side by side. The file needs a committed version in a git repository.
+See what changed in a modified PDF. Right-click it in the Explorer and select **Lpdf: Compare PDF with HEAD**, or choose it from the **...** menu of an open PDF's tab. Click a changed PDF in the Source Control view and Lpdf offers to open it this way instead of as a text diff (switch the offer off with the `lpdf.promptPdfDiff` setting). The version in your last commit and your working copy open side by side. The file needs a committed version in a git repository.
 
 ![Compare PDF with HEAD: the PDF from the last commit on the left and the working copy on the right, with numbered labels explained in the list below](docs/images/diff.png)
 
