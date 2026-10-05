@@ -10,8 +10,12 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
+    # The Azure federated credential is bound to this environment name, so the
+    # job must declare it to get a token (Lpdf-vscode-publish.md).
+    environment: vscode-marketplace
     permissions:
       contents: write
+      id-token: write
     steps:
       - uses: actions/checkout@v4
 
@@ -161,9 +165,19 @@ jobs:
       # Release only, so that path can be verified before the first public
       # Marketplace listing (Lpdf-vscode-publish.md). Re-enable by deleting
       # the `if: false` line.
+      # No stored token: GitHub's OIDC token is exchanged for a short-lived Azure
+      # one by the managed identity lpdf-vscode-publisher, which is a Contributor
+      # on the lpdfio publisher. Runs ungated so the dry run proves the login.
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          allow-no-subscriptions: true
+
       - name: Publish to VS Code Marketplace
         if: false
-        run: npx vsce publish --pat "${{ secrets.VSCE_PAT }}" --packagePath lpdf.vsix
+        run: npx vsce publish --packagePath lpdf.vsix --azure-credential
 
       # ── Changelog: commit ────────────────────────────────────────────────────
       # Writes the prepared entry onto main. Runs after publish, and before the
