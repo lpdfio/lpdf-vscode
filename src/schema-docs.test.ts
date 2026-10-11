@@ -107,8 +107,8 @@ describe('buildSchemaDocs', () => {
         expect(element('divider').children).toEqual([]);
     });
 
-    it('lists each child of section once, though the schema names each twice, once for each order', () => {
-        expect(element('section').children.map(child => child.name)).toEqual(['layout', 'canvas']);
+    it('lists each child of section once, though the schema names layout and canvas twice, once for each order', () => {
+        expect(element('section').children.map(child => child.name)).toEqual(['bookmark', 'layout', 'canvas']);
     });
 
     it('keeps layout and canvas inside a section: document holds only meta and sections', () => {
