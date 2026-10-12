@@ -1,5 +1,8 @@
 # Changelog
 
+## v0.25.1 — 2026-10-12
+- The extension is no longer marked as Preview on the Marketplace
+
 ## v0.25.0 (core) — 2026-10-11
 ### Documents
 - Bookmarks: `<bookmark>` adds an entry to the PDF's outline, the viewer's bookmark panel, nested by `level` (1 to 6). It marks the element that follows it, and directly inside a section it marks the section's first page
