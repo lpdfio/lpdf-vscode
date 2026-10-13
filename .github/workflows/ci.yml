@@ -106,6 +106,12 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-      # ── Package (validates the extension bundles cleanly) ────────────────────
+      # ── Package, then test the package ───────────────────────────────────────
+      # The tests above run on the source tree. The smoke test runs on lpdf.vsix:
+      # the files the extension loads are in it, and every template renders
+      # through the packaged engine (test/vsix/smoke.mjs).
       - name: Package extension
         run: npx vsce package --out lpdf.vsix
+
+      - name: Smoke-test the package
+        run: npm run test:vsix

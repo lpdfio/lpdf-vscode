@@ -7,8 +7,15 @@ run-name: "RC ${{ github.event.client_payload.version }}: build and package, no 
 # Marketplace, no tag, no changelog, no GitHub Release, and no publishing
 # secret is used. release.yml stays the only path to the Marketplace.
 #
-# The extension has no automated tests yet, so this run only proves it builds
-# and packages. Install the .vsix and check preview and export by hand.
+# What it tests: the unit tests, and the browser tests, which drive the viewer
+# and the diff view in Chrome, run on the source tree before packaging. Then the
+# smoke test (test/vsix/smoke.mjs) runs on the .vsix itself: the files the
+# extension loads are in it, and every template renders through the packaged
+# engine to a PDF that the packaged PDF.js opens. A failure in any of them fails
+# the run, and no .vsix is kept.
+#
+# What is still checked by hand: the extension inside VS Code. Install the .vsix
+# (`make rc-vsix` in lpdfio/lpdf), open an example, and look at preview and export.
 
 on:
   repository_dispatch:
@@ -108,6 +115,10 @@ jobs:
       - name: Package extension
         run: npx vsce package --out lpdf.vsix
 
+      # Before the upload, so a .vsix that fails it is never offered for the check by hand.
+      - name: Smoke-test the package
+        run: npm run test:vsix
+
       - name: Upload .vsix
         uses: actions/upload-artifact@v4
         with:
@@ -133,7 +144,7 @@ jobs:
           {
             echo "### $REPO: release candidate $CORE_TAG"
             echo
-            echo "The unit and browser tests ran before this package was built, and the job fails if they do not pass. The browser tests drive the viewer and the diff view in Chrome, not in VS Code, so install lpdf.vsix from this run (\`code --install-extension lpdf.vsix\`), open an example, and check preview and export."
+            echo "Automated: the unit and browser tests on the source tree, then the smoke test on lpdf.vsix (the files the extension loads, and every template rendered by the packaged engine). The job fails if any of them fails. None of them runs VS Code, so install lpdf.vsix from this run (\`code --install-extension lpdf.vsix\`), open an example, and check preview and export."
             echo
             if [ -z "$LAST" ]; then
               echo "No release tag in this repo yet."

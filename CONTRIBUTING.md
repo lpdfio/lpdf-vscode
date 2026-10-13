@@ -95,6 +95,7 @@ is wide enough in half the width to read, and the `<table>` rows with text next 
 ```bash
 npm test                 # unit tests (Vitest): fast, no browser
 npm run test:browser     # the viewer and the diff view in a real browser
+npm run test:vsix        # the packaged lpdf.vsix: run npx vsce package --out lpdf.vsix first
 ```
 
 The browser tests are in `test/browser/`. They serve the pages the way a VS Code webview gets
@@ -107,7 +108,17 @@ browser: Edge or Chrome is found on the usual paths, or set `BROWSER_EXE` to one
 To run one suite, `node test/browser/diff.mjs dark`. The suites for the themes take `dark` or
 `light`; those for display scaling take `2` or `3`.
 
-CI runs both on every push and pull request, and before a release package is built.
+The smoke test, `test/vsix/smoke.mjs`, checks the package rather than the source tree. It unpacks
+the `.vsix` into a temporary folder, checks that the files the extension loads are in it (the engine
+and its worker, the schema, and every file git has under `media/` and `templates/`), and renders each
+template through the packaged `dist/engine.js`, opening the PDF with the packaged PDF.js. It catches a
+`.vscodeignore` rule that leaves out something the extension needs, and a path that works only in the
+repository. It takes a `.vsix` path, `lpdf.vsix` when none is given.
+
+CI runs the unit and browser tests on every push and pull request, and before a release package is
+built. CI and the release candidate run also smoke-test the package they build. None of these runs
+VS Code itself, so before a release the release candidate's `.vsix` is installed and its preview and
+export are checked by hand.
 
 ## Upgrading PDF.js
 
