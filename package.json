@@ -143,6 +143,7 @@
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
     "test:browser": "vitest run --config vitest.browser.config.ts",
+    "test:vsix": "node test/vsix/smoke.mjs",
     "docs:images": "node scripts/label-screenshots.mjs"
   },
   "devDependencies": {
