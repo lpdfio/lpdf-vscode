@@ -71,7 +71,7 @@ jobs:
       # ── Build ────────────────────────────────────────────────────────────────
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
 
       - name: Set version in package.json
         run: npm version "$VERSION" --no-git-tag-version --allow-same-version
