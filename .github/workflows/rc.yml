@@ -28,7 +28,7 @@ jobs:
   rc:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0   # full history and tags, for "Unreleased commits"
 
@@ -86,7 +86,7 @@ jobs:
       # ── Build and package ────────────────────────────────────────────────────
       # The package.json version stays the repo's placeholder: this .vsix is for
       # installing by hand, never for the Marketplace.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: '24'
 
@@ -105,7 +105,7 @@ jobs:
       # What the browser suites saw, for working out why one failed.
       - name: Upload browser test screenshots
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: browser-test-screenshots
           path: test/browser/.out/
@@ -120,7 +120,7 @@ jobs:
         run: npm run test:vsix
 
       - name: Upload .vsix
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: lpdf-${{ env.CORE_TAG }}
           path: lpdf.vsix

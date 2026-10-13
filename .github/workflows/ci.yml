@@ -16,11 +16,11 @@ jobs:
     steps:
       # Full history: on a shallow clone, fetch-tags only brings tags that
       # point at the checked-out commit, so the adapter tag resolves to none.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: '24'
 
@@ -99,7 +99,7 @@ jobs:
       # What the browser suites saw, for working out why one failed.
       - name: Upload browser test screenshots
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: browser-test-screenshots
           path: test/browser/.out/

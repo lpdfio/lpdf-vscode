@@ -17,7 +17,7 @@ jobs:
       contents: write
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # ── Resolve version ──────────────────────────────────────────────────────
       - name: Resolve version
@@ -69,7 +69,7 @@ jobs:
             || { echo "::error::Could not download schema/lpdf.xsd at core $CORE_TAG"; exit 1; }
 
       # ── Build ────────────────────────────────────────────────────────────────
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: '24'
 
@@ -91,7 +91,7 @@ jobs:
       # What the browser suites saw, for working out why one failed.
       - name: Upload browser test screenshots
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: browser-test-screenshots
           path: test/browser/.out/
@@ -170,7 +170,7 @@ jobs:
       # Kept on the run so the packaged CHANGELOG.md — what the Marketplace's
       # Changelog tab will show — can be checked, and the build installed by hand.
       - name: Upload .vsix
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: lpdf-${{ env.VERSION }}
           path: lpdf.vsix
@@ -179,7 +179,7 @@ jobs:
       # one by the managed identity lpdf-vscode-publisher, which is a Contributor
       # on the lpdfio publisher.
       - name: Log in to Azure
-        uses: azure/login@v2
+        uses: azure/login@v3
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
@@ -196,7 +196,7 @@ jobs:
       # mint it.
       - name: Mint GitHub App token
         id: app-token
-        uses: actions/create-github-app-token@v1
+        uses: actions/create-github-app-token@v3
         with:
           app-id: ${{ vars.LPDF_RELEASE_APP_ID }}
           private-key: ${{ secrets.LPDF_RELEASE_APP_PRIVATE_KEY }}
