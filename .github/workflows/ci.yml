@@ -66,7 +66,23 @@ jobs:
             fi
             echo "Falling back to newest core release with assets: $FALLBACK_TAG"
             download "$FALLBACK_TAG"
+            CORE_TAG=$FALLBACK_TAG
           fi
+          echo "CORE_TAG=$CORE_TAG" >> "$GITHUB_ENV"
+
+      # ── Download the schema ──────────────────────────────────────────────────
+      # schema/lpdf.xsd is not committed: it comes from the core tag the engine
+      # came from, so the unit tests and the package use the schema of that
+      # engine. It is in core's tree at the tag, not among the release assets.
+      - name: Download schema
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p schema
+          gh api -H "Accept: application/vnd.github.raw+json" \
+            "repos/lpdfio/lpdf/contents/schema/lpdf.xsd?ref=$CORE_TAG" > schema/lpdf.xsd \
+            || { echo "::error::Could not download schema/lpdf.xsd at core $CORE_TAG"; exit 1; }
+          echo "Schema from core $CORE_TAG"
 
       - name: Install and build
         run: npm ci && npm run build
