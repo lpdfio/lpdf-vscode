@@ -63,6 +63,19 @@ jobs:
             exit 1
           fi
 
+      # ── Download the schema at the RC tag ────────────────────────────────────
+      # schema/lpdf.xsd is not committed: like the engine, it comes from the RC
+      # tag, so the .vsix validates documents against the schema this engine
+      # reads. It is in core's tree at the tag, not among the release assets.
+      - name: Download schema
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p schema
+          gh api -H "Accept: application/vnd.github.raw+json" \
+            "repos/lpdfio/lpdf/contents/schema/lpdf.xsd?ref=$CORE_TAG" > schema/lpdf.xsd \
+            || { echo "::error::Could not download schema/lpdf.xsd at core RC $CORE_TAG"; exit 1; }
+
       # ── Build and package ────────────────────────────────────────────────────
       # The package.json version stays the repo's placeholder: this .vsix is for
       # installing by hand, never for the Marketplace.

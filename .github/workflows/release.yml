@@ -54,6 +54,20 @@ jobs:
             exit 1
           fi
 
+      # ── Download the schema at the core tag ──────────────────────────────────
+      # schema/lpdf.xsd is not committed: like the engine, it comes from
+      # CORE_TAG, so the published extension validates documents against the
+      # schema its engine reads. It is in core's tree at the tag, not among the
+      # release assets.
+      - name: Download schema
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p schema
+          gh api -H "Accept: application/vnd.github.raw+json" \
+            "repos/lpdfio/lpdf/contents/schema/lpdf.xsd?ref=$CORE_TAG" > schema/lpdf.xsd \
+            || { echo "::error::Could not download schema/lpdf.xsd at core $CORE_TAG"; exit 1; }
+
       # ── Build ────────────────────────────────────────────────────────────────
       - uses: actions/setup-node@v4
         with:

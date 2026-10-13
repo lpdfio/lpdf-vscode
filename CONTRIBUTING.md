@@ -13,14 +13,20 @@ tracker for the engine, the SDKs and this extension.
 ## Building it yourself
 
 The extension code is MIT licensed, so you can build and modify your own copy.
-The Lpdf engine is not in this repository. Download it from the Lpdf releases
-into `wasm/`, then build:
+The Lpdf engine is not in this repository, and neither is the schema the editor
+checks documents against. Take both from the same Lpdf release, the engine into
+`wasm/` and the schema into `schema/`, then build:
 
 ```bash
-gh release download --repo lpdfio/lpdf --pattern lpdf.js --pattern lpdf_bg.wasm --dir wasm
+TAG=$(gh release view --repo lpdfio/lpdf --json tagName -q .tagName)
+gh release download "$TAG" --repo lpdfio/lpdf --pattern lpdf.js --pattern lpdf_bg.wasm --dir wasm
+mkdir -p schema
+gh api -H "Accept: application/vnd.github.raw+json" "repos/lpdfio/lpdf/contents/schema/lpdf.xsd?ref=$TAG" > schema/lpdf.xsd
 npm install
 npm run build
 ```
+
+`npm test` reads the schema too.
 
 `npx vsce package` builds `lpdf.vsix`, which you can install with
 **Extensions: Install from VSIX...**.
