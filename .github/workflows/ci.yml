@@ -22,7 +22,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
 
       # ── Download wasm-pack artifacts ─────────────────────────────────────────
       # Derives the core tag from the latest semver git tag in this repo
