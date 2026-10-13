@@ -170,9 +170,21 @@ function readAssets(xml, folder) {
 /**
  * Imports the packaged PDF.js. In Node it warns, as it loads, that it has no canvas to draw with;
  * nothing here draws, so those two warnings are left out of the output.
+ *
+ * PDF.js calls `Promise.withResolvers`, which every VS Code the extension supports has, but Node has
+ * only from version 22, and CI runs Node 20. So it is filled in here when missing.
  * @param {string} extension The unpacked extension's folder.
  */
 async function importPdfjs(extension) {
+    Promise.withResolvers ??= function () {
+        let resolve;
+        let reject;
+        const promise = new this((resolvePromise, rejectPromise) => {
+            resolve = resolvePromise;
+            reject = rejectPromise;
+        });
+        return { promise, resolve, reject };
+    };
     const build = path.join(extension, 'media', 'viewer', 'build');
     const warn = console.warn;
     console.warn = (...args) => {
