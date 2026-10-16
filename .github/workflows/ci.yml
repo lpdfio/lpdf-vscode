@@ -14,59 +14,47 @@ jobs:
     permissions:
       contents: read
     steps:
-      # Full history: on a shallow clone, fetch-tags only brings tags that
-      # point at the checked-out commit, so the adapter tag resolves to none.
       - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
 
       - uses: actions/setup-node@v5
         with:
           node-version: '24'
 
       # ── Download wasm-pack artifacts ─────────────────────────────────────────
-      # Derives the core tag from the latest semver git tag in this repo
-      # (strip patch → .0).  Falls back to the newest core release that has
-      # its assets when no adapter tag exists yet or the derived tag fails.
+      # The newest core release that has its engine files, pre-releases included,
+      # as in the SDKs. `main` is built against the engine it will ship with, and
+      # between a core RC and its final release that engine is the RC: a format
+      # change reaches this repo before the release that carries it, so building
+      # against the core of the last extension release fails for that whole
+      # window. rc.yml and release.yml stay pinned to the tag they ship.
+      # Not simply the newest release: core publishes a release a few minutes
+      # before the build uploads its assets, and it is empty during that window.
       - name: Download wasm artifacts
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           mkdir -p wasm
-          ADAPTER_TAG=$(git tag --sort=-version:refname | grep -E '^v[0-9]' | head -1)
-          CORE_TAG=$(echo "${ADAPTER_TAG:-v0.0.0}" | sed 's/\.[0-9]*$/.0/')
-          echo "Resolved adapter tag: ${ADAPTER_TAG:-<none>}"
+          CORE_TAG=$(gh api repos/lpdfio/lpdf/releases \
+            --jq '[.[] | select((.draft | not) and any(.assets[]; .name == "lpdf_bg.wasm"))][0].tag_name // empty')
+          if [ -z "$CORE_TAG" ]; then
+            echo "::error::No lpdfio/lpdf release has lpdf.js / lpdf_bg.wasm"
+            exit 1
+          fi
           echo "Resolved core tag: $CORE_TAG"
 
-          download() {
-            gh release download "$1" \
+          for attempt in 1 2 3; do
+            gh release download "$CORE_TAG" \
               --repo lpdfio/lpdf \
               --pattern "lpdf.js" \
               --pattern "lpdf_bg.wasm" \
               --dir wasm \
-              --clobber
-          }
-
-          if [ "$CORE_TAG" != "v0.0.0" ]; then
-            for attempt in 1 2 3; do
-              download "$CORE_TAG" && break
-              echo "Attempt $attempt failed — retrying in 10s..."
-              sleep 10
-            done
-          fi
-
-          # Not `latest`: core publishes its release a few minutes before the
-          # build uploads the assets, and `latest` is empty during that window.
+              --clobber && break
+            echo "Attempt $attempt failed — retrying in 10s..."
+            sleep 10
+          done
           if [ ! -f wasm/lpdf.js ]; then
-            FALLBACK_TAG=$(gh api repos/lpdfio/lpdf/releases \
-              --jq '[.[] | select(((.draft or .prerelease) | not) and any(.assets[]; .name == "lpdf_bg.wasm"))][0].tag_name // empty')
-            if [ -z "$FALLBACK_TAG" ]; then
-              echo "::error::No lpdfio/lpdf release has lpdf.js / lpdf_bg.wasm"
-              exit 1
-            fi
-            echo "Falling back to newest core release with assets: $FALLBACK_TAG"
-            download "$FALLBACK_TAG"
-            CORE_TAG=$FALLBACK_TAG
+            echo "::error::Could not download the engine files from core $CORE_TAG"
+            exit 1
           fi
           echo "CORE_TAG=$CORE_TAG" >> "$GITHUB_ENV"
 
