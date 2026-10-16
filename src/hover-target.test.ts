@@ -5,10 +5,10 @@ const SCOPES = ['canvas', 'layout', 'tokens'];
 
 const TEXT = [
     '<lpdf version="1">',
-    '  <!-- <stack gap="m"> in a comment -->',
+    '  <!-- <column gap="m"> in a comment -->',
     '  <document size="a4">',
     '    <section>',
-    '      <layout><stack gap="m"><text>hello</text></stack></layout>',
+    '      <layout><column gap="m"><text>hello</text></column></layout>',
     '      <canvas><layer><text x="1pt">t</text></layer></canvas>',
     '    </section>',
     '  </document>',
@@ -26,22 +26,22 @@ function offsetOf(needle: string, nth = 0, into = 0): number {
 
 describe('locateHoverTarget', () => {
     it('finds an element name, with the range of the name', () => {
-        // The stack in the layout, not the one in the comment.
-        const at = offsetOf('<stack', 1, 2);
+        // The column in the layout, not the one in the comment.
+        const at = offsetOf('<column', 1, 2);
         const target = locateHoverTarget(TEXT, at, SCOPES);
-        expect(target?.element).toBe('stack');
+        expect(target?.element).toBe('column');
         expect(target?.attribute).toBeUndefined();
-        expect(TEXT.slice(target!.start, target!.end)).toBe('stack');
+        expect(TEXT.slice(target!.start, target!.end)).toBe('column');
     });
 
     it('finds the attribute name and its element', () => {
         const target = locateHoverTarget(TEXT, offsetOf('gap', 1, 1), SCOPES);
-        expect(target).toMatchObject({ element: 'stack', attribute: 'gap' });
+        expect(target).toMatchObject({ element: 'column', attribute: 'gap' });
         expect(TEXT.slice(target!.start, target!.end)).toBe('gap');
     });
 
     it('finds the name in a closing tag', () => {
-        expect(locateHoverTarget(TEXT, offsetOf('</stack', 0, 3), SCOPES)).toMatchObject({ element: 'stack' });
+        expect(locateHoverTarget(TEXT, offsetOf('</column', 0, 3), SCOPES)).toMatchObject({ element: 'column' });
     });
 
     it('finds an attribute after another', () => {
@@ -59,7 +59,7 @@ describe('locateHoverTarget', () => {
     });
 
     it('ends a scope at its closing tag', () => {
-        const text = '<layout><stack/></layout><text/>';
+        const text = '<layout><column/></layout><text/>';
         expect(locateHoverTarget(text, text.lastIndexOf('text') + 1, SCOPES)?.scope).toBeUndefined();
     });
 
@@ -82,17 +82,17 @@ describe('locateHoverTarget', () => {
     });
 
     it('finds nothing inside a comment', () => {
-        expect(locateHoverTarget(TEXT, offsetOf('<stack', 0, 2), SCOPES)).toBeUndefined();
+        expect(locateHoverTarget(TEXT, offsetOf('<column', 0, 2), SCOPES)).toBeUndefined();
         expect(locateHoverTarget(TEXT, offsetOf('in a comment', 0, 3), SCOPES)).toBeUndefined();
     });
 
     it('finds nothing in a tag that is still being typed', () => {
-        const text = '<stack gap="m" pad';
+        const text = '<column gap="m" pad';
         expect(locateHoverTarget(text, 2, SCOPES)).toBeUndefined();
     });
 
     it('finds nothing on the character after a tag ends', () => {
-        const text = '<stack>x';
+        const text = '<column>x';
         expect(locateHoverTarget(text, text.length - 1, SCOPES)).toBeUndefined();
     });
 

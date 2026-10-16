@@ -20,13 +20,13 @@ function attributeHover(elementName: string, attributeName: string): string {
 
 describe('formatElementHover', () => {
     it('writes the signature in an xml code block', () => {
-        const hover = elementHover('stack');
-        expect(hover.startsWith('```xml\n<stack\n')).toBe(true);
+        const hover = elementHover('column');
+        expect(hover.startsWith('```xml\n<column\n')).toBe(true);
         expect(hover).toContain('    align="start|center|end|stretch"\n');
     });
 
     it('names the type where a length can be written, since the values alone would mislead', () => {
-        expect(elementHover('stack')).toContain('    gap="TokenScaleOrPt"\n');
+        expect(elementHover('column')).toContain('    gap="TokenScaleOrPt"\n');
     });
 
     it('names the type where the values are too many to list', () => {
@@ -48,13 +48,13 @@ describe('formatElementHover', () => {
     });
 
     it('collapses data binding attributes to a line under the signature', () => {
-        const hover = elementHover('stack');
+        const hover = elementHover('column');
         expect(hover).toContain('Data binding: `data-value`, `data-source`, `data-if`, `data-if-not`');
         expect(hover).not.toContain('data-value="');
     });
 
     it('says what a container holds', () => {
-        expect(elementHover('stack')).toContain('Contains: layout elements');
+        expect(elementHover('column')).toContain('Contains: layout elements');
         expect(elementHover('frame')).toContain('Contains: one layout element');
         expect(elementHover('table')).toContain('Contains: `<thead>`, `<tr>`');
         expect(elementHover('layer', 'canvas')).toContain('Contains: canvas shapes');
@@ -76,7 +76,7 @@ describe('formatElementHover', () => {
 
 describe('formatAttributeHover', () => {
     it('shows the type, its values and how to write others', () => {
-        const hover = attributeHover('stack', 'gap');
+        const hover = attributeHover('column', 'gap');
         expect(hover).toContain('**`gap`** · `TokenScaleOrPt`');
         expect(hover).toContain('`xs` | `s` | `m` | `l` | `xl` | `xxl`');
         expect(hover).toContain('token name or explicit pt value');
@@ -97,6 +97,6 @@ describe('formatAttributeHover', () => {
     });
 
     it('is one line for a plain string', () => {
-        expect(attributeHover('stack', 'font')).toBe('**`font`** · `string`');
+        expect(attributeHover('column', 'font')).toBe('**`font`** · `string`');
     });
 });

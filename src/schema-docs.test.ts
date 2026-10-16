@@ -24,7 +24,7 @@ function attribute(elementName: string, attributeName: string, scope?: string) {
 
 describe('buildSchemaDocs', () => {
     it('gives an attribute the values of its enumerated type', () => {
-        const gap = attribute('stack', 'gap');
+        const gap = attribute('column', 'gap');
         expect(gap.type.name).toBe('TokenScaleOrPt');
         expect(gap.type.values).toEqual(['xs', 's', 'm', 'l', 'xl', 'xxl']);
         expect(gap.type.open).toBe(true);
@@ -33,11 +33,11 @@ describe('buildSchemaDocs', () => {
 
     it('resolves a type declared after the first place it is used', () => {
         // HeightValue is a union with HeightMode, which the schema declares below it.
-        expect(attribute('stack', 'height').type.values).toEqual(['full', 'fill']);
+        expect(attribute('column', 'height').type.values).toEqual(['full', 'fill']);
     });
 
     it('leaves the hint off a type that is only an enumeration', () => {
-        const align = attribute('stack', 'align');
+        const align = attribute('column', 'align');
         expect(align.type.values).toEqual(['start', 'center', 'end', 'stretch']);
         expect(align.type.open).toBe(false);
         expect(align.type.hint).toBeUndefined();
@@ -50,7 +50,7 @@ describe('buildSchemaDocs', () => {
     });
 
     it('treats a boolean as true or false', () => {
-        expect(attribute('stack', 'debug').type).toMatchObject({ name: 'boolean', values: ['true', 'false'], open: false });
+        expect(attribute('column', 'debug').type).toMatchObject({ name: 'boolean', values: ['true', 'false'], open: false });
     });
 
     it('reads numeric ranges', () => {
@@ -65,17 +65,17 @@ describe('buildSchemaDocs', () => {
         expect(required('barcode')).toEqual(['type', 'data']);
         expect(required('table')).toEqual(['cols']);
         expect(required('region', 'layout')).toEqual(['pin']);
-        expect(required('stack')).toEqual([]);
+        expect(required('column')).toEqual([]);
     });
 
     it('follows attribute groups, and leaves gap off frame', () => {
-        expect(attributeNames('stack')).toContain('gap');
+        expect(attributeNames('column')).toContain('gap');
         expect(attributeNames('frame')).not.toContain('gap');
         expect(attributeNames('frame')).toContain('padding');
     });
 
     it('records which attribute group each attribute came from', () => {
-        const binding = element('stack').attributes.filter(candidate => candidate.group === 'DataBindingAttrs');
+        const binding = element('column').attributes.filter(candidate => candidate.group === 'DataBindingAttrs');
         expect(binding.map(candidate => candidate.name)).toEqual(['data-value', 'data-source', 'data-if', 'data-if-not']);
     });
 
@@ -102,7 +102,7 @@ describe('buildSchemaDocs', () => {
 
     it('describes what an element may contain', () => {
         expect(element('frame').children).toEqual([{ name: 'LayoutContent', kind: 'group', many: false }]);
-        expect(element('stack').children).toEqual([{ name: 'LayoutContent', kind: 'group', many: true }]);
+        expect(element('column').children).toEqual([{ name: 'LayoutContent', kind: 'group', many: true }]);
         expect(element('table').children.map(child => child.name)).toEqual(['thead', 'tr']);
         expect(element('divider').children).toEqual([]);
     });
@@ -118,7 +118,7 @@ describe('buildSchemaDocs', () => {
     it('flags elements that hold text', () => {
         expect(element('text').text).toBe(true);
         expect(element('span').text).toBe(true);
-        expect(element('stack').text).toBe(false);
+        expect(element('column').text).toBe(false);
     });
 
     it('rejects a schema that refers to an undefined type', () => {
@@ -133,7 +133,7 @@ describe('buildSchemaDocs', () => {
 
 describe('findElement', () => {
     it('falls back to the global element when the scope has none', () => {
-        expect(findElement(docs, 'stack', 'layout')?.scope).toBe(GLOBAL_SCOPE);
+        expect(findElement(docs, 'column', 'layout')?.scope).toBe(GLOBAL_SCOPE);
     });
 
     it('falls back to any element of that name', () => {
