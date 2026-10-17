@@ -34,7 +34,7 @@ describe('formatElementHover', () => {
     });
 
     it('shows a numeric range in place of the type', () => {
-        expect(elementHover('layer', 'canvas')).toContain('opacity="decimal 0–1"');
+        expect(elementHover('layer')).toContain('opacity="decimal 0–1"');
     });
 
     it('closes an element that takes no children, and keeps a short signature on one line', () => {
@@ -57,7 +57,7 @@ describe('formatElementHover', () => {
         expect(elementHover('column')).toContain('Contains: layout elements');
         expect(elementHover('frame')).toContain('Contains: one layout element');
         expect(elementHover('table')).toContain('Contains: `<thead>`, `<tr>`');
-        expect(elementHover('layer', 'canvas')).toContain('Contains: canvas shapes');
+        expect(elementHover('layer')).toContain('Contains: layer elements');
     });
 
     it('says text may sit inside an element that holds text', () => {
@@ -68,9 +68,14 @@ describe('formatElementHover', () => {
         expect(elementHover('divider')).not.toContain('Contains');
     });
 
-    it('uses the canvas text when the scope says so', () => {
-        expect(elementHover('text', 'canvas')).toContain('anchor="');
-        expect(elementHover('text')).not.toContain('anchor="');
+    it('shows the attributes of a text-at in a layer, and of the text in the layout', () => {
+        const textAt = elementHover('text-at');
+        expect(textAt).toContain('anchor="');
+        expect(textAt).toContain('max-lines="');
+        expect(textAt).not.toContain('widows="');
+        const text = elementHover('text');
+        expect(text).toContain('widows="');
+        expect(text).not.toContain('anchor="');
     });
 });
 

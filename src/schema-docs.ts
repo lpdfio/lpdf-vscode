@@ -38,8 +38,8 @@ export interface ElementDoc {
     name: string;
     /**
      * `global` for an element declared at the top of the schema. Otherwise the top-level element
-     * it is declared inside, e.g. `canvas` for `layer` and for the shapes in it. That is how the
-     * canvas `text` is told apart from the layout `text`.
+     * it is declared inside, e.g. `layout` for `region`, and `tokens` for the token row `grid`. That is how
+     * the token row `grid` is told apart from the layout's `grid`.
      */
     scope: string;
     attributes: AttributeDoc[];
@@ -50,7 +50,7 @@ export interface ElementDoc {
 
 export interface SchemaDocs {
     elements: ElementDoc[];
-    /** The elements that declare elements of their own, e.g. `canvas`, `layout`, `tokens`. */
+    /** The elements that declare elements of their own, e.g. `layout`, `tokens`. */
     scopes: string[];
 }
 
@@ -255,8 +255,8 @@ export function buildSchemaDocs(xsd: string): SchemaDocs {
 }
 
 /**
- * Finds an element by name. `scope` picks between elements that share a name, e.g. `text` in
- * `canvas` and in the layout. When the scope has no such element, the global one is used, then any.
+ * Finds an element by name. `scope` picks between elements that share a name, e.g. `grid` in
+ * `tokens` and in the layout. When the scope has no such element, the global one is used, then any.
  */
 export function findElement(docs: SchemaDocs, name: string, scope?: string): ElementDoc | undefined {
     const named = docs.elements.filter(element => element.name === name);

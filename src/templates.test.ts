@@ -164,6 +164,15 @@ describe('the templates that ship in the extension', () => {
     });
   });
 
+  it('use layers: no <canvas>, no w, h, cx or cy, and no margin on a document or section', () => {
+    for (const template of templates) {
+      const xml = withoutComments(fs.readFileSync(template.xmlPath, 'utf8'));
+      expect(xml, `${template.id}: <canvas>`).not.toMatch(/<canvas[\s/>]/);
+      expect(xml, `${template.id}: w, h, cx or cy`).not.toMatch(/<[A-Za-z][^<>]*\s(?:w|h|cx|cy)="/);
+      expect(xml, `${template.id}: margin`).not.toMatch(/<(?:document|section)\s[^<>]*\bmargin="/);
+    }
+  });
+
   it('carry no schema location: the extension finds the schema by the <lpdf> root wherever the file is saved', () => {
     for (const template of templates) {
       expect(fs.readFileSync(template.xmlPath, 'utf8'), template.id).not.toMatch(/schemaLocation/);

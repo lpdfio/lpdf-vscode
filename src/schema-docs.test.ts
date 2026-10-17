@@ -54,9 +54,9 @@ describe('buildSchemaDocs', () => {
     });
 
     it('reads numeric ranges', () => {
-        expect(attribute('layer', 'opacity', 'canvas').type).toMatchObject({ name: 'decimal', range: '0–1' });
+        expect(attribute('layer', 'opacity').type).toMatchObject({ name: 'decimal', range: '0–1' });
         expect(attribute('grid', 'cols').type).toMatchObject({ name: 'positive integer', range: '1–12' });
-        expect(attribute('text', 'line-height', 'canvas').type.range).toBe('≥ 0');
+        expect(attribute('text-at', 'max-lines').type.range).toBe('≥ 1');
     });
 
     it('marks required attributes', () => {
@@ -79,21 +79,25 @@ describe('buildSchemaDocs', () => {
         expect(binding.map(candidate => candidate.name)).toEqual(['data-value', 'data-source', 'data-if', 'data-if-not']);
     });
 
-    it('keeps the layout text and the canvas text apart', () => {
+    it('keeps the text of a layer, text-at, apart from the text of the layout', () => {
         expect(attributeNames('text')).toContain('width');
         expect(attributeNames('text')).not.toContain('x');
-        expect(attributeNames('text', 'canvas')).toContain('x');
+        expect(attributeNames('text-at')).toEqual(expect.arrayContaining(['x', 'y', 'anchor', 'width']));
         expect(element('text').scope).toBe(GLOBAL_SCOPE);
-        expect(element('text', 'canvas').scope).toBe('canvas');
+        expect(element('text-at').scope).toBe(GLOBAL_SCOPE);
     });
 
     it('files elements declared inside another under that element', () => {
         expect(element('region', 'layout').scope).toBe('layout');
-        expect(element('layer', 'canvas').scope).toBe('canvas');
-        expect(element('rect', 'canvas').scope).toBe('canvas');
         expect(element('grid', 'tokens').scope).toBe('tokens');
         expect(element('grid').scope).toBe(GLOBAL_SCOPE);
-        expect([...docs.scopes].sort()).toEqual(['canvas', 'layout', 'tokens']);
+        expect([...docs.scopes].sort()).toEqual(['layout', 'tokens']);
+    });
+
+    it('declares a layer and what is in it at the top, so they have no scope', () => {
+        for (const name of ['layer', 'rect', 'circle', 'ellipse', 'line', 'path', 'text-at', 'img-at', 'barcode-at']) {
+            expect(element(name).scope, name).toBe(GLOBAL_SCOPE);
+        }
     });
 
     it('gives the token rows the attributes of TokenScaleRow', () => {
@@ -107,11 +111,11 @@ describe('buildSchemaDocs', () => {
         expect(element('divider').children).toEqual([]);
     });
 
-    it('lists each child of section once, though the schema names layout and canvas twice, once for each order', () => {
-        expect(element('section').children.map(child => child.name)).toEqual(['bookmark', 'layout', 'canvas']);
+    it('lists each child of section once, though the schema names layout and layer twice, once for each order', () => {
+        expect(element('section').children.map(child => child.name)).toEqual(['bookmark', 'layer', 'layout']);
     });
 
-    it('keeps layout and canvas inside a section: document holds only meta and sections', () => {
+    it('keeps layout and layer inside a section: document holds only meta and sections', () => {
         expect(element('document').children.map(child => child.name)).toEqual(['meta', 'section']);
     });
 
@@ -137,8 +141,8 @@ describe('findElement', () => {
     });
 
     it('falls back to any element of that name', () => {
-        // A canvas shape written outside a canvas is a validation error, but still has docs.
-        expect(findElement(docs, 'rect')?.scope).toBe('canvas');
+        // A region written outside a layout is a validation error, but still has docs.
+        expect(findElement(docs, 'region')?.scope).toBe('layout');
     });
 
     it('returns nothing for an unknown name', () => {

@@ -4,7 +4,7 @@ export interface HoverTarget {
     element: string;
     /** The attribute name. Not set when the cursor is on the element name. */
     attribute?: string;
-    /** The scope element the tag sits inside, e.g. `canvas`. Not set outside all of them. */
+    /** The scope element the tag sits inside, e.g. `layout`. Not set outside all of them. */
     scope?: string;
     /** Where the name starts in the text. */
     start: number;
@@ -22,14 +22,14 @@ function escapeRegExp(text: string): string {
 }
 
 /**
- * The scope element still open at the end of `before`, if any. Scope elements (`canvas`,
- * `layout`, `tokens`) never nest, so one value is enough: an opening tag sets it, its
+ * The scope element still open at the end of `before`, if any. Scope elements (`layout`,
+ * `tokens`) never nest, so one value is enough: an opening tag sets it, its
  * closing tag clears it.
  */
 function enclosingScope(before: string, scopes: readonly string[]): string | undefined {
     if (scopes.length === 0) { return undefined; }
     const names = scopes.map(escapeRegExp).join('|');
-    // Comments are matched too, so a commented-out <canvas> is stepped over.
+    // Comments are matched too, so a commented-out <layout> is stepped over.
     const scopeTag = new RegExp(`<!--[\\s\\S]*?-->|<(/?)(${names})(?=[\\s/>])[^>]*?(/?)>`, 'g');
     let current: string | undefined;
     for (const match of before.matchAll(scopeTag)) {
