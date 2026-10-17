@@ -12,7 +12,7 @@ const COLLAPSED_GROUPS = new Map([['DataBindingAttrs', 'Data binding']]);
 /** How the schema's content groups read in a sentence. A group not listed shows its own name. */
 const GROUP_LABELS = new Map([
     ['LayoutContent', 'layout element'],
-    ['CanvasPrimitives', 'canvas shape'],
+    ['CanvasPrimitives', 'layer element'],
 ]);
 
 /** What goes inside the quotes of an attribute in the signature. */

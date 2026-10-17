@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { locateHoverTarget } from './hover-target';
 
-const SCOPES = ['canvas', 'layout', 'tokens'];
+const SCOPES = ['layout', 'tokens'];
 
 const TEXT = [
     '<lpdf version="1">',
@@ -9,7 +9,7 @@ const TEXT = [
     '  <document size="a4">',
     '    <section>',
     '      <layout><column gap="m"><text>hello</text></column></layout>',
-    '      <canvas><layer><text x="1pt">t</text></layer></canvas>',
+    '      <layer><text-at x="1pt" y="1pt">t</text-at></layer>',
     '    </section>',
     '  </document>',
     '</lpdf>',
@@ -48,9 +48,9 @@ describe('locateHoverTarget', () => {
         expect(locateHoverTarget(TEXT, offsetOf('size="a4"', 0, 1), SCOPES)).toMatchObject({ element: 'document', attribute: 'size' });
     });
 
-    it('reports the layout scope inside a layout and the canvas scope inside a canvas', () => {
+    it('reports the layout scope inside a layout, and none inside a layer', () => {
         expect(locateHoverTarget(TEXT, offsetOf('<text', 0, 2), SCOPES)?.scope).toBe('layout');
-        expect(locateHoverTarget(TEXT, offsetOf('<text', 1, 2), SCOPES)?.scope).toBe('canvas');
+        expect(locateHoverTarget(TEXT, offsetOf('<text-at', 0, 2), SCOPES)).toMatchObject({ element: 'text-at', scope: undefined });
     });
 
     it('reports no scope outside every scope element', () => {
@@ -64,13 +64,13 @@ describe('locateHoverTarget', () => {
     });
 
     it('does not count a self-closing scope element as open', () => {
-        const text = '<canvas/><text/>';
-        expect(locateHoverTarget(text, text.lastIndexOf('text') + 1, SCOPES)?.scope).toBeUndefined();
+        const text = '<tokens/><grid/>';
+        expect(locateHoverTarget(text, text.lastIndexOf('grid') + 1, SCOPES)?.scope).toBeUndefined();
     });
 
     it('steps over a commented-out scope element', () => {
-        const text = '<!-- <canvas> --><text/>';
-        expect(locateHoverTarget(text, text.lastIndexOf('text') + 1, SCOPES)?.scope).toBeUndefined();
+        const text = '<!-- <tokens> --><grid/>';
+        expect(locateHoverTarget(text, text.lastIndexOf('grid') + 1, SCOPES)?.scope).toBeUndefined();
     });
 
     it('finds nothing in text content', () => {
