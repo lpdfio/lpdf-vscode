@@ -20,7 +20,8 @@
  * in this folder):
  *   - the `webviewerloaded` event, and `PDFViewerApplicationOptions` for the options set below
  *   - `PDFViewerApplication`: `initializedPromise`, `eventBus`, `open({ data, filename })`,
- *     `initialBookmark`, `pdfDocument`, `pdfViewer`
+ *     `initialBookmark`, `pdfDocument`, `pdfViewer`; `pdfDocument.annotationStorage.resetModified()`, because
+ *     `close()` saves a document with filled-in form fields before another opens
  *   - the `updateviewarea` event and its `location.pdfOpenParams`, to return to a place after a re-render
  *   - the methods replaced below: `rotatePages`, `requestPresentationMode`, `downloadManager.download`
  * The toolbar's own dependencies are listed in lpdf-toolbar.mjs.
@@ -161,6 +162,10 @@ async function startViewer() {
 async function showPdf(app, message) {
     const isNewFile = message.zoom !== undefined;
     current = { pdfBase64: message.pdfBase64, filename: message.filename };
+    // Opening a document closes the one showing, and the viewer saves that one first when a form field in
+    // it holds input, which would ask where to save a PDF the user has moved on from. Each render is a new
+    // document, so what was typed into the old one is dropped; the save button still saves a filled form.
+    app.pdfDocument?.annotationStorage.resetModified();
     // The viewer opens a document at this bookmark, in the form it writes into its own links.
     app.initialBookmark = isNewFile || !lastLocation ? null : lastLocation.pdfOpenParams.substring(1);
     // The open arguments go to PDF.js's getDocument as they are; see documentOptions for why the page fetches its data files.

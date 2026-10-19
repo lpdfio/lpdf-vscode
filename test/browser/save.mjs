@@ -24,6 +24,24 @@ await page.evaluate(b => window.postMessage({ type: 'updatePdf', pdfBase64: b, f
 await page.waitForFunction(() => document.querySelector('.annotationLayer input[type="text"]'), { timeout: 20000 });
 await wait(500);
 
+const downloadCount = () => page.evaluate(() => window.__posts.filter(p => p.type === 'download').length);
+
+/** Shows a PDF the way the extension host does, and waits until the form's text fields are there or gone. */
+async function showPdf(filename, base64, hasFields) {
+    await page.evaluate((b, name) => window.postMessage({ type: 'updatePdf', pdfBase64: b, filename: name, zoom: 'fit' }, '*'), base64, filename);
+    await page.waitForFunction(has => Boolean(document.querySelector('.annotationLayer input[type="text"]')) === has, { timeout: 20000 }, hasFields);
+    await wait(1000);
+}
+
+// Showing another PDF closes the one that is showing, and the viewer saves a document whose form fields hold input
+// before it closes it. Opening a form is enough to have input in it, so the extension host, which opens a save
+// dialog for a download, would ask where to save a PDF the user has moved on from. Each render is a new document.
+const beforeReplacing = await downloadCount();
+await showPdf('example9.pdf', fixturePdf('example9.pdf'), false);
+check('showing another PDF after a form was opened asks to save nothing', await downloadCount() === beforeReplacing,
+    `${await downloadCount() - beforeReplacing} download message(s) posted`);
+await showPdf('forms.pdf', pdfBase64, true);
+
 /** Presses Save and returns what the page posted to the extension host. */
 async function save() {
     const before = await page.evaluate(() => window.__posts.filter(p => p.type === 'download').length);
@@ -71,6 +89,16 @@ check('a filled-in field is saved with the value that was typed', values[fieldNa
 check('and the saved PDF is a new copy, not the one that was opened', filled.pdfBase64 !== pdfBase64);
 check('the other fields keep their values', values.city === 'London', `city=${values.city}`);
 check('the saved copy keeps the file name', filled.filename === 'forms.pdf', filled.filename);
+
+// The same after a field was filled in: a PDF that a user typed into is not saved either when it is replaced.
+await page.click('[data-test-target="1"]');
+await page.keyboard.type('!');
+await page.keyboard.press('Tab');
+await wait(300);
+const beforeTyped = await downloadCount();
+await showPdf('example9.pdf', fixturePdf('example9.pdf'), false);
+check('showing another PDF after a form field was filled in asks to save nothing', await downloadCount() === beforeTyped,
+    `${await downloadCount() - beforeTyped} download message(s) posted`);
 check('no page errors or console errors', problems.length === 0, problems.slice(0, 3).join(' | '));
 
 await env.close();
