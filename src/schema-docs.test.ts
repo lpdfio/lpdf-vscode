@@ -54,7 +54,7 @@ describe('buildSchemaDocs', () => {
     });
 
     it('reads numeric ranges', () => {
-        expect(attribute('layer', 'opacity').type).toMatchObject({ name: 'decimal', range: '0–1' });
+        expect(attribute('layer', 'opacity').type).toMatchObject({ name: 'OpacityValue', range: '0–1' });
         expect(attribute('grid', 'cols').type).toMatchObject({ name: 'positive integer', range: '1–12' });
         expect(attribute('text-at', 'max-lines').type.range).toBe('≥ 1');
     });

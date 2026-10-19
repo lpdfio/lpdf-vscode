@@ -33,8 +33,9 @@ describe('formatElementHover', () => {
         expect(elementHover('font')).toContain('core="BuiltinFont"');
     });
 
-    it('shows a numeric range in place of the type', () => {
-        expect(elementHover('layer')).toContain('opacity="decimal 0–1"');
+    it('shows a numeric range after the type', () => {
+        expect(elementHover('layer')).toContain('opacity="OpacityValue 0–1"');
+        expect(elementHover('grid')).toContain('cols="positive integer 1–12"');
     });
 
     it('closes an element that takes no children, and keeps a short signature on one line', () => {
