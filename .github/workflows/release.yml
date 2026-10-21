@@ -10,10 +10,13 @@ on:
 jobs:
   release:
     runs-on: ubuntu-24.04
-    # The Azure federated credential is bound to this environment name, so the
-    # job must declare it to get a token (Lpdf-vscode-publish.md).
-    environment: vscode-marketplace
+    # The Azure federated credential is bound to the environment name, so the job must declare it
+    # to get a token (Lpdf-vscode-publish.md), and each of the two names has a credential of its own.
+    # A run dispatched by core's release was approved there, on core's `release`. A package patch is
+    # a tag pushed here, and waits for the approval of `vscode-marketplace`.
+    environment: ${{ github.event_name == 'repository_dispatch' && 'vscode-marketplace-core' || 'vscode-marketplace' }}
     permissions:
+      actions: read      # lists this repo's rc.yml runs, for the check after "Resolve version"
       contents: write
       id-token: write
     steps:
@@ -28,6 +31,50 @@ jobs:
           echo "ADAPTER_TAG=$ADAPTER_TAG"   >> "$GITHUB_ENV"
           echo "CORE_TAG=$CORE_TAG"         >> "$GITHUB_ENV"
           echo "VERSION=$VERSION"           >> "$GITHUB_ENV"
+
+      # ── Require main to be what the release candidate tested ─────────────────
+      # A core release is approved once, on core's `release`, so this run waits for nobody. This
+      # check stands where the other clicks did. This repo's rc.yml built and tested `main` as it was
+      # when the RC was dispatched, and this run builds `main` as it is now: the two must be the same
+      # commit, apart from the bots' changelog and release commits, or what ships was never tested
+      # by an RC. Another RC on the same core commit tests the newer `main`; then send this repo
+      # `core-release` again, since a re-run builds the commit of the first run.
+      # A package patch is released by pushing its tag. It has no RC, and keeps its approval.
+      - name: Require main to be what the release candidate tested
+        if: github.event_name == 'repository_dispatch'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          if [ "$ADAPTER_TAG" != "$CORE_TAG" ]; then
+            echo "::error::A core release dispatches vX.Y.0, and this dispatch carries $ADAPTER_TAG. A package patch is released by pushing its tag."
+            exit 1
+          fi
+
+          # The newest RC of this version on the commit being released that has a green run here.
+          RELEASE_SHA=$(gh api "repos/lpdfio/lpdf/commits/$CORE_TAG" --jq .sha)
+          RC_TAG=""
+          for RC in $(gh api "repos/lpdfio/lpdf/git/matching-refs/tags/${CORE_TAG}-rc." --jq '.[].ref | ltrimstr("refs/tags/")' | sort -V -r); do
+            [ "$(gh api "repos/lpdfio/lpdf/commits/$RC" --jq .sha)" = "$RELEASE_SHA" ] || continue
+            RC_SHA=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow rc.yml --event repository_dispatch --status success --limit 100 \
+              --json displayTitle,headSha | jq -r --arg title "RC $RC:" 'map(select(.displayTitle | startswith($title))) | .[0].headSha // empty')
+            if [ -n "$RC_SHA" ]; then RC_TAG=$RC; break; fi
+          done
+          if [ -z "$RC_TAG" ]; then
+            echo "::error::No green rc.yml run here for a release candidate of $CORE_TAG on its commit ${RELEASE_SHA:0:7}. Cut one, and check its runs, before releasing."
+            exit 1
+          fi
+
+          COMPARE=$(gh api "repos/$GITHUB_REPOSITORY/compare/$RC_SHA...$GITHUB_SHA")
+          STATUS=$(jq -r .status <<<"$COMPARE")
+          NEWER=$(jq -r '.commits[] | select(.commit.message | test("^(changelog|release): ") | not) | "  \(.sha[0:7]) \(.commit.message | split("\n")[0])"' <<<"$COMPARE")
+          if { [ "$STATUS" != identical ] && [ "$STATUS" != ahead ]; } || [ -n "$NEWER" ]; then
+            echo "::error::main has moved since $RC_TAG was tested: rc.yml ran on ${RC_SHA:0:7} and this run builds ${GITHUB_SHA:0:7} ($STATUS). Cut another RC on ${RELEASE_SHA:0:7}, then send this repo core-release again."
+            [ -z "$NEWER" ] || printf 'Commits since %s:\n%s\n' "${RC_SHA:0:7}" "$NEWER"
+            exit 1
+          fi
+          echo "main is ${GITHUB_SHA:0:7}, the commit $RC_TAG tested here (${RC_SHA:0:7})."
 
       # ── Download wasm-pack artifacts from core release ───────────────────────
       # VS Code extension expects wasm/lpdf.js and wasm/lpdf_bg.wasm
@@ -192,8 +239,9 @@ jobs:
       # main's ruleset takes changes through a PR only, and the lpdf release App
       # is its one bypass actor. So the commit below is pushed with a token of
       # that App, minted here for this repo. The App's key is a secret of this
-      # job's environment, never of the repo: only a run the user approved can
-      # mint it.
+      # job's environments, never of the repo. `vscode-marketplace` waits for the
+      # user's approval. `vscode-marketplace-core` has no reviewer, so it is
+      # limited to main: only a workflow merged there can read the key.
       - name: Mint GitHub App token
         id: app-token
         uses: actions/create-github-app-token@v3
