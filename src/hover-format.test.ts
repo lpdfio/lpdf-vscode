@@ -85,7 +85,7 @@ describe('formatAttributeHover', () => {
         const hover = attributeHover('column', 'gap');
         expect(hover).toContain('**`gap`** · `TokenScaleOrPt`');
         expect(hover).toContain('`xs` | `s` | `m` | `l` | `xl` | `xxl`');
-        expect(hover).toContain('token name or explicit pt value');
+        expect(hover).toContain('slot, alias of a slot, or explicit pt value');
     });
 
     it('marks a required attribute and leaves the type off an unnamed enumeration', () => {
