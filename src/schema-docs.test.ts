@@ -28,12 +28,13 @@ describe('buildSchemaDocs', () => {
         expect(gap.type.name).toBe('TokenScaleOrPt');
         expect(gap.type.values).toEqual(['xs', 's', 'm', 'l', 'xl', 'xxl']);
         expect(gap.type.open).toBe(true);
-        expect(gap.type.hint).toContain('token name or explicit pt value');
+        expect(gap.type.hint).toContain('slot, alias of a slot, or explicit pt value');
     });
 
     it('resolves a type declared after the first place it is used', () => {
-        // HeightValue is a union with HeightMode, which the schema declares below it.
-        expect(attribute('column', 'height').type.values).toEqual(['full', 'fill']);
+        // HeightValue is a union with HeightMode, which the schema declares below it, and with
+        // TokenScale, the slots a height takes from the tokens.
+        expect(attribute('column', 'height').type.values).toEqual(['full', 'fill', 'xs', 's', 'm', 'l', 'xl', 'xxl']);
     });
 
     it('leaves the hint off a type that is only an enumeration', () => {
