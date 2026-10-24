@@ -26,6 +26,12 @@ export interface RenderRequest {
 /** The random bytes AES-256 needs from the host, one 256-bit key's worth. The engine makes none itself. */
 export const ENTROPY_BYTES = 32;
 
+/**
+ * How many arguments `set_encryption` takes since AES-256. An engine from before it takes three, JavaScript
+ * would drop the other two without a word, and the file would be encrypted with RC4-128 whatever was asked for.
+ */
+const ENCRYPTION_ARGUMENTS = 5;
+
 let _module: IWasmModule | undefined;
 function getWasmModule(): IWasmModule {
   if (!_module) {
@@ -55,6 +61,9 @@ export function renderRequest(wasm: IWasmModule, { xml, jsonData, assets, encryp
     for (const [key, bytes] of assets.fonts)  { engine.load_font(key, bytes); }
     for (const [key, bytes] of assets.images) { engine.load_image(key, bytes); }
     if (encryption) {
+      if (engine.set_encryption.length < ENCRYPTION_ARGUMENTS) {
+        throw new Error('This engine is older than the encrypted export needs: it cannot encrypt with AES-256. Update the Lpdf extension.');
+      }
       const entropy = encryption.algorithm === 'aes-256' ? new Uint8Array(randomBytes(ENTROPY_BYTES)) : new Uint8Array(0);
       engine.set_encryption(
         encryption.userPassword,

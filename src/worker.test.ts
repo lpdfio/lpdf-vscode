@@ -9,7 +9,9 @@ function fakeEngine(failRender = false): { module: IWasmModule; calls: unknown[]
   class Fake implements IWasmEngine {
     load_font(name: string): void { calls.push(['load_font', name]); }
     load_image(name: string): void { calls.push(['load_image', name]); }
-    set_encryption(...args: unknown[]): void { calls.push(['set_encryption', ...args]); }
+    set_encryption(user: string, owner: string, permissions: string, algorithm: string, entropy: Uint8Array): void {
+      calls.push(['set_encryption', user, owner, permissions, algorithm, entropy]);
+    }
     render_pdf(): Uint8Array {
       calls.push(['render_pdf']);
       if (failRender) { throw new Error('bad xml'); }
@@ -89,6 +91,31 @@ describe('renderRequest', () => {
     const failing = fakeEngine(true);
     expect(() => renderRequest(failing.module, request({ encryption: encryption() }))).toThrow('bad xml');
     expect(failing.freed()).toBe(1);
+  });
+
+  it('refuses an engine from before AES-256 rather than encrypt with RC4-128 unasked', () => {
+    class Old implements Pick<IWasmEngine, 'load_font' | 'load_image' | 'render_pdf' | 'free'> {
+      rendered = false;
+      load_font(): void {}
+      load_image(): void {}
+      // Three arguments, as the engine took them before AES-256.
+      set_encryption(_user: string, _owner: string, _permissions: string): void {}
+      render_pdf(): Uint8Array { this.rendered = true; return new Uint8Array(0); }
+      free(): void {}
+    }
+    expect(() => renderRequest({ LpdfEngine: Old as unknown as IWasmModule['LpdfEngine'] }, request({ encryption: encryption() })))
+      .toThrow(/older than the encrypted export needs/);
+  });
+
+  it('renders on an engine from before AES-256 when nothing is encrypted', () => {
+    class Old {
+      load_font(): void {}
+      load_image(): void {}
+      set_encryption(_user: string, _owner: string, _permissions: string): void {}
+      render_pdf(): Uint8Array { return new Uint8Array([1]); }
+      free(): void {}
+    }
+    expect(Array.from(renderRequest({ LpdfEngine: Old as unknown as IWasmModule['LpdfEngine'] }, request()))).toEqual([1]);
   });
 
   it('returns a buffer of its own, not the engine\'s', () => {
