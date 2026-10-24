@@ -2,6 +2,7 @@ import { Worker } from 'worker_threads';
 import { randomUUID } from 'node:crypto';
 import * as path from 'node:path';
 import { RENDER_TIMEOUT_MS } from './constants';
+import type { EncryptionRequest } from './encryption';
 
 export class LpdfRenderError extends Error {
   constructor(message: string) {
@@ -26,7 +27,7 @@ let _worker: Worker | undefined;
 // At most one in-flight render (the one the worker is currently executing).
 const _pending = new Map<string, { resolve: Resolve; reject: Reject; timer: ReturnType<typeof setTimeout> }>();
 // Latest render request waiting to be sent once the worker becomes free.
-let _queued: { xml: string; jsonData: string | null; assets: RenderAssets; resolve: Resolve; reject: Reject } | undefined;
+let _queued: { xml: string; jsonData: string | null; assets: RenderAssets; encryption?: EncryptionRequest; resolve: Resolve; reject: Reject } | undefined;
 
 function getWorker(): Worker {
   if (_worker) { return _worker; }
@@ -80,7 +81,7 @@ function getWorker(): Worker {
 /** Dispatch the queued request to the (now-idle) worker, if one is waiting. */
 function flushQueued(): void {
   if (!_queued || !_worker) { return; }
-  const { xml, jsonData, assets, resolve, reject } = _queued;
+  const { xml, jsonData, assets, encryption, resolve, reject } = _queued;
   _queued = undefined;
   const id = randomUUID();
   const timer = setTimeout(() => {
@@ -92,7 +93,7 @@ function flushQueued(): void {
   }, RENDER_TIMEOUT_MS);
   _pending.set(id, { resolve, reject, timer });
   try {
-    _worker.postMessage({ id, xml, jsonData, assets });
+    _worker.postMessage({ id, xml, jsonData, assets, encryption });
   } catch (e) {
     clearTimeout(timer);
     _pending.delete(id);
@@ -100,7 +101,17 @@ function flushQueued(): void {
   }
 }
 
-export function renderPdf(xml: string, jsonData: string | null, assets: RenderAssets): Promise<Uint8Array> {
+/**
+ * Renders a document on the worker.
+ * @param encryption When given, the PDF is encrypted this way; the passwords go to the worker in this
+ *                   message and nowhere else. Leave it out for a preview or a plain export.
+ */
+export function renderPdf(
+  xml: string,
+  jsonData: string | null,
+  assets: RenderAssets,
+  encryption?: EncryptionRequest,
+): Promise<Uint8Array> {
   return new Promise<Uint8Array>((resolve, reject) => {
     // If the worker is idle (nothing in-flight), send immediately.
     if (_pending.size === 0) {
@@ -114,7 +125,7 @@ export function renderPdf(xml: string, jsonData: string | null, assets: RenderAs
       }, RENDER_TIMEOUT_MS);
       _pending.set(id, { resolve, reject, timer });
       try {
-        getWorker().postMessage({ id, xml, jsonData, assets });
+        getWorker().postMessage({ id, xml, jsonData, assets, encryption });
       } catch (e) {
         clearTimeout(timer);
         _pending.delete(id);
@@ -124,7 +135,7 @@ export function renderPdf(xml: string, jsonData: string | null, assets: RenderAs
       // Worker is busy. Supersede any previously queued (but not yet sent) request,
       // then park this one. It will be dispatched once the current render finishes.
       _queued?.reject(new LpdfRenderError('Superseded by a newer render'));
-      _queued = { xml, jsonData, assets, resolve, reject };
+      _queued = { xml, jsonData, assets, encryption, resolve, reject };
     }
   });
 }
