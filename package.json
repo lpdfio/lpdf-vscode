@@ -65,6 +65,17 @@
           "scope": "application",
           "description": "Use the Lpdf viewer as the default viewer for PDF files. When enabled, clicking a .pdf file opens it in the Lpdf PDF viewer instead of VS Code's default binary viewer."
         },
+        "lpdf.encryptionAlgorithm": {
+          "type": "string",
+          "enum": ["aes-256", "rc4-128"],
+          "enumDescriptions": [
+            "AES-256, which PDF 2.0 asks for. Every export gets a fresh random key, so exporting the same document twice gives two different files.",
+            "RC4-128, which PDF 2.0 deprecates. Use it only for a reader that cannot open AES-256."
+          ],
+          "default": "aes-256",
+          "scope": "application",
+          "description": "The cipher Lpdf: Export Encrypted PDF uses. It is a user setting only, so a workspace cannot weaken the encryption."
+        },
         "lpdf.promptPdfDiff": {
           "type": "boolean",
           "default": true,
@@ -78,6 +89,7 @@
       { "command": "lpdf.openPdf",        "title": "Lpdf: View PDF" },
       { "command": "lpdf.previewPdf",     "title": "Lpdf: Preview PDF", "icon": "media/lpdf-mark.svg" },
       { "command": "lpdf.exportPdf",      "title": "Lpdf: Export PDF"  },
+      { "command": "lpdf.exportEncryptedPdf", "title": "Lpdf: Export Encrypted PDF..." },
       { "command": "lpdf.generateHere",   "title": "Lpdf: Generate Code" },
       { "command": "lpdf.linkDataFile",   "title": "Lpdf: Link Data File..."  },
       { "command": "lpdf.unlinkDataFile", "title": "Lpdf: Unlink Data File"   },
@@ -134,8 +146,13 @@
         },
         {
           "when": "resourceExtname == .xml",
-          "command": "lpdf.generateHere",
+          "command": "lpdf.exportEncryptedPdf",
           "group": "2_z_lpdf@3"
+        },
+        {
+          "when": "resourceExtname == .xml",
+          "command": "lpdf.generateHere",
+          "group": "2_z_lpdf@4"
         }      ]
     }
   },
