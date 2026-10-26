@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { loadAssets } from './assets';
 import { getLinkedDataJson } from './data';
 import type { RenderAssets } from './engine';
-import { isMarkdownUri, loadMarkdownRenderInput } from './markdown';
+import { getLinkedMarkdownUri, isMarkdownUri, loadLinkedMarkdownRenderInput, loadMarkdownRenderInput } from './markdown';
 
 /** Everything the engine needs to render a document the extension was given, XML or Markdown. */
 export interface RenderInput {
@@ -19,8 +19,9 @@ export interface RenderInput {
 }
 
 /**
- * Reads what a document renders from. An XML document is the engine's input as it is, with the data linked to it;
- * a `.md` file is wrapped in a template (see `loadMarkdownRenderInput`).
+ * Reads what a document renders from. An XML document is the engine's input as it is, with the data linked to it,
+ * or with the `.md` file linked to it as its data; a `.md` file is wrapped in a template (see
+ * `loadMarkdownRenderInput`).
  * @param context The extension.
  * @param uri The document.
  * @param text Its text, including unsaved edits.
@@ -28,6 +29,8 @@ export interface RenderInput {
  */
 export async function loadRenderInput(context: vscode.ExtensionContext, uri: vscode.Uri, text: string): Promise<RenderInput> {
   if (isMarkdownUri(uri)) { return loadMarkdownRenderInput(context, uri, text); }
+  const markdownUri = getLinkedMarkdownUri(context, uri);
+  if (markdownUri) { return loadLinkedMarkdownRenderInput(uri, text, markdownUri); }
   const { assets, warnings, files } = await loadAssets(text, uri);
   return { xml: text, jsonData: getLinkedDataJson(context, uri), assets, warnings, files };
 }

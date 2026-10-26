@@ -41,6 +41,11 @@ export interface PreparedMarkdown {
   images: string[];
 }
 
+/** What a `.md` file is wrapped in when it has no Lpdf document of its own: A4, a 54pt margin and the page number. */
+export function defaultTemplate(engine: MarkdownWasm = engineFunctions()): string {
+  return engine.markdown_template();
+}
+
 /**
  * Wraps a `.md` file in a template.
  * @param markdown The text of the file, including unsaved edits.
@@ -49,27 +54,31 @@ export interface PreparedMarkdown {
  */
 export function prepareMarkdown(markdown: string, template: string | null, engine: MarkdownWasm = engineFunctions()): PreparedMarkdown {
   const images = JSON.parse(engine.markdown_file_images(markdown)) as string[];
-  const xml = engine.markdown_declare_images(template ?? engine.markdown_template(), JSON.stringify(images));
+  const xml = engine.markdown_declare_images(template ?? defaultTemplate(engine), JSON.stringify(images));
   return { xml, jsonData: engine.markdown_file_data(markdown), images };
 }
 
 /** The file name the default styles are written under, beside a `.md` file. */
 export const STYLES_FILE_NAME = 'markdown-styles.xml';
 
-/** The file name the default template is written under, beside a `.md` file. */
-export const TEMPLATE_FILE_NAME = 'markdown-template.xml';
+/** The text of an XML attribute value that reads as `text`. */
+function attributeValue(text: string): string {
+  return text.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+}
 
 /**
- * The default template, reading its styles from `stylesFile`, to start a template of one's own from. The
- * styles file holds the default rules, so the template renders as the default one does until either is edited.
+ * The default template, reading its styles from `stylesFile`: what a `.md` file with a file of styles linked is
+ * wrapped in, and what a new Lpdf document for a `.md` file is started from. With the default rules in the styles
+ * file it renders as the default template does, until the styles are edited.
+ * @param stylesFile The `src` of the styles: a path as it is written in XML, relative to the document or absolute.
  */
 export function starterTemplate(stylesFile: string = STYLES_FILE_NAME, engine: MarkdownWasm = engineFunctions()): string {
-  const template = engine.markdown_template();
+  const template = defaultTemplate(engine);
   const content = '<markdown-content';
   if (template.split(content).length !== 2) {
     throw new Error('The default template has changed: it no longer holds one <markdown-content> to put the styles before.');
   }
-  return template.replace(content, `<markdown-styles src="${stylesFile}"/>\n                ${content}`);
+  return template.replace(content, `<markdown-styles src="${attributeValue(stylesFile)}"/>\n                ${content}`);
 }
 
 /** The default rules, to start a styles file of one's own from. */

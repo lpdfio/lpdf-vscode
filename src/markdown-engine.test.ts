@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
-  markdownImageName, prepareMarkdown, starterStyles, starterTemplate, STYLES_FILE_NAME, TEMPLATE_FILE_NAME,
+  defaultTemplate, markdownImageName, prepareMarkdown, starterStyles, starterTemplate, STYLES_FILE_NAME,
   type MarkdownWasm,
 } from './markdown-engine';
 
@@ -96,8 +96,25 @@ describe('the starter template and styles', () => {
     for (const rule of ['h1', 'p', 'code', 'quote', 'li', 'a', 'table']) { expect(styles).toContain(`<${rule} `); }
   });
 
-  it('names the files it writes', () => {
-    expect([TEMPLATE_FILE_NAME, STYLES_FILE_NAME]).toEqual(['markdown-template.xml', 'markdown-styles.xml']);
+  it('names the file of styles it writes', () => {
+    expect(STYLES_FILE_NAME).toBe('markdown-styles.xml');
+  });
+
+  it('writes the path of the styles as an XML attribute, whatever is in it', () => {
+    const template = starterTemplate('C:\\notes & "drafts"\\<a>.xml');
+    expect(template).toContain('<markdown-styles src="C:\\notes &amp; &quot;drafts&quot;\\&lt;a>.xml"/>');
+    expect(() => prepareMarkdown('# A', template)).not.toThrow();
+  });
+
+  it('is the default template with only the styles added', () => {
+    expect(starterTemplate().replace(/\s*<markdown-styles[^>]*\/>/, '')).toBe(defaultTemplate());
+  });
+
+  it('is the page a .md file is wrapped in by default: A4, a 54pt margin and the page number', () => {
+    const template = defaultTemplate();
+    expect(template).toContain('size="a4"');
+    expect(template).toContain('margin="54pt"');
+    expect(template).toContain('Page {page} of {pages}');
   });
 });
 

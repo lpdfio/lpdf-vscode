@@ -15,18 +15,27 @@ const extensionSource = readFileSync(join(__dirname, 'extension.ts'), 'utf8');
 describe('the Markdown preview in the manifest', () => {
   const entries = manifest.contributes.menus['explorer/context'].filter(e => e.when === 'resourceExtname == .md');
 
-  it('has the commands for a template that the extension registers', () => {
-    for (const name of ['linkMarkdownTemplate', 'unlinkMarkdownTemplate', 'createMarkdownTemplate']) {
+  it('has the commands for the styles, the Lpdf document and the linked file that the extension registers', () => {
+    for (const name of [
+      'linkMarkdownStyles', 'unlinkMarkdownStyles', 'createMarkdownStyles',
+      'createLpdfDocument', 'unlinkLpdfDocument', 'linkMarkdownFile', 'unlinkMarkdownFile',
+    ]) {
       expect(manifest.contributes.commands.some(c => c.command === `lpdf.${name}`), name).toBe(true);
       expect(extensionSource).toContain(`registerCommand('lpdf.${name}'`);
     }
   });
 
-  it('offers preview, export and the template on a .md file in the Explorer, each in a group of its own', () => {
+  it('offers preview, export, the styles and the Lpdf document on a .md file in the Explorer, each in a group of its own', () => {
     expect(entries.map(e => e.command)).toEqual([
-      'lpdf.previewPdf', 'lpdf.exportPdf', 'lpdf.exportEncryptedPdf', 'lpdf.linkMarkdownTemplate', 'lpdf.createMarkdownTemplate',
+      'lpdf.previewPdf', 'lpdf.exportPdf', 'lpdf.exportEncryptedPdf',
+      'lpdf.linkMarkdownStyles', 'lpdf.createMarkdownStyles', 'lpdf.createLpdfDocument',
     ]);
     expect(new Set(entries.map(e => e.group)).size).toBe(entries.length);
+  });
+
+  it('has no command for a template, since the Lpdf document is the template', () => {
+    expect(manifest.contributes.commands.filter(c => /template/i.test(c.command))).toEqual([]);
+    expect(extensionSource).not.toMatch(/Template'/);
   });
 
   it('shows the preview button on a .md file in the editor title', () => {

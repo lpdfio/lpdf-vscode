@@ -2,10 +2,16 @@ import * as vscode from 'vscode';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { loadAssets, readNearby } from './assets';
-import { markdownImageName, prepareMarkdown, starterStyles, starterTemplate, STYLES_FILE_NAME, TEMPLATE_FILE_NAME } from './markdown-engine';
+import { LpdfRenderError } from './engine';
+import { defaultTemplate, markdownImageName, prepareMarkdown, starterStyles, starterTemplate, STYLES_FILE_NAME } from './markdown-engine';
 import type { RenderInput } from './render-input';
 
-const TEMPLATE_KEY_PREFIX = 'lpdf.markdownTemplate:';
+const DOCUMENT_KEY_PREFIX = 'lpdf.markdownDocument:';
+const STYLES_KEY_PREFIX = 'lpdf.markdownStyles:';
+
+// Fired whenever a link is added, changed or removed, so the CodeLens of both its ends can refresh.
+const _changeEmitter = new vscode.EventEmitter<void>();
+export const onDidChangeMarkdownLinks: vscode.Event<void> = _changeEmitter.event;
 
 /** Whether a file is Markdown, by its extension. */
 export function isMarkdownUri(uri: vscode.Uri): boolean {
@@ -17,95 +23,229 @@ export function isMarkdownDocument(doc: vscode.TextDocument): boolean {
   return doc.languageId === 'markdown' || isMarkdownUri(doc.uri);
 }
 
-function templateKey(markdownUri: vscode.Uri): string {
-  return TEMPLATE_KEY_PREFIX + markdownUri.toString();
+function documentKey(markdownUri: vscode.Uri): string {
+  return DOCUMENT_KEY_PREFIX + markdownUri.toString();
 }
 
-/** The template linked to a `.md` file with **Lpdf: Link Markdown Template...**, or undefined for the default one. */
-export function getLinkedTemplateUri(context: vscode.ExtensionContext, markdownUri: vscode.Uri): vscode.Uri | undefined {
-  const stored = context.workspaceState.get<string>(templateKey(markdownUri));
+function stylesKey(markdownUri: vscode.Uri): string {
+  return STYLES_KEY_PREFIX + markdownUri.toString();
+}
+
+/** The Lpdf document a `.md` file is rendered through, or undefined for the default one. */
+export function getLinkedDocumentUri(context: vscode.ExtensionContext, markdownUri: vscode.Uri): vscode.Uri | undefined {
+  const stored = context.workspaceState.get<string>(documentKey(markdownUri));
   return stored ? vscode.Uri.parse(stored) : undefined;
 }
 
-/** Links a template to a `.md` file, or with undefined takes the link away. */
-export async function setLinkedTemplateUri(
-  context: vscode.ExtensionContext,
-  markdownUri: vscode.Uri,
-  templateUri: vscode.Uri | undefined,
-): Promise<void> {
-  await context.workspaceState.update(templateKey(markdownUri), templateUri?.toString());
-}
-
-/** Asks which XML file is the template of a `.md` file, and links it. Returns it, or undefined when the user cancelled. */
-export async function promptLinkTemplateFile(context: vscode.ExtensionContext, markdownUri: vscode.Uri): Promise<vscode.Uri | undefined> {
-  const picked = await vscode.window.showOpenDialog({
-    canSelectMany: false,
-    defaultUri: vscode.Uri.file(path.dirname(markdownUri.fsPath)),
-    filters: { 'Lpdf template': ['xml'] },
-    openLabel: 'Link Template',
-    title: 'Choose the template the Markdown file is rendered in',
-  });
-  const template = picked?.[0];
-  if (!template) { return undefined; }
-  await setLinkedTemplateUri(context, markdownUri, template);
-  return template;
-}
-
-/** The text of a template: its open editor's, with unsaved edits, or else the file's. */
-async function readTemplate(uri: vscode.Uri): Promise<string> {
-  const open = vscode.workspace.textDocuments.find(doc => doc.uri.toString() === uri.toString());
-  if (open) { return open.getText(); }
-  return Buffer.from(await vscode.workspace.fs.readFile(uri)).toString('utf8');
+/** The `.md` file that is the body of an Lpdf document, or undefined when it has none. */
+export function getLinkedMarkdownUri(context: vscode.ExtensionContext, documentUri: vscode.Uri): vscode.Uri | undefined {
+  const wanted = documentUri.toString();
+  for (const key of context.workspaceState.keys()) {
+    if (key.startsWith(DOCUMENT_KEY_PREFIX) && context.workspaceState.get<string>(key) === wanted) {
+      return vscode.Uri.parse(key.slice(DOCUMENT_KEY_PREFIX.length));
+    }
+  }
+  return undefined;
 }
 
 /**
- * What a `.md` file renders from: the text and the front matter as the data of its template, the template
- * with the images of the Markdown declared in it, and the files they and the template name.
- * @param context The extension, which remembers the template linked to the file.
- * @param uri The `.md` file.
- * @param text Its text, including unsaved edits.
+ * Links a `.md` file and an Lpdf document, one to one: each has the other and no more. A `.md` file linked to
+ * another document, and another `.md` file linked to this document, are let go. With undefined the `.md` file
+ * goes back to the default one.
  */
-export async function loadMarkdownRenderInput(context: vscode.ExtensionContext, uri: vscode.Uri, text: string): Promise<RenderInput> {
-  const templateUri = getLinkedTemplateUri(context, uri);
-  const template = templateUri ? await readTemplate(templateUri) : null;
-  const prepared = prepareMarkdown(text, template);
+export async function setLinkedDocumentUri(
+  context: vscode.ExtensionContext,
+  markdownUri: vscode.Uri,
+  documentUri: vscode.Uri | undefined,
+): Promise<void> {
+  const taken = documentUri ? getLinkedMarkdownUri(context, documentUri) : undefined;
+  if (taken && taken.toString() !== markdownUri.toString()) {
+    await context.workspaceState.update(documentKey(taken), undefined);
+  }
+  await context.workspaceState.update(documentKey(markdownUri), documentUri?.toString());
+  _changeEmitter.fire();
+}
+
+/** The file of styles linked to a `.md` file, or undefined for the default styles. */
+export function getLinkedStylesUri(context: vscode.ExtensionContext, markdownUri: vscode.Uri): vscode.Uri | undefined {
+  const stored = context.workspaceState.get<string>(stylesKey(markdownUri));
+  return stored ? vscode.Uri.parse(stored) : undefined;
+}
+
+/** Links a file of styles to a `.md` file, or with undefined takes the link away. */
+export async function setLinkedStylesUri(
+  context: vscode.ExtensionContext,
+  markdownUri: vscode.Uri,
+  stylesUri: vscode.Uri | undefined,
+): Promise<void> {
+  await context.workspaceState.update(stylesKey(markdownUri), stylesUri?.toString());
+  _changeEmitter.fire();
+}
+
+/** Asks which XML file holds the styles of a `.md` file, and links it. Returns it, or undefined when the user cancelled. */
+export async function promptLinkStylesFile(context: vscode.ExtensionContext, markdownUri: vscode.Uri): Promise<vscode.Uri | undefined> {
+  const picked = await vscode.window.showOpenDialog({
+    canSelectMany: false,
+    defaultUri: vscode.Uri.file(path.dirname(markdownUri.fsPath)),
+    filters: { 'Lpdf Markdown styles': ['xml'] },
+    openLabel: 'Link Styles',
+    title: 'Choose the styles the Markdown file is rendered with',
+  });
+  const styles = picked?.[0];
+  if (!styles) { return undefined; }
+  await setLinkedStylesUri(context, markdownUri, styles);
+  return styles;
+}
+
+/** Asks which `.md` file is the body of an Lpdf document, and links it. Returns it, or undefined when the user cancelled. */
+export async function promptLinkMarkdownFile(context: vscode.ExtensionContext, documentUri: vscode.Uri): Promise<vscode.Uri | undefined> {
+  const picked = await vscode.window.showOpenDialog({
+    canSelectMany: false,
+    defaultUri: vscode.Uri.file(path.dirname(documentUri.fsPath)),
+    filters: { Markdown: ['md', 'markdown'] },
+    openLabel: 'Link Markdown',
+    title: 'Choose the Markdown file that is the body of the document',
+  });
+  const markdown = picked?.[0];
+  if (!markdown) { return undefined; }
+  await setLinkedDocumentUri(context, markdown, documentUri);
+  return markdown;
+}
+
+/** The text of a file: its open editor's, with unsaved edits, or else the file's. */
+async function readText(uri: vscode.Uri): Promise<string> {
+  const open = vscode.workspace.textDocuments.find(doc => doc.uri.toString() === uri.toString());
+  if (open) { return open.getText(); }
+  try {
+    return Buffer.from(await vscode.workspace.fs.readFile(uri)).toString('utf8');
+  } catch (error) {
+    throw new LpdfRenderError(`cannot read ${uri.fsPath}: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+/** What a `.md` file is wrapped in, and where the paths that wrapper writes are looked up from. */
+interface Wrapper {
+  /** The text of the template, or null for the default one. */
+  template: string | null;
+  /** The file the template's relative paths (images, fonts, styles) are written next to. */
+  from: vscode.Uri;
+  /** The files the template itself was read from, which the preview watches. */
+  files: string[];
+}
+
+/** The text of a `.md` file wrapped in `wrapper`, with the files and images that takes. */
+async function wrapMarkdown(markdownUri: vscode.Uri, markdown: string, wrapper: Wrapper): Promise<RenderInput> {
+  const prepared = prepareMarkdown(markdown, wrapper.template);
 
   // The template names its own files, and means them next to itself: the logo of a branded template is
   // beside it, not beside the Markdown. The default template names none.
-  const loaded = template !== null && templateUri
-    ? await loadAssets(template, templateUri)
+  const loaded = wrapper.template !== null
+    ? await loadAssets(wrapper.template, wrapper.from)
     : { assets: { fonts: new Map(), images: new Map(), markdownStyles: new Map() }, warnings: [] as string[], files: [] as string[] };
 
   // The images of the Markdown are named as the Markdown writes them: next to the .md file.
-  const files = [...loaded.files];
+  const files = [...loaded.files, ...wrapper.files];
   for (const [index, src] of prepared.images.entries()) {
-    const { bytes, file } = await readNearby(`image '${src}'`, src, uri);
+    const { bytes, file } = await readNearby(`image '${src}'`, src, markdownUri);
     loaded.assets.images.set(markdownImageName(index), bytes);
     files.push(file);
   }
-  if (templateUri) { files.push(templateUri.fsPath); }
 
   return { xml: prepared.xml, jsonData: prepared.jsonData, assets: loaded.assets, warnings: loaded.warnings, files };
 }
 
 /**
- * Writes the default template and the default styles beside a `.md` file, to start from, links the template
- * to the file, and opens it. A file that is already there is left as it is.
- * @returns The template, or undefined when it could not be written.
+ * What a `.md` file renders from: the text and the front matter as the data of its wrapper, the wrapper with
+ * the images of the Markdown declared in it, and the files they and the wrapper name. The wrapper is the Lpdf
+ * document linked to the file, else the default template with the linked styles, else the default template.
+ * @param context The extension, which remembers what is linked to the file.
+ * @param uri The `.md` file.
+ * @param text Its text, including unsaved edits.
  */
-export async function createMarkdownTemplate(context: vscode.ExtensionContext, markdownUri: vscode.Uri): Promise<vscode.Uri | undefined> {
+export async function loadMarkdownRenderInput(context: vscode.ExtensionContext, uri: vscode.Uri, text: string): Promise<RenderInput> {
+  const documentUri = getLinkedDocumentUri(context, uri);
+  if (documentUri) {
+    return wrapMarkdown(uri, text, { template: await readText(documentUri), from: documentUri, files: [documentUri.fsPath] });
+  }
+  const stylesUri = getLinkedStylesUri(context, uri);
+  if (stylesUri) {
+    // The default template is not a file: its one path, the styles, is absolute.
+    return wrapMarkdown(uri, text, { template: starterTemplate(stylesUri.fsPath), from: uri, files: [] });
+  }
+  return wrapMarkdown(uri, text, { template: null, from: uri, files: [] });
+}
+
+/**
+ * What an Lpdf document renders from when a `.md` file is linked to it: the document, with the Markdown as its
+ * data. It is the same input as the `.md` file's own, seen from the document.
+ * @param documentUri The Lpdf document.
+ * @param documentText Its text, including unsaved edits.
+ * @param markdownUri The `.md` file linked to it.
+ * @throws LpdfRenderError when the `.md` file cannot be read.
+ */
+export async function loadLinkedMarkdownRenderInput(
+  documentUri: vscode.Uri,
+  documentText: string,
+  markdownUri: vscode.Uri,
+): Promise<RenderInput> {
+  const markdown = await readText(markdownUri);
+  return wrapMarkdown(markdownUri, markdown, { template: documentText, from: documentUri, files: [markdownUri.fsPath] });
+}
+
+/** The path of a file as an XML `src` next to `folder`: relative with `/`, or absolute where there is no relative one. */
+function srcFrom(folder: string, file: string): string {
+  const relative = path.relative(folder, file);
+  return path.isAbsolute(relative) ? file : relative.split(path.sep).join('/');
+}
+
+async function showBeside(uri: vscode.Uri): Promise<void> {
+  await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(uri), { preview: false, viewColumn: vscode.ViewColumn.Beside });
+}
+
+/**
+ * Writes an Lpdf document beside a `.md` file, named after it, to set the page and wrap the Markdown in, links
+ * the two and opens the document. The document is the default template, reading the linked styles if there are
+ * any. A file already there is not overwritten.
+ * @returns The document, or undefined when it could not be written.
+ */
+export async function createLpdfDocument(context: vscode.ExtensionContext, markdownUri: vscode.Uri): Promise<vscode.Uri | undefined> {
   const folder = path.dirname(markdownUri.fsPath);
-  const templatePath = path.join(folder, TEMPLATE_FILE_NAME);
-  const stylesPath = path.join(folder, STYLES_FILE_NAME);
-  try {
-    if (!fs.existsSync(templatePath)) { await fs.promises.writeFile(templatePath, starterTemplate(STYLES_FILE_NAME)); }
-    if (!fs.existsSync(stylesPath))   { await fs.promises.writeFile(stylesPath, starterStyles()); }
-  } catch (error) {
-    void vscode.window.showErrorMessage(`Lpdf: cannot write the template to ${folder}: ${(error as Error).message}`);
+  const documentPath = path.join(folder, path.basename(markdownUri.fsPath, path.extname(markdownUri.fsPath)) + '.xml');
+  if (fs.existsSync(documentPath)) {
+    void vscode.window.showWarningMessage(
+      `Lpdf: ${path.basename(documentPath)} is already there. Open it and run Lpdf: Link Markdown File... to render this file through it.`,
+    );
     return undefined;
   }
-  const templateUri = vscode.Uri.file(templatePath);
-  await setLinkedTemplateUri(context, markdownUri, templateUri);
-  await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(templateUri), { preview: false, viewColumn: vscode.ViewColumn.Beside });
-  return templateUri;
+  const stylesUri = getLinkedStylesUri(context, markdownUri);
+  try {
+    await fs.promises.writeFile(documentPath, stylesUri ? starterTemplate(srcFrom(folder, stylesUri.fsPath)) : defaultTemplate());
+  } catch (error) {
+    void vscode.window.showErrorMessage(`Lpdf: cannot write the document to ${folder}: ${(error as Error).message}`);
+    return undefined;
+  }
+  const documentUri = vscode.Uri.file(documentPath);
+  await setLinkedDocumentUri(context, markdownUri, documentUri);
+  await showBeside(documentUri);
+  return documentUri;
+}
+
+/**
+ * Writes the default styles beside a `.md` file, to start from, links them to the file and opens them. A file
+ * that is already there is left as it is and linked.
+ * @returns The styles, or undefined when they could not be written.
+ */
+export async function createMarkdownStyles(context: vscode.ExtensionContext, markdownUri: vscode.Uri): Promise<vscode.Uri | undefined> {
+  const folder = path.dirname(markdownUri.fsPath);
+  const stylesPath = path.join(folder, STYLES_FILE_NAME);
+  try {
+    if (!fs.existsSync(stylesPath)) { await fs.promises.writeFile(stylesPath, starterStyles()); }
+  } catch (error) {
+    void vscode.window.showErrorMessage(`Lpdf: cannot write the styles to ${folder}: ${(error as Error).message}`);
+    return undefined;
+  }
+  const stylesUri = vscode.Uri.file(stylesPath);
+  await setLinkedStylesUri(context, markdownUri, stylesUri);
+  await showBeside(stylesUri);
+  return stylesUri;
 }

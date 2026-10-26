@@ -92,9 +92,13 @@
       { "command": "lpdf.exportPdf",      "title": "Lpdf: Export PDF"  },
       { "command": "lpdf.exportEncryptedPdf", "title": "Lpdf: Export Encrypted PDF..." },
       { "command": "lpdf.generateHere",   "title": "Lpdf: Generate Code" },
-      { "command": "lpdf.linkMarkdownTemplate",   "title": "Lpdf: Link Markdown Template..." },
-      { "command": "lpdf.unlinkMarkdownTemplate", "title": "Lpdf: Unlink Markdown Template" },
-      { "command": "lpdf.createMarkdownTemplate", "title": "Lpdf: Write Markdown Template and Styles" },
+      { "command": "lpdf.linkMarkdownStyles",   "title": "Lpdf: Link Markdown Styles..." },
+      { "command": "lpdf.unlinkMarkdownStyles", "title": "Lpdf: Unlink Markdown Styles" },
+      { "command": "lpdf.createMarkdownStyles", "title": "Lpdf: Write Markdown Styles" },
+      { "command": "lpdf.createLpdfDocument",   "title": "Lpdf: Create Lpdf Document" },
+      { "command": "lpdf.unlinkLpdfDocument",   "title": "Lpdf: Unlink Lpdf Document" },
+      { "command": "lpdf.linkMarkdownFile",     "title": "Lpdf: Link Markdown File..." },
+      { "command": "lpdf.unlinkMarkdownFile",   "title": "Lpdf: Unlink Markdown File" },
       { "command": "lpdf.linkDataFile",   "title": "Lpdf: Link Data File..."  },
       { "command": "lpdf.unlinkDataFile", "title": "Lpdf: Unlink Data File"   },
       { "command": "lpdf.generateTs",     "title": "Lpdf: Generate TypeScript from XML" },
@@ -128,9 +132,13 @@
         }
       ],
       "commandPalette": [
-        { "command": "lpdf.linkMarkdownTemplate",   "when": "editorLangId == markdown" },
-        { "command": "lpdf.unlinkMarkdownTemplate", "when": "editorLangId == markdown" },
-        { "command": "lpdf.createMarkdownTemplate", "when": "editorLangId == markdown" }
+        { "command": "lpdf.linkMarkdownStyles",   "when": "editorLangId == markdown" },
+        { "command": "lpdf.unlinkMarkdownStyles", "when": "editorLangId == markdown" },
+        { "command": "lpdf.createMarkdownStyles", "when": "editorLangId == markdown" },
+        { "command": "lpdf.createLpdfDocument",   "when": "editorLangId == markdown" },
+        { "command": "lpdf.unlinkLpdfDocument",   "when": "editorLangId == markdown" },
+        { "command": "lpdf.linkMarkdownFile",     "when": "lpdf.isLpdfDocument" },
+        { "command": "lpdf.unlinkMarkdownFile",   "when": "lpdf.isLpdfDocument" }
       ],
       "explorer/context": [
         {
@@ -185,13 +193,18 @@
         },
         {
           "when": "resourceExtname == .md",
-          "command": "lpdf.linkMarkdownTemplate",
+          "command": "lpdf.linkMarkdownStyles",
           "group": "2_z_lpdf@4"
         },
         {
           "when": "resourceExtname == .md",
-          "command": "lpdf.createMarkdownTemplate",
+          "command": "lpdf.createMarkdownStyles",
           "group": "2_z_lpdf@5"
+        },
+        {
+          "when": "resourceExtname == .md",
+          "command": "lpdf.createLpdfDocument",
+          "group": "2_z_lpdf@6"
         }
       ]
     }

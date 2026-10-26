@@ -15,6 +15,7 @@ const state = {
 
 vi.mock('vscode', () => ({
   Uri: { file: (fsPath: string) => ({ fsPath }) },
+  EventEmitter: class { event = () => ({ dispose() {} }); fire(): void {} },
   window: {
     showSaveDialog: (...args: unknown[]) => state.saveDialog(...args),
     showInformationMessage: (...args: unknown[]) => state.info(...args),
@@ -41,7 +42,7 @@ vi.mock('./utils', () => ({
 import { exportEncryptedPdf, exportPdf } from './export';
 
 const secrets = { store: vi.fn(), get: vi.fn(), delete: vi.fn() };
-const memento = { update: vi.fn(), get: vi.fn() };
+const memento = { update: vi.fn(), get: vi.fn(), keys: () => [] as string[] };
 const context = { secrets, globalState: memento, workspaceState: memento } as never;
 
 const request = { userPassword: 'hunter2-open', ownerPassword: 'hunter2-owner', algorithm: 'aes-256', permissions: { print: true } };
