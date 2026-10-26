@@ -1,0 +1,108 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { describe, expect, it } from 'vitest';
+import {
+  markdownImageName, prepareMarkdown, starterStyles, starterTemplate, STYLES_FILE_NAME, TEMPLATE_FILE_NAME,
+  type MarkdownWasm,
+} from './markdown-engine';
+
+// The engine this extension ships: these tests ask it, so that what they say is what a preview does.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const wasm = require(join(__dirname, '..', 'wasm', 'lpdf.js')) as MarkdownWasm & {
+  LpdfEngine: new (key: string) => { render_pdf(xml: string, data?: string | null): Uint8Array; load_image(name: string, bytes: Uint8Array): void; load_markdown_styles(src: string, xml: string): void; free(): void };
+};
+
+const PIXEL = new Uint8Array(Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+  'base64',
+));
+
+function render(xml: string, data: string | null, images: Record<string, Uint8Array> = {}, styles: Record<string, string> = {}): string {
+  const engine = new wasm.LpdfEngine('');
+  try {
+    for (const [name, bytes] of Object.entries(images)) { engine.load_image(name, bytes); }
+    for (const [src, text] of Object.entries(styles)) { engine.load_markdown_styles(src, text); }
+    return Buffer.from(engine.render_pdf(xml, data)).toString('latin1');
+  } finally {
+    engine.free();
+  }
+}
+
+describe('prepareMarkdown', () => {
+  it('wraps a file in the default template, with its text and front matter as the data', () => {
+    const prepared = prepareMarkdown('---\ntitle: Notes\n---\n\n# Heading\n', null);
+    expect(prepared.xml).toContain('<markdown');
+    expect(prepared.xml).not.toContain('<image');
+    expect(prepared.images).toEqual([]);
+    expect(JSON.parse(prepared.jsonData)).toEqual({ markdown: '---\ntitle: Notes\n---\n\n# Heading\n', title: 'Notes' });
+  });
+
+  it('wraps it in the template it is given instead', () => {
+    const template = '<lpdf version="1"><document><section><markdown><markdown-content data-value="markdown"/></markdown></section></document></lpdf>';
+    expect(prepareMarkdown('# A', template).xml).toBe(template);
+  });
+
+  it('declares the images of the Markdown as assets, named by their place in the file', () => {
+    const prepared = prepareMarkdown('![a](img/a.png) and ![b](b.jpg) and ![again](img/a.png) and ![u](https://x.org/u.png)', null);
+    expect(prepared.images).toEqual(['img/a.png', 'b.jpg']);
+    expect(prepared.xml).toContain(`<image name="${markdownImageName(0)}" src="img/a.png"/>`);
+    expect(prepared.xml).toContain(`<image name="${markdownImageName(1)}" src="b.jpg"/>`);
+  });
+
+  it('gives a document the engine renders, with the image where the Markdown wrote it', () => {
+    const prepared = prepareMarkdown('# Title\n\n![a chart](img/chart.png)\n', null);
+    const pdf = render(prepared.xml, prepared.jsonData, { [markdownImageName(0)]: PIXEL });
+    expect(pdf.startsWith('%PDF-')).toBe(true);
+    expect(pdf).toMatch(/\/Subtype\s*\/Image/);
+  });
+
+  it('is an error that names the line when the Markdown has raw HTML', () => {
+    const prepared = prepareMarkdown('fine\n\n<div>no</div>\n', null);
+    expect(() => render(prepared.xml, prepared.jsonData)).toThrow(/markdown line 3.*raw HTML/s);
+  });
+
+  it('says what is wrong with a template that is not XML', () => {
+    expect(() => prepareMarkdown('![a](a.png)', 'not xml')).toThrow();
+  });
+});
+
+describe('the starter template and styles', () => {
+  it('reads its styles from the file written beside it', () => {
+    const template = starterTemplate();
+    expect(template).toContain(`<markdown-styles src="${STYLES_FILE_NAME}"/>`);
+    expect(template.indexOf('<markdown-styles')).toBeLessThan(template.indexOf('<markdown-content'));
+    expect(starterTemplate('other.xml')).toContain('src="other.xml"');
+  });
+
+  it('renders as the default template does, since the styles it names are the default ones', () => {
+    const markdown = '# Title\n\nSome *text* with `code`.\n';
+    const plain = prepareMarkdown(markdown, null);
+    const starter = prepareMarkdown(markdown, starterTemplate());
+    const fromDefault = render(plain.xml, plain.jsonData);
+    const fromStarter = render(starter.xml, starter.jsonData, {}, { [STYLES_FILE_NAME]: starterStyles() });
+    expect(fromStarter).toBe(fromDefault);
+  });
+
+  it('is changed by an edit of the styles file', () => {
+    const starter = prepareMarkdown('# Title\n', starterTemplate());
+    const edited = starterStyles().replace('<h1 ', '<h1 color="#ff0000" ');
+    expect(render(starter.xml, starter.jsonData, {}, { [STYLES_FILE_NAME]: edited }))
+      .not.toBe(render(starter.xml, starter.jsonData, {}, { [STYLES_FILE_NAME]: starterStyles() }));
+  });
+
+  it('is a styles file whose root is markdown-styles, with a rule for each part', () => {
+    const styles = starterStyles();
+    expect(styles).toMatch(/<markdown-styles>/);
+    for (const rule of ['h1', 'p', 'code', 'quote', 'li', 'a', 'table']) { expect(styles).toContain(`<${rule} `); }
+  });
+
+  it('names the files it writes', () => {
+    expect([TEMPLATE_FILE_NAME, STYLES_FILE_NAME]).toEqual(['markdown-template.xml', 'markdown-styles.xml']);
+  });
+});
+
+describe('the engine of the extension', () => {
+  it('has the engine the tests above ask', () => {
+    expect(readFileSync(join(__dirname, '..', 'wasm', 'lpdf.d.ts'), 'utf8')).toContain('markdown_declare_images');
+  });
+});

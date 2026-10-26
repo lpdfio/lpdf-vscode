@@ -67,6 +67,7 @@ const BUILTIN_TYPES: Partial<Record<string, { name: string; values?: string[] }>
     boolean: { name: 'boolean', values: ['true', 'false'] },
     anyURI: { name: 'URI' },
     positiveInteger: { name: 'positive integer' },
+    nonNegativeInteger: { name: 'non-negative integer' },
     decimal: { name: 'decimal' },
 };
 

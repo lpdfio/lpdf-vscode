@@ -3,8 +3,7 @@ import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { renderPdf, LpdfRenderError, cancelRender } from './engine';
-import { loadAssets } from './assets';
-import { getLinkedDataJson } from './data';
+import { loadRenderInput } from './render-input';
 import { documentStem, resolveLpdfDocument } from './utils';
 import { trace } from './trace';
 import { buildViewerHtml } from './viewer-html';
@@ -36,6 +35,28 @@ const _lastWarnings = new Map<string, string>();
 let _webviewReady = false;
 let _pendingMessage: Record<string, unknown> | undefined;
 let _panelCreatedAt = 0;
+// Watchers on the files the document being shown was made from: its template, its files of rules, its
+// images and fonts. An edit of any of them renders the preview again.
+let _dependencyWatchers: vscode.FileSystemWatcher[] = [];
+
+function disposeDependencyWatchers(): void {
+  for (const watcher of _dependencyWatchers) { watcher.dispose(); }
+  _dependencyWatchers = [];
+}
+
+/** Watches `files`, in place of the files watched before, and renders `uri` again when one of them changes. */
+function watchDependencies(context: vscode.ExtensionContext, uri: vscode.Uri, files: readonly string[]): void {
+  disposeDependencyWatchers();
+  for (const file of new Set(files)) {
+    const watcher = vscode.workspace.createFileSystemWatcher(file);
+    // Only while this document is the one the preview shows: the panel may have moved on to another.
+    const again = (): void => { if (previewUri?.toString() === uri.toString()) { void renderForUri(context, uri, 'data'); } };
+    watcher.onDidChange(again);
+    watcher.onDidCreate(again);
+    watcher.onDidDelete(again);
+    _dependencyWatchers.push(watcher);
+  }
+}
 
 /** Send a message to the webview. Queues it if the webview hasn't signalled ready yet. */
 function postToWebview(msg: Record<string, unknown>): void {
@@ -154,6 +175,7 @@ function ensurePanel(context: vscode.ExtensionContext): void {
     cancelRender();
     previewPanel = undefined;
     previewUri = undefined;
+    disposeDependencyWatchers();
     _lastRendered.clear();
     _lastWarnings.clear();
     _webviewReady = false;
@@ -220,19 +242,20 @@ async function doRender(context: vscode.ExtensionContext, uri: vscode.Uri): Prom
   // will be superseded by updatePdf/showError when that arrives.
   postToWebview({ type: 'showLoading' });
 
-  const jsonData = getLinkedDataJson(context, uri);
-
   try {
-    const { assets, warnings } = await loadAssets(xml, uri);
+    // A .md file is wrapped in its template here; any other document is the engine's input as it is.
+    const input = await loadRenderInput(context, uri, xml);
+    const { assets, warnings } = input;
     const tWasm = Date.now();
     trace(`doRender engine start +${tWasm - t0}ms gen=${generation}`);
-    const bytes = await renderPdf(xml, jsonData, assets);
+    const bytes = await renderPdf(input.xml, input.jsonData, assets);
     trace(`doRender engine done +${Date.now() - t0}ms gen=${generation} pdfBytes=${bytes.byteLength} engineMs=${Date.now() - tWasm}`);
     if (generation !== renderGeneration || !previewPanel) {
       trace(`doRender stale after the engine gen=${generation} current=${renderGeneration}`);
       return;
     }
     _lastRendered.set(uri.toString(), xml);
+    watchDependencies(context, uri, input.files);
     const warningText = warnings.join(' ');
     if (warningText && warningText !== _lastWarnings.get(uri.toString())) {
       vscode.window.showWarningMessage(`Lpdf: ${warningText}`);

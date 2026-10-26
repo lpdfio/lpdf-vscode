@@ -44,6 +44,7 @@
   ],
   "activationEvents": [
     "onLanguage:xml",
+    "onLanguage:markdown",
     "workspaceContains:**/*.pdf"
   ],
   "main": "./dist/extension.js",
@@ -91,6 +92,9 @@
       { "command": "lpdf.exportPdf",      "title": "Lpdf: Export PDF"  },
       { "command": "lpdf.exportEncryptedPdf", "title": "Lpdf: Export Encrypted PDF..." },
       { "command": "lpdf.generateHere",   "title": "Lpdf: Generate Code" },
+      { "command": "lpdf.linkMarkdownTemplate",   "title": "Lpdf: Link Markdown Template..." },
+      { "command": "lpdf.unlinkMarkdownTemplate", "title": "Lpdf: Unlink Markdown Template" },
+      { "command": "lpdf.createMarkdownTemplate", "title": "Lpdf: Write Markdown Template and Styles" },
       { "command": "lpdf.linkDataFile",   "title": "Lpdf: Link Data File..."  },
       { "command": "lpdf.unlinkDataFile", "title": "Lpdf: Unlink Data File"   },
       { "command": "lpdf.generateTs",     "title": "Lpdf: Generate TypeScript from XML" },
@@ -113,10 +117,20 @@
           "group": "navigation"
         },
         {
+          "when": "resourceExtname == .md",
+          "command": "lpdf.previewPdf",
+          "group": "navigation"
+        },
+        {
           "when": "resourceExtname == .pdf",
           "command": "lpdf.diffPdf",
           "group": "1_lpdf"
         }
+      ],
+      "commandPalette": [
+        { "command": "lpdf.linkMarkdownTemplate",   "when": "editorLangId == markdown" },
+        { "command": "lpdf.unlinkMarkdownTemplate", "when": "editorLangId == markdown" },
+        { "command": "lpdf.createMarkdownTemplate", "when": "editorLangId == markdown" }
       ],
       "explorer/context": [
         {
@@ -153,7 +167,33 @@
           "when": "resourceExtname == .xml",
           "command": "lpdf.generateHere",
           "group": "2_z_lpdf@4"
-        }      ]
+        },
+        {
+          "when": "resourceExtname == .md",
+          "command": "lpdf.previewPdf",
+          "group": "2_z_lpdf@1"
+        },
+        {
+          "when": "resourceExtname == .md",
+          "command": "lpdf.exportPdf",
+          "group": "2_z_lpdf@2"
+        },
+        {
+          "when": "resourceExtname == .md",
+          "command": "lpdf.exportEncryptedPdf",
+          "group": "2_z_lpdf@3"
+        },
+        {
+          "when": "resourceExtname == .md",
+          "command": "lpdf.linkMarkdownTemplate",
+          "group": "2_z_lpdf@4"
+        },
+        {
+          "when": "resourceExtname == .md",
+          "command": "lpdf.createMarkdownTemplate",
+          "group": "2_z_lpdf@5"
+        }
+      ]
     }
   },
   "scripts": {

@@ -3,9 +3,9 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { LpdfRenderError, type RenderAssets } from './engine';
 
-/** One `<font>` or `<image>` declared in `<assets>`. */
+/** One `<font>` or `<image>` declared in `<assets>`, or one file of rules a `<markdown-styles>` names. */
 interface AssetDeclaration {
-  kind: 'font' | 'image';
+  kind: 'font' | 'image' | 'markdown-styles';
   name: string;
   /** Key the engine looks the bytes up by: `ref`, else `name`. */
   key:  string;
@@ -18,12 +18,15 @@ export interface LoadedAssets {
   assets:   RenderAssets;
   /** Declarations the extension can't load but that still render, as Helvetica. */
   warnings: string[];
+  /** The files that were read, which the preview watches so that it follows an edit of any of them. */
+  files:    string[];
 }
 
 const COMMENT_RE    = /<!--[\s\S]*?-->/g;
 const ASSETS_RE     = /<assets\b[^>]*>([\s\S]*?)<\/assets\s*>/g;
 // Attribute values may contain '>', so quoted runs are matched whole.
 const ASSET_TAG_RE  = /<(font|image)\b((?:[^>"']|"[^"]*"|'[^']*')*)>/g;
+const STYLES_TAG_RE = /<markdown-styles\b((?:[^>"']|"[^"]*"|'[^']*')*)>/g;
 const ATTRIBUTE_RE  = /([\w:.-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
 const ENTITY_RE     = /&(amp|lt|gt|quot|apos);/g;
 const XML_ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" };
@@ -31,8 +34,9 @@ const XML_ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot:
 const URL_SCHEME_RE = /^[a-z][a-z0-9+.-]+:/i;
 
 /**
- * Reads the bytes of every font and image the XML declares in `<assets>`, so
- * the extension renders what the SDKs render when they load `src` themselves.
+ * Reads the bytes of every font and image the XML declares in `<assets>`, and the text of every file of
+ * Markdown rules a `<markdown-styles src>` names, so the extension renders what the SDKs render when they
+ * load `src` themselves.
  *
  * A relative `src` is looked up next to the XML file first, then in the root of
  * its workspace folder. The SDKs resolve it against the app's working
@@ -49,7 +53,9 @@ export async function loadAssets(xml: string, xmlUri: vscode.Uri): Promise<Loade
   const dirs     = searchDirs(xmlUri);
   const fonts    = new Map<string, Uint8Array>();
   const images   = new Map<string, Uint8Array>();
+  const markdownStyles = new Map<string, string>();
   const warnings: string[] = [];
+  const files: string[] = [];
 
   for (const asset of parseAssetDeclarations(xml)) {
     if (asset.kind === 'font') {
@@ -58,16 +64,32 @@ export async function loadAssets(xml: string, xmlUri: vscode.Uri): Promise<Loade
         warnings.push(`Font '${asset.name}' has no src, so it renders as Helvetica.`);
         continue;
       }
-      fonts.set(asset.key, await readAsset(asset, asset.src, dirs));
+      fonts.set(asset.key, await readAsset(asset, asset.src, dirs, files));
+    } else if (asset.kind === 'markdown-styles') {
+      markdownStyles.set(asset.key, Buffer.from(await readAsset(asset, asset.src!, dirs, files)).toString('utf8'));
     } else {
       if (!asset.src) {
         throw new LpdfRenderError(`image '${asset.name}' has no src. The extension loads images from the file path in src.`);
       }
-      images.set(asset.key, await readAsset(asset, asset.src, dirs));
+      images.set(asset.key, await readAsset(asset, asset.src, dirs, files));
     }
   }
 
-  return { assets: { fonts, images }, warnings };
+  return { assets: { fonts, images, markdownStyles }, warnings, files };
+}
+
+/**
+ * Reads a file a document names with a relative path, looking where an asset's `src` is looked for: next to
+ * the document, then in the root of its workspace folder.
+ * @param label What the file is, for the error that says it is not there.
+ * @param src The path as written.
+ * @param uri The document the path is written in.
+ * @returns The bytes, and the file they were read from.
+ */
+export async function readNearby(label: string, src: string, uri: vscode.Uri): Promise<{ bytes: Uint8Array; file: string }> {
+  const files: string[] = [];
+  const bytes = await readAsset({ kind: 'image', name: label, key: label, src, core: undefined }, src, searchDirs(uri), files, label);
+  return { bytes, file: files[0] };
 }
 
 /** Folders a relative `src` resolves against: the XML file's own, then its workspace folder's. */
@@ -79,8 +101,8 @@ function searchDirs(xmlUri: vscode.Uri): string[] {
   return dirs;
 }
 
-async function readAsset(asset: AssetDeclaration, src: string, dirs: string[]): Promise<Uint8Array> {
-  const label = `${asset.kind} '${asset.name}'`;
+async function readAsset(asset: AssetDeclaration, src: string, dirs: string[], read: string[], what?: string): Promise<Uint8Array> {
+  const label = what ?? `${asset.kind} '${asset.name}'`;
 
   let candidates: string[];
   if (src.startsWith('file:')) {
@@ -97,7 +119,9 @@ async function readAsset(asset: AssetDeclaration, src: string, dirs: string[]): 
 
   for (const file of candidates) {
     try {
-      return await fs.promises.readFile(file);
+      const bytes = await fs.promises.readFile(file);
+      read.push(file);
+      return bytes;
     } catch (e) {
       const code = (e as NodeJS.ErrnoException).code;
       if (code !== 'ENOENT' && code !== 'ENOTDIR') {
@@ -124,6 +148,10 @@ function parseAssetDeclarations(xml: string): AssetDeclaration[] {
         core: attributes.get('core'),
       });
     }
+  }
+  for (const tag of source.matchAll(STYLES_TAG_RE)) {
+    const src = parseAttributes(tag[1]).get('src');
+    if (src) { declarations.push({ kind: 'markdown-styles', name: src, key: src, src, core: undefined }); }
   }
   return declarations;
 }

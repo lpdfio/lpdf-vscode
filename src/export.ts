@@ -1,8 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'node:path';
 import { renderPdf, LpdfRenderError } from './engine';
-import { loadAssets } from './assets';
-import { getLinkedDataJson } from './data';
+import { loadRenderInput } from './render-input';
 import { ALGORITHM_SETTING, algorithmFromSetting, describeEncryption, type EncryptionRequest } from './encryption';
 import { askForEncryption } from './encryption-prompt';
 import { documentStem, resolveLpdfDocument } from './utils';
@@ -49,10 +48,8 @@ async function renderAndSave(
   saveUri: vscode.Uri,
   encryption?: EncryptionRequest,
 ): Promise<void> {
-  const xml      = doc.getText();
-  const jsonData = getLinkedDataJson(context, doc.uri);
   try {
-    const { assets, warnings } = await loadAssets(xml, doc.uri);
+    const { xml, jsonData, assets, warnings } = await loadRenderInput(context, doc.uri, doc.getText());
     const bytes = await renderPdf(xml, jsonData, assets, encryption);
     await vscode.workspace.fs.writeFile(saveUri, bytes);
     const what = encryption ? ` (${describeEncryption(encryption)}; Lpdf cannot recover the passwords)` : '';

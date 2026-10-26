@@ -6,6 +6,7 @@ import type { EncryptionRequest } from './encryption';
 export interface IWasmEngine {
   load_font(name: string, bytes: Uint8Array): void;
   load_image(name: string, bytes: Uint8Array): void;
+  load_markdown_styles(src: string, xml: string): void;
   set_encryption(user_password: string, owner_password: string, permissions_json: string, algorithm: string, entropy: Uint8Array): void;
   render_pdf(xml: string, json_data?: string | null): Uint8Array;
   free(): void;
@@ -60,6 +61,7 @@ export function renderRequest(wasm: IWasmModule, { xml, jsonData, assets, encryp
   try {
     for (const [key, bytes] of assets.fonts)  { engine.load_font(key, bytes); }
     for (const [key, bytes] of assets.images) { engine.load_image(key, bytes); }
+    for (const [src, text] of assets.markdownStyles ?? []) { engine.load_markdown_styles(src, text); }
     if (encryption) {
       if (engine.set_encryption.length < ENCRYPTION_ARGUMENTS) {
         throw new Error('This engine is older than the encrypted export needs: it cannot encrypt with AES-256. Update the Lpdf extension.');

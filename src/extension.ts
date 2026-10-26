@@ -8,6 +8,13 @@ import { registerNewDocumentCommand } from './new-document';
 import { registerPdfDiffPrompt } from './pdf-diff-prompt';
 import { previewPdf, renderForUri, closePreviewWhenSourceCloses } from './preview';
 import { exportEncryptedPdf, exportPdf } from './export';
+import {
+  createMarkdownTemplate,
+  getLinkedTemplateUri,
+  isMarkdownDocument,
+  promptLinkTemplateFile,
+  setLinkedTemplateUri,
+} from './markdown';
 import { disposeRenderWorker } from './engine';
 import { LpdfPdfViewerProvider } from './pdf-viewer';
 import { initTrace } from './trace';
@@ -247,6 +254,27 @@ export function activate(context: vscode.ExtensionContext): void {
       setupDataWatcher(context, target, picked);
       void renderForUri(context, target, 'data');
     }),
+    vscode.commands.registerCommand('lpdf.linkMarkdownTemplate', async (markdownUri?: vscode.Uri) => {
+      const target = markdownUri ?? vscode.window.activeTextEditor?.document.uri;
+      if (!target) { return; }
+      if (!await promptLinkTemplateFile(context, target)) { return; }
+      void renderForUri(context, target, 'data');
+    }),
+    vscode.commands.registerCommand('lpdf.unlinkMarkdownTemplate', async (markdownUri?: vscode.Uri) => {
+      const target = markdownUri ?? vscode.window.activeTextEditor?.document.uri;
+      if (!target) { return; }
+      if (!getLinkedTemplateUri(context, target)) {
+        void vscode.window.showInformationMessage('Lpdf: This Markdown file has no template linked: it renders in the default one.');
+        return;
+      }
+      await setLinkedTemplateUri(context, target, undefined);
+      void renderForUri(context, target, 'data');
+    }),
+    vscode.commands.registerCommand('lpdf.createMarkdownTemplate', async (markdownUri?: vscode.Uri) => {
+      const target = markdownUri ?? vscode.window.activeTextEditor?.document.uri;
+      if (!target) { return; }
+      if (await createMarkdownTemplate(context, target)) { void renderForUri(context, target, 'data'); }
+    }),
     vscode.commands.registerCommand('lpdf.unlinkDataFile', async (xmlUri?: vscode.Uri) => {
       const target = xmlUri ?? vscode.window.activeTextEditor?.document.uri;
       if (!target) { return; }
@@ -293,6 +321,8 @@ export function activate(context: vscode.ExtensionContext): void {
       if (editor && isLpdfDocument(editor.document)) {
         ensureDataWatcher(context, editor.document.uri);
         renderForUri(context, editor.document.uri, 'switch');
+      } else if (editor && isMarkdownDocument(editor.document)) {
+        renderForUri(context, editor.document.uri, 'switch');
       }
     }),
     vscode.window.tabGroups.onDidChangeTabs(event => closePreviewWhenSourceCloses(event.closed)),
@@ -302,7 +332,7 @@ export function activate(context: vscode.ExtensionContext): void {
       _statusDebounce = setTimeout(() => refreshLpdfContext(vscode.window.activeTextEditor), 300);
     }),
     vscode.workspace.onDidSaveTextDocument(doc => {
-      if (isLpdfDocument(doc)) { renderForUri(context, doc.uri, 'save'); }
+      if (isLpdfDocument(doc) || isMarkdownDocument(doc)) { renderForUri(context, doc.uri, 'save'); }
     }),
   );
 

@@ -69,6 +69,18 @@ Any `.xml` file whose root element is `<lpdf>` is an Lpdf document, whatever it 
 
 ![The same window in a light theme](docs/images/light.png)
 
+### Preview a Markdown file
+
+Right-click a `.md` file in the Explorer and choose **Lpdf: Preview PDF**, or use the button in the editor's title bar, to see it as a PDF beside it. A `.md` file is wrapped in a template: the default one is an A4 page with a 54pt margin and the page number, and the default styles make headings, lists, quotes, code and tables look as people expect of rendered Markdown. **Lpdf: Export PDF** saves it.
+
+- **Your own template.** Run **Lpdf: Write Markdown Template and Styles** to write `markdown-template.xml` and `markdown-styles.xml` beside the `.md` file, link the template to it and open it. The template is an Lpdf document with a `<markdown>` in a section, so a cover, a header or a footer is XML around the Markdown. **Lpdf: Link Markdown Template...** links any other template, and **Lpdf: Unlink Markdown Template** goes back to the default.
+- **Styles.** The rules in the styles file are named after the Markdown they style, `h1`, `p`, `code`, `quote`, `li`, `table` and so on, and take the attributes of the element they become. Write only the rules you change: the rest stay as the defaults have them.
+- **Front matter.** A YAML block at the top of the file is not drawn. Its `key: value` lines are data the template can show with `data-value`, for example `<text-at data-value="title">`.
+- **Images.** `![chart](img/chart.png)` is read relative to the `.md` file.
+- **Follows your edits.** The preview updates when you save the `.md` file, its template or its styles file, and when an image changes.
+
+The same file converts on the command line with `lpdf convert --input notes.md`, to the same PDF.
+
 ### Autocomplete, validation and hover docs
 
 The XML is checked against the Lpdf schema as you type.
