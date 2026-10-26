@@ -23,6 +23,7 @@ vi.mock('vscode', () => ({
     showErrorMessage: (...args: unknown[]) => state.error(...args),
   },
   workspace: {
+    textDocuments: [],
     getConfiguration: () => ({ get: () => state.setting }),
     fs: { writeFile: (...args: unknown[]) => state.write(...args) },
   },

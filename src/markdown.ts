@@ -13,9 +13,14 @@ const STYLES_KEY_PREFIX = 'lpdf.markdownStyles:';
 const _changeEmitter = new vscode.EventEmitter<void>();
 export const onDidChangeMarkdownLinks: vscode.Event<void> = _changeEmitter.event;
 
-/** Whether a file is Markdown, by its extension. */
+/**
+ * Whether a file is Markdown: by its extension, or, when it is open, by the language the editor shows it in, so
+ * that a file such as LICENSE that is Markdown by the user's settings is rendered as Markdown, not read as XML.
+ */
 export function isMarkdownUri(uri: vscode.Uri): boolean {
-  return /\.(?:md|markdown)$/i.test(uri.fsPath);
+  if (/\.(?:md|markdown)$/i.test(uri.fsPath)) { return true; }
+  const wanted = uri.toString();
+  return vscode.workspace.textDocuments.some(doc => doc.languageId === 'markdown' && doc.uri.toString() === wanted);
 }
 
 /** Whether a document is Markdown, by its language or its file name. */

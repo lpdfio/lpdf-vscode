@@ -3,6 +3,8 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+const openDocuments = vi.hoisted(() => [] as { uri: { toString(): string }; languageId: string }[]);
+
 vi.mock('vscode', () => {
   class Uri {
     readonly scheme = 'file';
@@ -15,7 +17,7 @@ vi.mock('vscode', () => {
     Uri,
     EventEmitter: class { event = () => ({ dispose() {} }); fire(): void {} },
     workspace: {
-      textDocuments: [],
+      textDocuments: openDocuments,
       getWorkspaceFolder: () => undefined,
       fs: { readFile: async (uri: { fsPath: string }) => fs.promises.readFile(uri.fsPath) },
     },
@@ -26,7 +28,7 @@ vi.mock('./engine', () => ({ LpdfRenderError: class extends Error {} }));
 
 import * as vscode from 'vscode';
 import {
-  getLinkedDocumentUri, getLinkedMarkdownUri, getLinkedStylesUri, loadMarkdownRenderInput,
+  getLinkedDocumentUri, getLinkedMarkdownUri, getLinkedStylesUri, isMarkdownDocument, isMarkdownUri, loadMarkdownRenderInput,
   setLinkedDocumentUri, setLinkedStylesUri,
 } from './markdown';
 import { loadRenderInput } from './render-input';
@@ -52,6 +54,43 @@ beforeEach(() => { context = { workspaceState: memento() } as unknown as vscode.
 
 const STYLES = '<markdown-styles><h1 color="#ff0000"/></markdown-styles>';
 const DOCUMENT = '<lpdf version="1"><document size="letter"><section><markdown><markdown-content data-value="markdown"/></markdown></section></document></lpdf>';
+
+describe('which files are Markdown', () => {
+  beforeEach(() => { openDocuments.length = 0; });
+
+  const open = (name: string, languageId: string): vscode.TextDocument => {
+    const doc = { uri: uriOf(name), languageId } as vscode.TextDocument;
+    openDocuments.push(doc);
+    return doc;
+  };
+
+  it('are those named .md or .markdown, in any case', () => {
+    for (const name of ['notes.md', 'README.markdown', 'NOTES.MD']) {
+      expect(isMarkdownUri(uriOf(name)), name).toBe(true);
+    }
+  });
+
+  it('are those the editor shows as Markdown, whatever they are named', () => {
+    const license = open('LICENSE', 'markdown');
+    expect(isMarkdownUri(license.uri)).toBe(true);
+    expect(isMarkdownDocument(license)).toBe(true);
+  });
+
+  it('are not other files, or the same name when it is not open in Markdown mode', () => {
+    expect(isMarkdownUri(uriOf('LICENSE'))).toBe(false);
+    expect(isMarkdownDocument(open('notes.txt', 'plaintext'))).toBe(false);
+  });
+
+  it('are rendered as Markdown, not read as XML, when they are named otherwise', async () => {
+    fs.writeFileSync(path.join(folder, 'LICENSE'), '# License\n');
+    const license = open('LICENSE', 'markdown');
+
+    const input = await loadRenderInput(context, license.uri, '# License\n');
+
+    expect(input.xml).toContain('<markdown');
+    expect(JSON.parse(input.jsonData ?? '{}')).toEqual({ markdown: '# License\n' });
+  });
+});
 
 describe('a .md file with nothing linked', () => {
   it('is wrapped in the default template, with its text as the data', async () => {

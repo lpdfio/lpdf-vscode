@@ -13,7 +13,7 @@ const manifest = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 
 const extensionSource = readFileSync(join(__dirname, 'extension.ts'), 'utf8');
 
 describe('the Markdown preview in the manifest', () => {
-  const entries = manifest.contributes.menus['explorer/context'].filter(e => e.when === 'resourceExtname == .md');
+  const entries = manifest.contributes.menus['explorer/context'].filter(e => e.when === 'resourceLangId == markdown');
 
   it('has the commands for the styles, the Lpdf document and the linked file that the extension registers', () => {
     for (const name of [
@@ -39,7 +39,7 @@ describe('the Markdown preview in the manifest', () => {
   });
 
   it('shows the preview button on a .md file in the editor title', () => {
-    const button = manifest.contributes.menus['editor/title'].find(e => e.when === 'resourceExtname == .md');
+    const button = manifest.contributes.menus['editor/title'].find(e => e.when === 'resourceLangId == markdown');
     expect(button?.command).toBe('lpdf.previewPdf');
   });
 

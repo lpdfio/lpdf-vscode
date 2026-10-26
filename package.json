@@ -121,7 +121,7 @@
           "group": "navigation"
         },
         {
-          "when": "resourceExtname == .md",
+          "when": "resourceLangId == markdown",
           "command": "lpdf.previewPdf",
           "group": "navigation"
         },
@@ -177,32 +177,32 @@
           "group": "2_z_lpdf@4"
         },
         {
-          "when": "resourceExtname == .md",
+          "when": "resourceLangId == markdown",
           "command": "lpdf.previewPdf",
           "group": "2_z_lpdf@1"
         },
         {
-          "when": "resourceExtname == .md",
+          "when": "resourceLangId == markdown",
           "command": "lpdf.exportPdf",
           "group": "2_z_lpdf@2"
         },
         {
-          "when": "resourceExtname == .md",
+          "when": "resourceLangId == markdown",
           "command": "lpdf.exportEncryptedPdf",
           "group": "2_z_lpdf@3"
         },
         {
-          "when": "resourceExtname == .md",
+          "when": "resourceLangId == markdown",
           "command": "lpdf.linkMarkdownStyles",
           "group": "2_z_lpdf@4"
         },
         {
-          "when": "resourceExtname == .md",
+          "when": "resourceLangId == markdown",
           "command": "lpdf.createMarkdownStyles",
           "group": "2_z_lpdf@5"
         },
         {
-          "when": "resourceExtname == .md",
+          "when": "resourceLangId == markdown",
           "command": "lpdf.createLpdfDocument",
           "group": "2_z_lpdf@6"
         }
