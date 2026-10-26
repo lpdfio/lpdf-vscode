@@ -37,6 +37,7 @@ const RUNTIME_FILES = [
     'dist/engine.js',
     'dist/worker.js',
     'dist/templates.js',
+    'dist/markdown-engine.js',
     'wasm/lpdf.js',
     'wasm/lpdf_bg.wasm',
     'schema/lpdf.xsd',
@@ -243,6 +244,19 @@ async function checkRendering(checker, extension) {
             } catch (error) {
                 checker.check(name, false, `${error.name}: ${error.message}`);
             }
+        }
+
+        // A .md file goes the same way: wrapped in the default template by the packaged helpers, which ask the packaged
+        // engine, and rendered by it. markdown-engine.js imports no more than node's own modules, so it runs here.
+        const { prepareMarkdown } = require(path.join(extension, 'dist', 'markdown-engine.js'));
+        const name = 'a Markdown file renders through dist/markdown-engine.js and dist/engine.js to a PDF that PDF.js opens';
+        try {
+            const prepared = prepareMarkdown('---\ntitle: Notes\n---\n\n# Notes\n\nSome *text*, a list and a table:\n\n- one\n- two\n\n| a | b |\n|---|---|\n| 1 | 2 |\n', null);
+            const bytes = await engine.renderPdf(prepared.xml, prepared.jsonData, { fonts: new Map(), images: new Map() });
+            const { pages, textItems } = hasPdfFrame(bytes) ? await readPdf(pdfjs, bytes) : { pages: 0, textItems: 0 };
+            checker.check(name, pages > 0 && textItems > 0, `${pages} page(s), ${textItems} text items, ${bytes.length} bytes`);
+        } catch (error) {
+            checker.check(name, false, `${error.name}: ${error.message}`);
         }
     } finally {
         engine.disposeRenderWorker();
