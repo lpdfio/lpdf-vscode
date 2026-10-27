@@ -67,9 +67,9 @@ describe('prepareMarkdown', () => {
 });
 
 describe('the style presets', () => {
-  it('are a business look, a serif one and a typewriter one, each with the words that offer it', () => {
+  it('are a sans look, a serif one and a typewriter one, each with the words that offer it', () => {
     const presets = stylePresets();
-    expect(presets.map(preset => preset.name)).toEqual(['business', 'serif', 'typewriter']);
+    expect(presets.map(preset => preset.name)).toEqual(['sans', 'serif', 'typewriter']);
     for (const preset of presets) {
       expect(preset.label, preset.name).not.toBe('');
       expect(preset.description, preset.name).not.toBe('');
@@ -77,11 +77,12 @@ describe('the style presets', () => {
     }
   });
 
-  it('render a file otherwise than the default styles do, from a styles file beside it', () => {
+  it('render a file, from a styles file beside it, as the default styles do for sans and otherwise for the others', () => {
     const starter = prepareMarkdown('# Title\n\nSome *text*.\n', starterTemplate());
     const plain = render(starter.xml, starter.jsonData, {}, { [STYLES_FILE_NAME]: starterStyles() });
     for (const preset of stylePresets()) {
-      expect(render(starter.xml, starter.jsonData, {}, { [STYLES_FILE_NAME]: preset.styles }), preset.name).not.toBe(plain);
+      const rendered = render(starter.xml, starter.jsonData, {}, { [STYLES_FILE_NAME]: preset.styles });
+      if (preset.name === 'sans') { expect(rendered, preset.name).toBe(plain); } else { expect(rendered, preset.name).not.toBe(plain); }
     }
   });
 });

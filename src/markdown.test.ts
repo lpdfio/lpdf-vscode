@@ -152,19 +152,19 @@ describe('Link Styles', () => {
     await promptLinkStylesFile(context, uriOf('menu.md'));
 
     const choices = ui.showQuickPick.mock.calls[0][0] as { label: string; description?: string; kind?: number }[];
-    expect(choices.map(c => c.label)).toEqual(['Business', 'Serif', 'Typewriter', '', 'Choose a file...']);
+    expect(choices.map(c => c.label)).toEqual(['Sans', 'Serif', 'Typewriter', '', 'Choose a file...']);
     expect(choices[0].description).toBe(stylePresets()[0].description);
     expect(choices[3].kind).toBe(-1);
   });
 
   it('writes a look beside the file as styles of its own and links them, without opening them over the preview', async () => {
-    pickPreset('business');
-    const written = path.join(folder, 'markdown-styles-business.xml');
+    pickPreset('typewriter');
+    const written = path.join(folder, 'markdown-styles-typewriter.xml');
 
     const styles = await promptLinkStylesFile(context, uriOf('look.md'));
 
     expect(styles?.fsPath).toBe(written);
-    expect(fs.readFileSync(written, 'utf8')).toBe(stylePresets().find(p => p.name === 'business')?.styles);
+    expect(fs.readFileSync(written, 'utf8')).toBe(stylePresets().find(p => p.name === 'typewriter')?.styles);
     expect(getLinkedStylesUri(context, uriOf('look.md'))?.fsPath).toBe(written);
     expect(ui.showTextDocument).not.toHaveBeenCalled();
   });
