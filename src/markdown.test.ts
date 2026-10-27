@@ -4,7 +4,9 @@ import * as path from 'node:path';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const openDocuments = vi.hoisted(() => [] as { uri: { toString(): string }; languageId: string }[]);
+const visibleEditors = vi.hoisted(() => [] as { document: { uri: { toString(): string } }; viewColumn: number }[]);
 const ui = vi.hoisted(() => ({
+  showWarningMessage: vi.fn(),
   showQuickPick: vi.fn(),
   showOpenDialog: vi.fn(),
   showInformationMessage: vi.fn(),
@@ -24,14 +26,14 @@ vi.mock('vscode', () => {
     Uri,
     EventEmitter: class { event = () => ({ dispose() {} }); fire(): void {} },
     QuickPickItemKind: { Separator: -1, Default: 0 },
-    ViewColumn: { Beside: -2 },
+    ViewColumn: { One: 1, Beside: -2 },
     workspace: {
       textDocuments: openDocuments,
       getWorkspaceFolder: () => undefined,
       openTextDocument: async (uri: unknown) => ({ uri }),
       fs: { readFile: async (uri: { fsPath: string }) => fs.promises.readFile(uri.fsPath) },
     },
-    window: ui,
+    window: { ...ui, visibleTextEditors: visibleEditors },
   };
 });
 vi.mock('./engine', () => ({ LpdfRenderError: class extends Error {} }));
@@ -39,9 +41,9 @@ vi.mock('./engine', () => ({ LpdfRenderError: class extends Error {} }));
 import * as vscode from 'vscode';
 import {
   getLinkedDocumentUri, getLinkedMarkdownUri, getLinkedStylesUri, isMarkdownDocument, isMarkdownUri, loadMarkdownRenderInput,
-  promptLinkStylesFile, setLinkedDocumentUri, setLinkedStylesUri,
+  createLpdfDocument, createMarkdownStyles, promptLinkStylesFile, setLinkedDocumentUri, setLinkedStylesUri,
 } from './markdown';
-import { stylePresets } from './markdown-engine';
+import { defaultTemplate, starterStyles, stylePresets } from './markdown-engine';
 import { loadRenderInput } from './render-input';
 
 /** A workspaceState that keeps its values in memory. */
@@ -210,6 +212,56 @@ describe('Link Styles', () => {
 
     expect(getLinkedStylesUri(context, uriOf('cancel.md'))).toBeUndefined();
     expect(fs.readdirSync(folder)).toEqual(before);
+  });
+});
+
+describe('the files written for a .md file', () => {
+  beforeEach(() => {
+    Object.values(ui).forEach(fn => fn.mockReset());
+    visibleEditors.length = 0;
+  });
+
+  /** The .md file is open in a column, as it is when its preview is on the other side. */
+  const openIn = (name: string, viewColumn: number): void => {
+    visibleEditors.push({ document: { uri: uriOf(name) }, viewColumn });
+  };
+  const openedIn = (): unknown => (ui.showTextDocument.mock.calls[0][1] as { viewColumn: number }).viewColumn;
+
+  it('are the default styles, linked and opened as a tab in the column of the .md file, not over its preview', async () => {
+    openIn('written.md', 3);
+
+    const styles = await createMarkdownStyles(context, uriOf('written.md'));
+
+    expect(styles?.fsPath).toBe(path.join(folder, 'markdown-styles.xml'));
+    expect(fs.readFileSync(path.join(folder, 'markdown-styles.xml'), 'utf8')).toBe(starterStyles());
+    expect(getLinkedStylesUri(context, uriOf('written.md'))?.fsPath).toBe(styles?.fsPath);
+    expect(openedIn()).toBe(3);
+  });
+
+  it('are a document named after the .md file, linked and opened in the column of the .md file', async () => {
+    openIn('named.md', 2);
+
+    const document = await createLpdfDocument(context, uriOf('named.md'));
+
+    expect(document?.fsPath).toBe(path.join(folder, 'named.xml'));
+    expect(fs.readFileSync(path.join(folder, 'named.xml'), 'utf8')).toBe(defaultTemplate());
+    expect(getLinkedDocumentUri(context, uriOf('named.md'))?.fsPath).toBe(document?.fsPath);
+    expect(openedIn()).toBe(2);
+  });
+
+  it('open in the first column when the .md file is not open in an editor', async () => {
+    await createLpdfDocument(context, uriOf('closed.md'));
+    expect(openedIn()).toBe(1);
+  });
+
+  it('are not written over a document that is already there', async () => {
+    fs.writeFileSync(path.join(folder, 'taken.xml'), '<lpdf/>');
+
+    expect(await createLpdfDocument(context, uriOf('taken.md'))).toBeUndefined();
+
+    expect(fs.readFileSync(path.join(folder, 'taken.xml'), 'utf8')).toBe('<lpdf/>');
+    expect(ui.showWarningMessage).toHaveBeenCalledWith(expect.stringContaining('already there'));
+    expect(ui.showTextDocument).not.toHaveBeenCalled();
   });
 });
 

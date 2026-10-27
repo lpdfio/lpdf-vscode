@@ -255,13 +255,19 @@ function srcFrom(folder: string, file: string): string {
   return path.isAbsolute(relative) ? file : relative.split(path.sep).join('/');
 }
 
-async function showBeside(uri: vscode.Uri): Promise<void> {
-  await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(uri), { preview: false, viewColumn: vscode.ViewColumn.Beside });
+/**
+ * Opens a file in the column of the source file it was written for, as a tab, so that the preview, which is in the
+ * other column, stays visible: the sources are on one side to edit and the PDF on the other.
+ */
+async function showWithSource(uri: vscode.Uri, source: vscode.Uri): Promise<void> {
+  const editor = vscode.window.visibleTextEditors.find(e => e.document.uri.toString() === source.toString());
+  await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(uri), { preview: false, viewColumn: editor?.viewColumn ?? vscode.ViewColumn.One });
 }
 
 /**
  * Writes an Lpdf document beside a `.md` file, named after it, to set the page and wrap the Markdown in, links
- * the two and opens the document. The document is the default template, reading the linked styles if there are
+ * the two and opens the document as a tab beside the `.md` file's, in its column, so that the preview stays visible
+ * on the other side. The document is the default template, reading the linked styles if there are
  * any. A file already there is not overwritten.
  * @returns The document, or undefined when it could not be written.
  */
@@ -283,13 +289,14 @@ export async function createLpdfDocument(context: vscode.ExtensionContext, markd
   }
   const documentUri = vscode.Uri.file(documentPath);
   await setLinkedDocumentUri(context, markdownUri, documentUri);
-  await showBeside(documentUri);
+  await showWithSource(documentUri, markdownUri);
   return documentUri;
 }
 
 /**
- * Writes the default styles beside a `.md` file, to start from, links them to the file and opens them. A file
- * that is already there is left as it is and linked.
+ * Writes the default styles beside a `.md` file, to start from, links them to the file and opens them as a tab in
+ * the column of the `.md` file, so that the preview stays visible. A file that is already there is left as it is and
+ * linked.
  * @returns The styles, or undefined when they could not be written.
  */
 export async function createMarkdownStyles(context: vscode.ExtensionContext, markdownUri: vscode.Uri): Promise<vscode.Uri | undefined> {
@@ -303,6 +310,6 @@ export async function createMarkdownStyles(context: vscode.ExtensionContext, mar
   }
   const stylesUri = vscode.Uri.file(stylesPath);
   await setLinkedStylesUri(context, markdownUri, stylesUri);
-  await showBeside(stylesUri);
+  await showWithSource(stylesUri, markdownUri);
   return stylesUri;
 }
