@@ -102,6 +102,9 @@ async function chooseStylesFile(markdownUri: vscode.Uri): Promise<vscode.Uri | u
   return picked?.[0];
 }
 
+const REPLACE = 'Replace';
+const KEEP = 'Keep mine';
+
 /** What a menu item stands for: a look to write beside the `.md` file, or the choice of a file of one's own. */
 type StylesChoice = vscode.QuickPickItem & { preset?: StylePreset };
 
@@ -130,8 +133,9 @@ export async function promptLinkStylesFile(context: vscode.ExtensionContext, mar
 /**
  * Writes a look beside a `.md` file as a file of styles of its own and links it to the file. It does not open it:
  * the preview shows the look, and the CodeLens of the styles opens the file to edit. A file that is already there
- * is left as it is, since it may have been edited, and linked.
- * @returns The styles, or undefined when they could not be written.
+ * and is the look is linked without a word. One that differs may have been edited, or be a copy of an older look,
+ * so the user is asked whether to replace it with the look or keep it, and cancelling links nothing.
+ * @returns The styles, or undefined when the user cancelled or they could not be written.
  */
 export async function linkStylesPreset(
   context: vscode.ExtensionContext,
@@ -141,16 +145,28 @@ export async function linkStylesPreset(
   const folder = path.dirname(markdownUri.fsPath);
   const fileName = `markdown-styles-${preset.name}.xml`;
   const stylesPath = path.join(folder, fileName);
-  const existed = fs.existsSync(stylesPath);
+  let write = !fs.existsSync(stylesPath);
+  if (!write) {
+    // A file that cannot be read is left as it is.
+    const there = await fs.promises.readFile(stylesPath, 'utf8').catch(() => preset.styles);
+    if (there !== preset.styles) {
+      const answer = await vscode.window.showInformationMessage(
+        `Lpdf: ${fileName} is already there, and it is not the current ${preset.label} look.`,
+        { modal: true, detail: 'It may be a copy you edited, or one of an older look. Replace it with the current look, or keep it and link it as it is.' },
+        REPLACE, KEEP,
+      );
+      if (!answer) { return undefined; }
+      write = answer === REPLACE;
+    }
+  }
   try {
-    if (!existed) { await fs.promises.writeFile(stylesPath, preset.styles); }
+    if (write) { await fs.promises.writeFile(stylesPath, preset.styles); }
   } catch (error) {
     void vscode.window.showErrorMessage(`Lpdf: cannot write the styles to ${folder}: ${(error as Error).message}`);
     return undefined;
   }
   const stylesUri = vscode.Uri.file(stylesPath);
   await setLinkedStylesUri(context, markdownUri, stylesUri);
-  if (existed) { void vscode.window.showInformationMessage(`Lpdf: ${fileName} is already there, so it is linked as it is.`); }
   return stylesUri;
 }
 

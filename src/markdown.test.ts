@@ -179,16 +179,54 @@ describe('Link Styles', () => {
     expect(input.assets.markdownStyles?.get(path.join(folder, 'markdown-styles-serif.xml'))).toContain('Times-Roman');
   });
 
-  it('leaves a file that is already there as it is, and links it', async () => {
-    pickPreset('serif');
-    const there = path.join(folder, 'markdown-styles-serif.xml');
-    fs.writeFileSync(there, '<markdown-styles><h1 color="#123456"/></markdown-styles>');
+  describe('when the file of the look is already there', () => {
+    const edited = '<markdown-styles><h1 color="#123456"/></markdown-styles>';
+    const serif = (): string => path.join(folder, 'markdown-styles-serif.xml');
+    const present = (name: string, text: string): void => { fs.writeFileSync(path.join(folder, name), text); };
 
-    await promptLinkStylesFile(context, uriOf('again.md'));
+    it('links it without a word when it is the look', async () => {
+      pickPreset('serif');
+      present('markdown-styles-serif.xml', stylePresets().find(p => p.name === 'serif')?.styles ?? '');
 
-    expect(fs.readFileSync(there, 'utf8')).toBe('<markdown-styles><h1 color="#123456"/></markdown-styles>');
-    expect(getLinkedStylesUri(context, uriOf('again.md'))?.fsPath).toBe(there);
-    expect(ui.showInformationMessage).toHaveBeenCalledWith(expect.stringContaining('already there'));
+      await promptLinkStylesFile(context, uriOf('same.md'));
+
+      expect(ui.showInformationMessage).not.toHaveBeenCalled();
+      expect(getLinkedStylesUri(context, uriOf('same.md'))?.fsPath).toBe(serif());
+    });
+
+    it('asks, when it is another, whether to replace it, and replaces it on Replace', async () => {
+      pickPreset('serif');
+      present('markdown-styles-serif.xml', edited);
+      ui.showInformationMessage.mockResolvedValue('Replace');
+
+      await promptLinkStylesFile(context, uriOf('replace.md'));
+
+      expect(ui.showInformationMessage.mock.calls[0][1]).toMatchObject({ modal: true });
+      expect(fs.readFileSync(serif(), 'utf8')).toBe(stylePresets().find(p => p.name === 'serif')?.styles);
+      expect(getLinkedStylesUri(context, uriOf('replace.md'))?.fsPath).toBe(serif());
+    });
+
+    it('leaves it as it is and links it on Keep mine', async () => {
+      pickPreset('serif');
+      present('markdown-styles-serif.xml', edited);
+      ui.showInformationMessage.mockResolvedValue('Keep mine');
+
+      await promptLinkStylesFile(context, uriOf('keep.md'));
+
+      expect(fs.readFileSync(serif(), 'utf8')).toBe(edited);
+      expect(getLinkedStylesUri(context, uriOf('keep.md'))?.fsPath).toBe(serif());
+    });
+
+    it('changes and links nothing when the user cancels', async () => {
+      pickPreset('serif');
+      present('markdown-styles-serif.xml', edited);
+      ui.showInformationMessage.mockResolvedValue(undefined);
+
+      expect(await promptLinkStylesFile(context, uriOf('cancelled.md'))).toBeUndefined();
+
+      expect(fs.readFileSync(serif(), 'utf8')).toBe(edited);
+      expect(getLinkedStylesUri(context, uriOf('cancelled.md'))).toBeUndefined();
+    });
   });
 
   it('links the file the user chooses, when they choose one', async () => {
