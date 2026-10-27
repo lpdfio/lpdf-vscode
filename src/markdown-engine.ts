@@ -8,6 +8,7 @@ import * as path from 'node:path';
 export interface MarkdownWasm {
   markdown_template(): string;
   markdown_default_styles(): string;
+  markdown_style_presets(): string;
   markdown_file_data(markdown: string): string;
   markdown_file_images(markdown: string): string;
   markdown_declare_images(template: string, srcs: string): string;
@@ -79,6 +80,22 @@ export function starterTemplate(stylesFile: string = STYLES_FILE_NAME, engine: M
     throw new Error('The default template has changed: it no longer holds one <markdown-content> to put the styles before.');
   }
   return template.replace(content, `<markdown-styles src="${attributeValue(stylesFile)}"/>\n                ${content}`);
+}
+
+/** A look a `.md` file can start from: a file of styles with the words that offer it. */
+export interface StylePreset {
+  /** What the preset is called in a file name. */
+  name: string;
+  /** What a menu shows for it. */
+  label: string;
+  description: string;
+  /** The file of styles: the default rules with the ones the look changes, to write beside the `.md` file and edit. */
+  styles: string;
+}
+
+/** The looks a `.md` file can start from besides the default one. */
+export function stylePresets(engine: MarkdownWasm = engineFunctions()): StylePreset[] {
+  return JSON.parse(engine.markdown_style_presets()) as StylePreset[];
 }
 
 /** The default rules, to start a styles file of one's own from. */

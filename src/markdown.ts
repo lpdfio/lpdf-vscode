@@ -3,7 +3,10 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { loadAssets, readNearby } from './assets';
 import { LpdfRenderError } from './engine';
-import { defaultTemplate, markdownImageName, prepareMarkdown, starterStyles, starterTemplate, STYLES_FILE_NAME } from './markdown-engine';
+import {
+  defaultTemplate, markdownImageName, prepareMarkdown, starterStyles, starterTemplate, stylePresets, STYLES_FILE_NAME,
+  type StylePreset,
+} from './markdown-engine';
 import type { RenderInput } from './render-input';
 
 const DOCUMENT_KEY_PREFIX = 'lpdf.markdownDocument:';
@@ -87,8 +90,8 @@ export async function setLinkedStylesUri(
   _changeEmitter.fire();
 }
 
-/** Asks which XML file holds the styles of a `.md` file, and links it. Returns it, or undefined when the user cancelled. */
-export async function promptLinkStylesFile(context: vscode.ExtensionContext, markdownUri: vscode.Uri): Promise<vscode.Uri | undefined> {
+/** Asks for a file of styles, and returns it, or undefined when the user cancelled. */
+async function chooseStylesFile(markdownUri: vscode.Uri): Promise<vscode.Uri | undefined> {
   const picked = await vscode.window.showOpenDialog({
     canSelectMany: false,
     defaultUri: vscode.Uri.file(path.dirname(markdownUri.fsPath)),
@@ -96,10 +99,59 @@ export async function promptLinkStylesFile(context: vscode.ExtensionContext, mar
     openLabel: 'Link Styles',
     title: 'Choose the styles the Markdown file is rendered with',
   });
-  const styles = picked?.[0];
+  return picked?.[0];
+}
+
+/** What a menu item stands for: a look to write beside the `.md` file, or the choice of a file of one's own. */
+type StylesChoice = vscode.QuickPickItem & { preset?: StylePreset };
+
+/**
+ * Asks which styles a `.md` file is rendered with, a look to start from or a file of one's own, and links them.
+ * @returns The styles, or undefined when the user cancelled or they could not be written.
+ */
+export async function promptLinkStylesFile(context: vscode.ExtensionContext, markdownUri: vscode.Uri): Promise<vscode.Uri | undefined> {
+  const choices: StylesChoice[] = [
+    ...stylePresets().map(preset => ({ label: preset.label, description: preset.description, preset })),
+    { label: '', kind: vscode.QuickPickItemKind.Separator },
+    { label: 'Choose a file...', description: 'Link an XML file of styles you have' },
+  ];
+  const choice = await vscode.window.showQuickPick(choices, {
+    title: 'Link styles',
+    placeHolder: 'A look is written beside the Markdown file, for you to edit',
+  });
+  if (!choice) { return undefined; }
+  if (choice.preset) { return linkStylesPreset(context, markdownUri, choice.preset); }
+  const styles = await chooseStylesFile(markdownUri);
   if (!styles) { return undefined; }
   await setLinkedStylesUri(context, markdownUri, styles);
   return styles;
+}
+
+/**
+ * Writes a look beside a `.md` file as a file of styles of its own, links it to the file and opens it. A file
+ * that is already there is left as it is, since it may have been edited, and linked.
+ * @returns The styles, or undefined when they could not be written.
+ */
+export async function linkStylesPreset(
+  context: vscode.ExtensionContext,
+  markdownUri: vscode.Uri,
+  preset: StylePreset,
+): Promise<vscode.Uri | undefined> {
+  const folder = path.dirname(markdownUri.fsPath);
+  const fileName = `markdown-styles-${preset.name}.xml`;
+  const stylesPath = path.join(folder, fileName);
+  const existed = fs.existsSync(stylesPath);
+  try {
+    if (!existed) { await fs.promises.writeFile(stylesPath, preset.styles); }
+  } catch (error) {
+    void vscode.window.showErrorMessage(`Lpdf: cannot write the styles to ${folder}: ${(error as Error).message}`);
+    return undefined;
+  }
+  const stylesUri = vscode.Uri.file(stylesPath);
+  await setLinkedStylesUri(context, markdownUri, stylesUri);
+  if (existed) { void vscode.window.showInformationMessage(`Lpdf: ${fileName} is already there, so it is linked as it is.`); }
+  await showBeside(stylesUri);
+  return stylesUri;
 }
 
 /** Asks which `.md` file is the body of an Lpdf document, and links it. Returns it, or undefined when the user cancelled. */

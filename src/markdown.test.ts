@@ -4,6 +4,13 @@ import * as path from 'node:path';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const openDocuments = vi.hoisted(() => [] as { uri: { toString(): string }; languageId: string }[]);
+const ui = vi.hoisted(() => ({
+  showQuickPick: vi.fn(),
+  showOpenDialog: vi.fn(),
+  showInformationMessage: vi.fn(),
+  showErrorMessage: vi.fn(),
+  showTextDocument: vi.fn(),
+}));
 
 vi.mock('vscode', () => {
   class Uri {
@@ -16,12 +23,15 @@ vi.mock('vscode', () => {
   return {
     Uri,
     EventEmitter: class { event = () => ({ dispose() {} }); fire(): void {} },
+    QuickPickItemKind: { Separator: -1, Default: 0 },
+    ViewColumn: { Beside: -2 },
     workspace: {
       textDocuments: openDocuments,
       getWorkspaceFolder: () => undefined,
+      openTextDocument: async (uri: unknown) => ({ uri }),
       fs: { readFile: async (uri: { fsPath: string }) => fs.promises.readFile(uri.fsPath) },
     },
-    window: {},
+    window: ui,
   };
 });
 vi.mock('./engine', () => ({ LpdfRenderError: class extends Error {} }));
@@ -29,8 +39,9 @@ vi.mock('./engine', () => ({ LpdfRenderError: class extends Error {} }));
 import * as vscode from 'vscode';
 import {
   getLinkedDocumentUri, getLinkedMarkdownUri, getLinkedStylesUri, isMarkdownDocument, isMarkdownUri, loadMarkdownRenderInput,
-  setLinkedDocumentUri, setLinkedStylesUri,
+  promptLinkStylesFile, setLinkedDocumentUri, setLinkedStylesUri,
 } from './markdown';
+import { stylePresets } from './markdown-engine';
 import { loadRenderInput } from './render-input';
 
 /** A workspaceState that keeps its values in memory. */
@@ -124,6 +135,81 @@ describe('a .md file with styles linked', () => {
     await setLinkedStylesUri(context, uriOf('styled.md'), uriOf('brand-styles.xml'));
     await setLinkedStylesUri(context, uriOf('styled.md'), undefined);
     expect(getLinkedStylesUri(context, uriOf('styled.md'))).toBeUndefined();
+  });
+});
+
+describe('Link Styles', () => {
+  beforeEach(() => { Object.values(ui).forEach(fn => fn.mockReset()); });
+
+  const pickPreset = (name: string): void => {
+    ui.showQuickPick.mockImplementation(async (choices: { preset?: { name: string } }[]) => choices.find(c => c.preset?.name === name));
+  };
+
+  it('offers the looks, then the choice of a file of one\'s own', async () => {
+    ui.showQuickPick.mockResolvedValue(undefined);
+    await promptLinkStylesFile(context, uriOf('menu.md'));
+
+    const choices = ui.showQuickPick.mock.calls[0][0] as { label: string; description?: string; kind?: number }[];
+    expect(choices.map(c => c.label)).toEqual(['Business', 'Serif', '', 'Choose a file...']);
+    expect(choices[0].description).toBe(stylePresets()[0].description);
+    expect(choices[2].kind).toBe(-1);
+  });
+
+  it('writes a look beside the file as styles of its own, links them and opens them to edit', async () => {
+    pickPreset('business');
+    const written = path.join(folder, 'markdown-styles-business.xml');
+
+    const styles = await promptLinkStylesFile(context, uriOf('look.md'));
+
+    expect(styles?.fsPath).toBe(written);
+    expect(fs.readFileSync(written, 'utf8')).toBe(stylePresets().find(p => p.name === 'business')?.styles);
+    expect(getLinkedStylesUri(context, uriOf('look.md'))?.fsPath).toBe(written);
+    expect(ui.showTextDocument).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders the file with the look, as the styles are read from the file written', async () => {
+    pickPreset('serif');
+    await promptLinkStylesFile(context, uriOf('serif.md'));
+
+    const input = await loadMarkdownRenderInput(context, uriOf('serif.md'), '# Title\n');
+
+    expect(input.xml).toContain(`<markdown-styles src="${path.join(folder, 'markdown-styles-serif.xml')}"/>`);
+    expect(input.assets.markdownStyles?.get(path.join(folder, 'markdown-styles-serif.xml'))).toContain('Times-Roman');
+  });
+
+  it('leaves a file that is already there as it is, and links it', async () => {
+    pickPreset('serif');
+    const there = path.join(folder, 'markdown-styles-serif.xml');
+    fs.writeFileSync(there, '<markdown-styles><h1 color="#123456"/></markdown-styles>');
+
+    await promptLinkStylesFile(context, uriOf('again.md'));
+
+    expect(fs.readFileSync(there, 'utf8')).toBe('<markdown-styles><h1 color="#123456"/></markdown-styles>');
+    expect(getLinkedStylesUri(context, uriOf('again.md'))?.fsPath).toBe(there);
+    expect(ui.showInformationMessage).toHaveBeenCalledWith(expect.stringContaining('already there'));
+  });
+
+  it('links the file the user chooses, when they choose one', async () => {
+    ui.showQuickPick.mockImplementation(async (choices: { preset?: unknown }[]) => choices.find(c => !c.preset && (c as { label: string }).label !== ''));
+    ui.showOpenDialog.mockResolvedValue([uriOf('mine.xml')]);
+
+    const styles = await promptLinkStylesFile(context, uriOf('own.md'));
+
+    expect(styles?.fsPath).toBe(uriOf('mine.xml').fsPath);
+    expect(getLinkedStylesUri(context, uriOf('own.md'))?.fsPath).toBe(uriOf('mine.xml').fsPath);
+  });
+
+  it('changes nothing when the user cancels the menu or the dialog', async () => {
+    const before = fs.readdirSync(folder);
+    ui.showQuickPick.mockResolvedValue(undefined);
+    expect(await promptLinkStylesFile(context, uriOf('cancel.md'))).toBeUndefined();
+
+    ui.showQuickPick.mockImplementation(async (choices: { preset?: unknown; label: string }[]) => choices.find(c => !c.preset && c.label !== ''));
+    ui.showOpenDialog.mockResolvedValue(undefined);
+    expect(await promptLinkStylesFile(context, uriOf('cancel.md'))).toBeUndefined();
+
+    expect(getLinkedStylesUri(context, uriOf('cancel.md'))).toBeUndefined();
+    expect(fs.readdirSync(folder)).toEqual(before);
   });
 });
 

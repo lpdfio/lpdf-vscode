@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
-  defaultTemplate, markdownImageName, prepareMarkdown, starterStyles, starterTemplate, STYLES_FILE_NAME,
+  defaultTemplate, markdownImageName, prepareMarkdown, starterStyles, starterTemplate, stylePresets, STYLES_FILE_NAME,
   type MarkdownWasm,
 } from './markdown-engine';
 
@@ -63,6 +63,26 @@ describe('prepareMarkdown', () => {
 
   it('says what is wrong with a template that is not XML', () => {
     expect(() => prepareMarkdown('![a](a.png)', 'not xml')).toThrow();
+  });
+});
+
+describe('the style presets', () => {
+  it('are a business look and a serif one, each with the words that offer it', () => {
+    const presets = stylePresets();
+    expect(presets.map(preset => preset.name)).toEqual(['business', 'serif']);
+    for (const preset of presets) {
+      expect(preset.label, preset.name).not.toBe('');
+      expect(preset.description, preset.name).not.toBe('');
+      expect(preset.styles, preset.name).toMatch(/<markdown-styles>/);
+    }
+  });
+
+  it('render a file otherwise than the default styles do, from a styles file beside it', () => {
+    const starter = prepareMarkdown('# Title\n\nSome *text*.\n', starterTemplate());
+    const plain = render(starter.xml, starter.jsonData, {}, { [STYLES_FILE_NAME]: starterStyles() });
+    for (const preset of stylePresets()) {
+      expect(render(starter.xml, starter.jsonData, {}, { [STYLES_FILE_NAME]: preset.styles }), preset.name).not.toBe(plain);
+    }
   });
 });
 
