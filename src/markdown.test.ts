@@ -150,9 +150,9 @@ describe('Link Styles', () => {
     await promptLinkStylesFile(context, uriOf('menu.md'));
 
     const choices = ui.showQuickPick.mock.calls[0][0] as { label: string; description?: string; kind?: number }[];
-    expect(choices.map(c => c.label)).toEqual(['Business', 'Serif', '', 'Choose a file...']);
+    expect(choices.map(c => c.label)).toEqual(['Business', 'Serif', 'Typewriter', '', 'Choose a file...']);
     expect(choices[0].description).toBe(stylePresets()[0].description);
-    expect(choices[2].kind).toBe(-1);
+    expect(choices[3].kind).toBe(-1);
   });
 
   it('writes a look beside the file as styles of its own, links them and opens them to edit', async () => {

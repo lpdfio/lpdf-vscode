@@ -67,9 +67,9 @@ describe('prepareMarkdown', () => {
 });
 
 describe('the style presets', () => {
-  it('are a business look and a serif one, each with the words that offer it', () => {
+  it('are a business look, a serif one and a typewriter one, each with the words that offer it', () => {
     const presets = stylePresets();
-    expect(presets.map(preset => preset.name)).toEqual(['business', 'serif']);
+    expect(presets.map(preset => preset.name)).toEqual(['business', 'serif', 'typewriter']);
     for (const preset of presets) {
       expect(preset.label, preset.name).not.toBe('');
       expect(preset.description, preset.name).not.toBe('');
