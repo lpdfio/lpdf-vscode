@@ -128,8 +128,9 @@ export async function promptLinkStylesFile(context: vscode.ExtensionContext, mar
 }
 
 /**
- * Writes a look beside a `.md` file as a file of styles of its own, links it to the file and opens it. A file
- * that is already there is left as it is, since it may have been edited, and linked.
+ * Writes a look beside a `.md` file as a file of styles of its own and links it to the file. It does not open it:
+ * the preview shows the look, and the CodeLens of the styles opens the file to edit. A file that is already there
+ * is left as it is, since it may have been edited, and linked.
  * @returns The styles, or undefined when they could not be written.
  */
 export async function linkStylesPreset(
@@ -150,7 +151,6 @@ export async function linkStylesPreset(
   const stylesUri = vscode.Uri.file(stylesPath);
   await setLinkedStylesUri(context, markdownUri, stylesUri);
   if (existed) { void vscode.window.showInformationMessage(`Lpdf: ${fileName} is already there, so it is linked as it is.`); }
-  await showBeside(stylesUri);
   return stylesUri;
 }
 

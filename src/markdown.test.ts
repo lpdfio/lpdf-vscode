@@ -155,7 +155,7 @@ describe('Link Styles', () => {
     expect(choices[3].kind).toBe(-1);
   });
 
-  it('writes a look beside the file as styles of its own, links them and opens them to edit', async () => {
+  it('writes a look beside the file as styles of its own and links them, without opening them over the preview', async () => {
     pickPreset('business');
     const written = path.join(folder, 'markdown-styles-business.xml');
 
@@ -164,7 +164,7 @@ describe('Link Styles', () => {
     expect(styles?.fsPath).toBe(written);
     expect(fs.readFileSync(written, 'utf8')).toBe(stylePresets().find(p => p.name === 'business')?.styles);
     expect(getLinkedStylesUri(context, uriOf('look.md'))?.fsPath).toBe(written);
-    expect(ui.showTextDocument).toHaveBeenCalledTimes(1);
+    expect(ui.showTextDocument).not.toHaveBeenCalled();
   });
 
   it('renders the file with the look, as the styles are read from the file written', async () => {
