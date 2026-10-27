@@ -224,5 +224,11 @@
     "puppeteer-core": "^24.43.1",
     "typescript": "^5.0.0",
     "vitest": "^3.2.7"
+  },
+  "allowScripts": {
+    "@vscode/vsce-sign": false,
+    "esbuild": false,
+    "fsevents": false,
+    "keytar": false
   }
 }
