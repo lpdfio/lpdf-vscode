@@ -4,6 +4,8 @@ import * as fs from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { renderPdf, LpdfRenderError, cancelRender } from './engine';
 import { loadRenderInput } from './render-input';
+import { isMarkdownUri } from './markdown';
+import { ScrollSync } from './scroll-sync';
 import { documentStem, resolveLpdfDocument } from './utils';
 import { trace } from './trace';
 import { buildViewerHtml } from './viewer-html';
@@ -56,6 +58,33 @@ function watchDependencies(context: vscode.ExtensionContext, uri: vscode.Uri, fi
     watcher.onDidDelete(again);
     _dependencyWatchers.push(watcher);
   }
+}
+
+// Keeps the editor and the preview of a .md file at the same heading; see scroll-sync.ts.
+const _scrollSync = new ScrollSync({
+  scrollPreviewTo: entry => {
+    trace(`scroll sync: preview to heading ${entry}`);
+    postToWebview({ type: 'scrollToHeading', index: entry });
+  },
+  revealLine: line => {
+    const editor = vscode.window.visibleTextEditors.find(candidate => candidate.document.uri.toString() === previewUri?.toString());
+    if (!editor) { return; }
+    trace(`scroll sync: editor to line ${line}`);
+    const start = new vscode.Position(line, 0);
+    editor.revealRange(new vscode.Range(start, start), vscode.TextEditorRevealType.AtTop);
+  },
+});
+
+/**
+ * The editor of the file the preview shows has scrolled, or its cursor has moved: the preview follows to
+ * the heading the line is under. Only a .md file is followed, and only once its preview has an outline, and
+ * not while the preview is behind another tab, where the page has no layout to scroll.
+ * @param editor The editor that moved.
+ * @param line The line at its top, or its cursor's, counting from 0.
+ */
+export function followEditor(editor: vscode.TextEditor, line: number): void {
+  if (!previewPanel?.visible || editor.document.uri.toString() !== previewUri?.toString()) { return; }
+  _scrollSync.editorMoved(editor.document, line);
 }
 
 /** Send a message to the webview. Queues it if the webview hasn't signalled ready yet. */
@@ -148,6 +177,18 @@ export function closePreviewWhenSourceCloses(closed: readonly vscode.Tab[]): voi
   }, PREVIEW_CLOSE_DELAY_MS);
 }
 
+/** What the preview's webview posts. */
+interface WebviewMessage {
+  type: string;
+  level?: string;
+  message?: string;
+  pdfBase64?: string;
+  titles?: string[];
+  top?: number;
+  index?: number;
+  byUser?: boolean;
+}
+
 function ensurePanel(context: vscode.ExtensionContext): void {
   if (previewPanel) {
     previewPanel.reveal(vscode.ViewColumn.Beside, true);
@@ -180,8 +221,9 @@ function ensurePanel(context: vscode.ExtensionContext): void {
     _lastWarnings.clear();
     _webviewReady = false;
     _pendingMessage = undefined;
+    _scrollSync.reset();
   });
-  previewPanel.webview.onDidReceiveMessage(async (msg: { type: string; level?: string; message?: string; pdfBase64?: string }) => {
+  previewPanel.webview.onDidReceiveMessage(async (msg: WebviewMessage) => {
     // Relay console messages from the webview: errors to the extension host console, the rest to the trace.
     if (msg.type === 'log') {
       if (msg.level === 'error') { console.error('[lpdf webview]', msg.message); }
@@ -203,6 +245,16 @@ function ensurePanel(context: vscode.ExtensionContext): void {
       }
       return;
     }
+    // Where the preview is scrolled to, for the .md file it follows (see lpdf-headings.mjs).
+    if (msg.type === 'outline') {
+      _scrollSync.outlineChanged(msg.titles ?? [], msg.top ?? -1);
+      return;
+    }
+    if (msg.type === 'topHeading') {
+      const source = vscode.workspace.textDocuments.find(doc => doc.uri.toString() === previewUri?.toString());
+      if (source && msg.index !== undefined) { _scrollSync.previewMoved(source, msg.index, msg.byUser === true); }
+      return;
+    }
     if (msg.type !== 'download' || !previewUri || !msg.pdfBase64) { return; }
     const xmlDir = path.dirname(previewUri.fsPath);
     const defaultName = documentStem(previewUri.fsPath) + '.pdf';
@@ -221,6 +273,7 @@ async function doRender(context: vscode.ExtensionContext, uri: vscode.Uri): Prom
 
   const isNewFile = previewUri?.toString() !== uri.toString();
   previewUri = uri;
+  if (isNewFile) { _scrollSync.reset(); }
   const generation = ++renderGeneration;
   const file = path.basename(uri.fsPath);
   const t0 = Date.now();
@@ -267,6 +320,8 @@ async function doRender(context: vscode.ExtensionContext, uri: vscode.Uri): Prom
     // Only pass zoom/scroll for new files; re-renders of the same file preserve the webview's state.
     const msg: Record<string, unknown> = { type: 'updatePdf', pdfBase64, filename: pdfName };
     if (isNewFile) { msg.zoom = 'fit'; }
+    // The headings of a .md file are the PDF's bookmarks, and the viewer tells where it is among them.
+    if (isMarkdownUri(uri)) { msg.followHeadings = true; }
     postToWebview(msg);
     trace(`doRender posted +${Date.now() - t0}ms gen=${generation}`);
   } catch (e) {
