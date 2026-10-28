@@ -9,13 +9,13 @@
  *   updatePdf  { pdfBase64, filename, zoom?, followHeadings? }   show this PDF; `zoom` is only present for a
  *                                         file that was not showing before, which starts at the top;
  *                                         `followHeadings` asks the viewer to follow the headings of the PDF
- *   scrollToHeading { index }             scroll to a heading of the outline (see lpdf-headings.mjs)
+ *   scrollToPosition { position }         scroll to a place in the PDF (see lpdf-headings.mjs)
  *   showError  { message }                the render failed
  *
  * Messages to the extension host:
  *   ready                                 messages can now be received
  *   download   { pdfBase64, filename }    the user asked to save the PDF, with any form input in it
- *   outline, topHeading                   while following headings, where the view is (see lpdf-headings.mjs)
+ *   outline, position                     while following headings, where the view is (see lpdf-headings.mjs)
  *   log        { level, message }         written to the extension's output
  *
  * What this relies on in the stock viewer. These are internals of PDF.js's `web/viewer.mjs`, not a
@@ -197,8 +197,8 @@ try {
                 log('error', `Could not show the PDF: ${error.message}`);
                 showStatus(`Error: ${error.message}`, true);
             });
-        } else if (message.type === 'scrollToHeading') {
-            headings.scrollTo(message.index);
+        } else if (message.type === 'scrollToPosition') {
+            headings.scrollTo(message.position);
         } else if (message.type === 'showError') {
             showStatus(`Error: ${message.message}`, true);
         }

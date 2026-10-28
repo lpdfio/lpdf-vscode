@@ -1,11 +1,11 @@
 /**
  * The headings of a `.md` file, and which entry of the PDF's outline each one is. The outline lists the
- * headings that are bookmarks, in the order of the file, so pairing the two lets the editor and the
- * preview move together: a line of the file is in the section of its entry, and an entry is at the
- * heading's line.
+ * headings that are bookmarks, in the order of the file, so pairing the two gives places where the file and
+ * the PDF are known to agree: the editor and the preview move together by them, and between two of them
+ * by how far along the section a line, or a position, is.
  *
  * Only headings written with `#` are read. One underlined with `===` or `---` is not a place the two
- * sides meet: its outline entry has no line, and the heading before it stands for its section.
+ * sides agree: its outline entry has no line, and the section before it runs on over it.
  */
 
 /** A heading of a `.md` file. */
@@ -25,23 +25,32 @@ export interface PairedHeading {
 }
 
 /**
- * What the words of a heading reduce to, for telling whether a heading of the file and an entry of the outline
- * are the same: the letters and digits of its text in lower case. The outline gives the words without the
- * markup that was around them, so a link keeps its words and loses its address, an image and a footnote mark
- * are dropped, and no `*`, `_`, `~`, backtick, backslash or tag is left on either side.
- * @param text The words as written in the file, or as the outline gives them.
+ * What the words of a heading as written in the file reduce to, for telling whether a heading of the file and
+ * an entry of the outline are the same: the letters and digits of its text in lower case. The outline gives the
+ * words without the markup that was around them, so a link keeps its words and loses its address, an image and
+ * a footnote mark are dropped, a tag such as `<br>` is a space, and no `*`, `_`, `~`, backtick or backslash is
+ * left. What is in a span of code stays, tags included.
+ * @param text The words as written in the file.
  * @returns The key; empty when nothing of the text would be a label.
  */
 export function headingKey(text: string): string {
-  return text
+  return titleKey(text
     .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
     .replace(/\[\^[^\]]*\]/g, '')
     .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
     .replace(/\[([^\]]*)\]\[[^\]]*\]/g, '$1')
-    .replace(/<[^>]*>/g, ' ')
-    .replace(/&(?:[a-z][a-z0-9]*|#x?[0-9a-f]+);/gi, '')
-    .replace(/[^\p{L}\p{N}]+/gu, '')
-    .toLowerCase();
+    .replace(/(`+)(.+?)\1|<[^>]*>/g, (_match, ticks: string | undefined, code: string) => (ticks ? code : ' '))
+    .replace(/&(?:[a-z][a-z0-9]*|#x?[0-9a-f]+);/gi, ''));
+}
+
+/**
+ * What the title of an outline entry reduces to: the letters and digits of its text in lower case. It is the
+ * words of the heading already, with no markup in it, so a `<` in it is a character of the words.
+ * @param title The title the outline gives.
+ * @returns The key, comparable with {@link headingKey}'s.
+ */
+export function titleKey(title: string): string {
+  return title.replace(/[^\p{L}\p{N}]+/gu, '').toLowerCase();
 }
 
 const ATX_HEADING = /^ {0,3}#{1,6}(?=[ \t]|$)(.*)$/;
@@ -100,7 +109,7 @@ export function pairHeadings(text: string, titles: readonly string[]): PairedHea
   const pairs: PairedHeading[] = [];
   let next = 0;
   titles.forEach((title, entry) => {
-    const key = headingKey(title);
+    const key = titleKey(title);
     const found = key ? headings.findIndex((heading, index) => index >= next && heading.key === key) : -1;
     if (found < 0) { return; }
     pairs.push({ line: headings[found].line, entry });
@@ -109,36 +118,64 @@ export function pairHeadings(text: string, titles: readonly string[]): PairedHea
   return pairs;
 }
 
-/** The value of `entryAtLine` for a line above the first heading. */
-export const BEFORE_FIRST_ENTRY = -1;
+/**
+ * A place where a line of the file and a position in the PDF are known to be the same. A position is a
+ * number: the entry of the outline whose section it is in, and how far through that section it is, as a
+ * fraction. So 2.5 is half way through the section of entry 2, -1 is the top of the PDF, above the first
+ * entry, and the number of entries is the end of the PDF.
+ */
+export interface Anchor {
+  /** A line of the file, counting from 0. */
+  line: number;
+  /** A position in the PDF. */
+  position: number;
+}
+
+/** The position of the top of the PDF, above the first entry of the outline. */
+export const TOP_OF_PDF = -1;
 
 /**
- * The entry whose section a line is in: that of the last heading at or above the line.
+ * The places where the file and the PDF agree: the top of both, the heading of each pair, and the end of both.
+ * Between two of them a line and a position are taken to be the same distance along.
  * @param pairs The pairs, in the order of the file.
- * @param line A line of the file, counting from 0.
- * @returns The entry, or {@link BEFORE_FIRST_ENTRY} for a line above the first heading.
+ * @param entryCount How many entries the outline has; the end of the PDF is at that position.
+ * @param lineCount How many lines the file has.
+ * @returns The anchors, in the order of the file and of the PDF.
  */
-export function entryAtLine(pairs: readonly PairedHeading[], line: number): number {
-  let entry = BEFORE_FIRST_ENTRY;
-  for (const pair of pairs) {
-    if (pair.line > line) { break; }
-    entry = pair.entry;
-  }
-  return entry;
+export function anchorsOf(pairs: readonly PairedHeading[], entryCount: number, lineCount: number): Anchor[] {
+  const anchors: Anchor[] = [{ line: 0, position: TOP_OF_PDF }];
+  for (const pair of pairs) { anchors.push({ line: pair.line, position: pair.entry }); }
+  anchors.push({ line: Math.max(lineCount - 1, anchors[anchors.length - 1].line), position: entryCount });
+  return anchors;
 }
 
 /**
- * The line to show for an entry: its heading's. An entry with no heading of the file is shown at the heading
- * before it, and one above the first heading at the top of the file.
- * @param pairs The pairs, in the order of the file.
- * @param entry An entry of the outline, or {@link BEFORE_FIRST_ENTRY}.
- * @returns A line of the file, counting from 0.
+ * The position in the PDF that a line of the file is at: at a heading it is the heading's entry, and between two
+ * anchors it is the same fraction of the way along as the line is.
+ * @param anchors The anchors, from {@link anchorsOf}.
+ * @param line A line of the file, counting from 0.
+ * @returns A position, from {@link TOP_OF_PDF} to the end of the PDF.
  */
-export function lineOfEntry(pairs: readonly PairedHeading[], entry: number): number {
-  let line = 0;
-  for (const pair of pairs) {
-    if (pair.entry > entry) { break; }
-    line = pair.line;
-  }
-  return line;
+export function positionAtLine(anchors: readonly Anchor[], line: number): number {
+  let from = 0;
+  while (from + 1 < anchors.length && anchors[from + 1].line <= line) { from++; }
+  const before = anchors[from];
+  const after = anchors[from + 1];
+  if (!after) { return before.position; }
+  return before.position + (line - before.line) / (after.line - before.line) * (after.position - before.position);
+}
+
+/**
+ * The line of the file that a position in the PDF is at; the other way of {@link positionAtLine}.
+ * @param anchors The anchors, from {@link anchorsOf}.
+ * @param position A position in the PDF.
+ * @returns A line of the file, which may be between two lines.
+ */
+export function lineAtPosition(anchors: readonly Anchor[], position: number): number {
+  let from = 0;
+  while (from + 1 < anchors.length && anchors[from + 1].position <= position) { from++; }
+  const before = anchors[from];
+  const after = anchors[from + 1];
+  if (!after) { return before.line; }
+  return before.line + (position - before.position) / (after.position - before.position) * (after.line - before.line);
 }

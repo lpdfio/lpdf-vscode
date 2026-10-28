@@ -60,27 +60,26 @@ function watchDependencies(context: vscode.ExtensionContext, uri: vscode.Uri, fi
   }
 }
 
-// Keeps the editor and the preview of a .md file at the same heading; see scroll-sync.ts.
+// Keeps the editor and the preview of a .md file at the same place; see scroll-sync.ts.
 const _scrollSync = new ScrollSync({
-  scrollPreviewTo: entry => {
-    trace(`scroll sync: preview to heading ${entry}`);
-    postToWebview({ type: 'scrollToHeading', index: entry });
+  scrollPreviewTo: position => {
+    postToWebview({ type: 'scrollToPosition', position });
   },
   revealLine: line => {
     const editor = vscode.window.visibleTextEditors.find(candidate => candidate.document.uri.toString() === previewUri?.toString());
     if (!editor) { return; }
-    trace(`scroll sync: editor to line ${line}`);
     const start = new vscode.Position(line, 0);
     editor.revealRange(new vscode.Range(start, start), vscode.TextEditorRevealType.AtTop);
   },
 });
 
 /**
- * The editor of the file the preview shows has scrolled, or its cursor has moved: the preview follows to
- * the heading the line is under. Only a .md file is followed, and only once its preview has an outline, and
- * not while the preview is behind another tab, where the page has no layout to scroll.
- * @param editor The editor that moved.
- * @param line The line at its top, or its cursor's, counting from 0.
+ * The editor of the file the preview shows has scrolled: the preview follows to the place of the line at its
+ * top. A cursor that moves out of view scrolls the editor, so it is followed too. Only a .md file is followed,
+ * and only once its preview has an outline, and not while the preview is behind another tab, where the page
+ * has no layout to scroll.
+ * @param editor The editor that scrolled.
+ * @param line The line at its top, counting from 0.
  */
 export function followEditor(editor: vscode.TextEditor, line: number): void {
   if (!previewPanel?.visible || editor.document.uri.toString() !== previewUri?.toString()) { return; }
@@ -184,9 +183,7 @@ interface WebviewMessage {
   message?: string;
   pdfBase64?: string;
   titles?: string[];
-  top?: number;
-  index?: number;
-  byUser?: boolean;
+  at?: number;
 }
 
 function ensurePanel(context: vscode.ExtensionContext): void {
@@ -245,14 +242,14 @@ function ensurePanel(context: vscode.ExtensionContext): void {
       }
       return;
     }
-    // Where the preview is scrolled to, for the .md file it follows (see lpdf-headings.mjs).
+    // Where the author scrolls the preview to, for the .md file it follows (see lpdf-headings.mjs).
     if (msg.type === 'outline') {
-      _scrollSync.outlineChanged(msg.titles ?? [], msg.top ?? -1);
+      _scrollSync.outlineChanged(msg.titles ?? []);
       return;
     }
-    if (msg.type === 'topHeading') {
+    if (msg.type === 'position') {
       const source = vscode.workspace.textDocuments.find(doc => doc.uri.toString() === previewUri?.toString());
-      if (source && msg.index !== undefined) { _scrollSync.previewMoved(source, msg.index, msg.byUser === true); }
+      if (source && msg.at !== undefined) { _scrollSync.previewMoved(source, msg.at); }
       return;
     }
     if (msg.type !== 'download' || !previewUri || !msg.pdfBase64) { return; }

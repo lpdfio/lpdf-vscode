@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { EDITOR_SETTLE_MS, MarkdownSource, ScrollSync } from './scroll-sync';
 
-/** Headings on lines 2, 4 and 6; the lines before the first are above any section. */
+/** Headings on lines 2, 4 and 6 of 8 lines; the end of the file is line 7. */
 const TEXT = 'preamble\n\n# One\n\n## Two\n\n# Three\n';
 const TITLES = ['One', 'Two', 'Three'];
 
@@ -11,42 +11,50 @@ describe('ScrollSync', () => {
     let source: MarkdownSource & { text: string };
     let sync: ScrollSync;
 
-    const edit = (text: string): void => { source.text = text; (source as { version: number }).version++; };
+    const edit = (text: string): void => {
+        source.text = text;
+        (source as { version: number }).version++;
+        (source as { lineCount: number }).lineCount = text.split('\n').length;
+    };
 
     beforeEach(() => {
         calls = [];
         now = 10_000;
-        source = { version: 1, text: TEXT, getText() { return this.text; } };
+        source = { version: 1, lineCount: 8, text: TEXT, getText() { return this.text; } };
         sync = new ScrollSync({
-            scrollPreviewTo: entry => calls.push(`preview ${entry}`),
+            scrollPreviewTo: position => calls.push(`preview ${position}`),
             revealLine: line => calls.push(`editor ${line}`),
         }, () => now);
-        sync.outlineChanged(TITLES, -1);
+        sync.outlineChanged(TITLES);
     });
 
     describe('when the editor moves', () => {
-        it('scrolls the preview to the heading above the line', () => {
-            sync.editorMoved(source, 5);
-            expect(calls).toEqual(['preview 1']);
-        });
-
-        it('scrolls the preview to the top of the PDF for a line above the first heading', () => {
-            sync.outlineChanged(TITLES, 2);
-            sync.editorMoved(source, 0);
-            expect(calls).toEqual(['preview -1']);
-        });
-
-        it('sends nothing while the line stays in one section', () => {
-            sync.editorMoved(source, 5);
-            sync.editorMoved(source, 5);
+        it('scrolls the preview to the position of the line at the top', () => {
             sync.editorMoved(source, 4);
-            expect(calls).toEqual(['preview 1']);
+            sync.editorMoved(source, 5);
+            expect(calls).toEqual(['preview 1', 'preview 1.5']);
         });
 
-        it('sends nothing for a line in the section the preview is at', () => {
-            sync.outlineChanged(TITLES, 1);
+        it('scrolls the preview part way into a section for a line part way into it', () => {
+            sync.editorMoved(source, 3);
+            expect(calls).toEqual(['preview 0.5']);
+        });
+
+        it('scrolls the preview part way down the top of the PDF for a line above the first heading', () => {
+            sync.editorMoved(source, 1);
+            sync.editorMoved(source, 0);
+            expect(calls).toEqual(['preview -0.5', 'preview -1']);
+        });
+
+        it('scrolls the preview to the end of the PDF for the end of the file', () => {
+            sync.editorMoved(source, 7);
+            expect(calls).toEqual(['preview 3']);
+        });
+
+        it('sends nothing when the line has not changed', () => {
             sync.editorMoved(source, 5);
-            expect(calls).toEqual([]);
+            sync.editorMoved(source, 5);
+            expect(calls).toEqual(['preview 1.5']);
         });
 
         it('sends nothing before the preview has drawn a PDF with an outline', () => {
@@ -61,61 +69,62 @@ describe('ScrollSync', () => {
             expect(calls).toEqual([]);
         });
 
-        it('keeps the preview where it is when a heading was written since the PDF was drawn', () => {
-            sync.outlineChanged(TITLES, 0);
+        it('goes through a heading written since the PDF was drawn as if it were not there', () => {
             edit('preamble\n\n# One\n\n## New and unsaved\n\n## Two\n\n# Three\n');
-            sync.editorMoved(source, 5);
-            expect(calls).toEqual([]);
+            sync.editorMoved(source, 4);
+            sync.editorMoved(source, 6);
+            expect(calls).toEqual(['preview 0.5', 'preview 1']);
         });
 
         it('works out the headings again after the text has been edited', () => {
-            sync.editorMoved(source, 5);
+            sync.editorMoved(source, 4);
             edit('one line more\n' + TEXT);
-            sync.editorMoved(source, 7);
-            expect(calls).toEqual(['preview 1', 'preview 2']);
+            sync.editorMoved(source, 5);
+            expect(calls).toEqual(['preview 1', 'preview 1']);
         });
     });
 
     describe('when the preview moves', () => {
-        it('scrolls the editor to the line of the heading', () => {
-            sync.previewMoved(source, 1, true);
-            expect(calls).toEqual(['editor 4']);
+        it('scrolls the editor to the line at the position', () => {
+            sync.previewMoved(source, 1.5);
+            expect(calls).toEqual(['editor 5']);
         });
 
-        it('scrolls the editor to the top of the file for the place above the first heading', () => {
-            sync.outlineChanged(TITLES, 2);
-            sync.previewMoved(source, -1, true);
-            expect(calls).toEqual(['editor 0']);
+        it('scrolls the editor to the nearest line', () => {
+            sync.previewMoved(source, 0.4);
+            sync.previewMoved(source, 0.1);
+            expect(calls).toEqual(['editor 3', 'editor 2']);
         });
 
-        it('sends nothing for a heading both sides are at', () => {
-            sync.outlineChanged(TITLES, 1);
-            sync.previewMoved(source, 1, true);
-            expect(calls).toEqual([]);
+        it('scrolls the editor to the top of the file for the top of the PDF, and the end for the end', () => {
+            sync.previewMoved(source, -1);
+            now += EDITOR_SETTLE_MS;
+            sync.previewMoved(source, 3);
+            expect(calls).toEqual(['editor 0', 'editor 7']);
         });
 
-        it('notes a move the author did not make, and leaves the editor where it is', () => {
-            sync.previewMoved(source, 2, false);
-            sync.editorMoved(source, 6);
-            expect(calls).toEqual([]);
+        it('sends nothing when the line has not changed', () => {
+            sync.previewMoved(source, 1.5);
+            sync.previewMoved(source, 1.51);
+            expect(calls).toEqual(['editor 5']);
         });
 
         it('sends nothing for a file with no headings', () => {
             edit('just text\n');
-            sync.previewMoved(source, 1, true);
+            sync.previewMoved(source, 1);
             expect(calls).toEqual([]);
         });
 
-        it('shows an entry that has no heading in the file at the heading before it', () => {
-            sync.outlineChanged(['One', 'Missing', 'Three'], -1);
-            sync.previewMoved(source, 1, true);
-            expect(calls).toEqual(['editor 2']);
+        it('spreads an entry that has no heading in the file over the stretch between the headings that do', () => {
+            sync.outlineChanged(['One', 'Missing', 'Three']);
+            sync.previewMoved(source, 1);
+            expect(calls).toEqual(['editor 4']);
         });
     });
 
     describe('when one side answers the other', () => {
         it('passes over the editor\'s own events just after the preview scrolled it', () => {
-            sync.previewMoved(source, 2, true);
+            sync.previewMoved(source, 2);
             // The editor settles a line short of the heading, as it does at the end of a file.
             now += 50;
             sync.editorMoved(source, 5);
@@ -123,44 +132,44 @@ describe('ScrollSync', () => {
         });
 
         it('takes the editor\'s events again once it has settled', () => {
-            sync.previewMoved(source, 2, true);
+            sync.previewMoved(source, 2);
             now += EDITOR_SETTLE_MS;
             sync.editorMoved(source, 3);
-            expect(calls).toEqual(['editor 6', 'preview 0']);
+            expect(calls).toEqual(['editor 6', 'preview 0.5']);
         });
 
-        it('does not scroll the preview back for the editor arriving at the heading it was sent to', () => {
-            sync.previewMoved(source, 1, true);
+        it('does not scroll the preview back for the editor arriving at the line it was sent to', () => {
+            sync.previewMoved(source, 1.5);
             now += EDITOR_SETTLE_MS * 2;
-            sync.editorMoved(source, 4);
-            expect(calls).toEqual(['editor 4']);
+            sync.editorMoved(source, 5);
+            expect(calls).toEqual(['editor 5']);
         });
 
-        it('does not scroll the editor back for the preview arriving at the heading it was sent to', () => {
+        it('does not scroll the editor back for the preview arriving at the place it was sent to', () => {
             sync.editorMoved(source, 5);
-            sync.previewMoved(source, 1, true);
-            sync.previewMoved(source, 1, false);
-            expect(calls).toEqual(['preview 1']);
+            sync.previewMoved(source, 1.5);
+            expect(calls).toEqual(['preview 1.5']);
         });
 
-        it('lets the preview drive again after the editor did', () => {
+        it('lets the editor drive again after the preview did, back to a line it had before', () => {
             sync.editorMoved(source, 5);
-            sync.previewMoved(source, 2, true);
-            sync.previewMoved(source, 0, true);
-            expect(calls).toEqual(['preview 1', 'editor 6', 'editor 2']);
+            sync.previewMoved(source, 2);
+            now += EDITOR_SETTLE_MS;
+            sync.editorMoved(source, 5);
+            expect(calls).toEqual(['preview 1.5', 'editor 6', 'preview 1.5']);
         });
     });
 
     describe('when the preview draws a new PDF', () => {
-        it('takes the place it is at as the one both sides are at', () => {
+        it('sends the editor\'s line again, to a preview that has lost its place', () => {
             sync.editorMoved(source, 5);
-            sync.outlineChanged(TITLES, 2);
-            sync.editorMoved(source, 6);
-            expect(calls).toEqual(['preview 1']);
+            sync.outlineChanged(TITLES);
+            sync.editorMoved(source, 5);
+            expect(calls).toEqual(['preview 1.5', 'preview 1.5']);
         });
 
         it('pairs the headings with the new outline', () => {
-            sync.outlineChanged(['Three'], -1);
+            sync.outlineChanged(['Three']);
             sync.editorMoved(source, 6);
             expect(calls).toEqual(['preview 0']);
         });

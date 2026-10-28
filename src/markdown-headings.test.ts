@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BEFORE_FIRST_ENTRY, entryAtLine, headingKey, lineOfEntry, markdownHeadings, pairHeadings } from './markdown-headings';
+import { Anchor, anchorsOf, headingKey, lineAtPosition, markdownHeadings, pairHeadings, positionAtLine, titleKey, TOP_OF_PDF } from './markdown-headings';
 
 describe('headingKey', () => {
     it('is the letters and digits of the words in lower case', () => {
@@ -7,21 +7,26 @@ describe('headingKey', () => {
     });
 
     it('is the same for the words as written and as the outline gives them', () => {
-        expect(headingKey('Two *x* `c` [link](http://example.com/a?b=1)')).toBe(headingKey('Two x c link'));
-        expect(headingKey('**Bold** and ~~struck~~ and _slanted_')).toBe(headingKey('Bold and struck and slanted'));
-        expect(headingKey('Escaped \\* star')).toBe(headingKey('Escaped * star'));
+        expect(headingKey('Two *x* `c` [link](http://example.com/a?b=1)')).toBe(titleKey('Two x c link'));
+        expect(headingKey('**Bold** and ~~struck~~ and _slanted_')).toBe(titleKey('Bold and struck and slanted'));
+        expect(headingKey('Escaped \\* star')).toBe(titleKey('Escaped * star'));
     });
 
     it('leaves out an image and a footnote mark, which are not part of a label', () => {
-        expect(headingKey('Logo ![the logo](logo.png) here[^1]')).toBe(headingKey('Logo here'));
+        expect(headingKey('Logo ![the logo](logo.png) here[^1]')).toBe(titleKey('Logo here'));
     });
 
     it('reads a break as a space', () => {
-        expect(headingKey('one<br>two')).toBe(headingKey('one two'));
+        expect(headingKey('one<br>two')).toBe(titleKey('one two'));
     });
 
     it('keeps the words of a reference link', () => {
-        expect(headingKey('See [the guide][guide]')).toBe(headingKey('See the guide'));
+        expect(headingKey('See [the guide][guide]')).toBe(titleKey('See the guide'));
+    });
+
+    it('keeps a tag that is in a span of code, which the outline has as text', () => {
+        expect(headingKey('`<rect>`')).toBe(titleKey('<rect>'));
+        expect(headingKey('The `<line>` and <br> the ``<b>`` element')).toBe(titleKey('The <line> and the <b> element'));
     });
 
     it('keeps letters beyond ASCII', () => {
@@ -30,6 +35,13 @@ describe('headingKey', () => {
 
     it('is empty for a heading with no words', () => {
         expect(headingKey(' ** ')).toBe('');
+    });
+});
+
+describe('titleKey', () => {
+    it('is the letters and digits of the title in lower case, the characters of a tag included', () => {
+        expect(titleKey('Release Notes, v2.1!')).toBe('releasenotesv21');
+        expect(titleKey('<rect>')).toBe('rect');
     });
 });
 
@@ -143,47 +155,89 @@ describe('pairHeadings', () => {
         expect(pairHeadings('# The `code` and *style*\n', ['The code and style'])).toEqual([{ line: 0, entry: 0 }]);
     });
 
+    it('pairs a heading that is a tag in a span of code with its entry', () => {
+        expect(pairHeadings('# `<rect>`\n\n# `<line>`\n', ['<rect>', '<line>'])).toEqual([
+            { line: 0, entry: 0 },
+            { line: 2, entry: 1 },
+        ]);
+    });
+
     it('has no pairs for an empty outline, or a file with no headings', () => {
         expect(pairHeadings(TEXT, [])).toEqual([]);
         expect(pairHeadings('text only\n', ['One'])).toEqual([]);
     });
 });
 
-describe('entryAtLine and lineOfEntry', () => {
-    const PAIRS = [
-        { line: 2, entry: 0 },
-        { line: 10, entry: 1 },
-        { line: 20, entry: 3 },
+describe('anchorsOf', () => {
+    it('are the top of both, the heading of each pair, and the end of both', () => {
+        expect(anchorsOf([{ line: 2, entry: 0 }, { line: 10, entry: 1 }], 2, 30)).toEqual([
+            { line: 0, position: TOP_OF_PDF },
+            { line: 2, position: 0 },
+            { line: 10, position: 1 },
+            { line: 29, position: 2 },
+        ]);
+    });
+
+    it('are only the top and the end for a file with no pairs', () => {
+        expect(anchorsOf([], 0, 5)).toEqual([{ line: 0, position: TOP_OF_PDF }, { line: 4, position: 0 }]);
+    });
+
+    it('end at the last heading when the file has fewer lines than that, as when the text has just been cut', () => {
+        expect(anchorsOf([{ line: 8, entry: 0 }], 1, 3).at(-1)).toEqual({ line: 8, position: 1 });
+    });
+});
+
+describe('positionAtLine and lineAtPosition', () => {
+    // Headings at lines 10 and 30 of a file of 51 lines, which are entries 0 and 1 of an outline of 3.
+    const ANCHORS: Anchor[] = [
+        { line: 0, position: TOP_OF_PDF },
+        { line: 10, position: 0 },
+        { line: 30, position: 1 },
+        { line: 50, position: 3 },
     ];
 
-    it('puts a line in the section of the last heading at or above it', () => {
-        expect(entryAtLine(PAIRS, 2)).toBe(0);
-        expect(entryAtLine(PAIRS, 9)).toBe(0);
-        expect(entryAtLine(PAIRS, 10)).toBe(1);
-        expect(entryAtLine(PAIRS, 500)).toBe(3);
+    it('puts a heading at the position of its entry', () => {
+        expect(positionAtLine(ANCHORS, 10)).toBe(0);
+        expect(positionAtLine(ANCHORS, 30)).toBe(1);
     });
 
-    it('puts a line above the first heading before the first entry', () => {
-        expect(entryAtLine(PAIRS, 0)).toBe(BEFORE_FIRST_ENTRY);
-        expect(entryAtLine([], 5)).toBe(BEFORE_FIRST_ENTRY);
+    it('puts the top and the end of the file at the top and the end of the PDF', () => {
+        expect(positionAtLine(ANCHORS, 0)).toBe(TOP_OF_PDF);
+        expect(positionAtLine(ANCHORS, 50)).toBe(3);
     });
 
-    it('shows an entry at the line of its heading', () => {
-        expect(lineOfEntry(PAIRS, 0)).toBe(2);
-        expect(lineOfEntry(PAIRS, 3)).toBe(20);
+    it('puts a line between two headings the same fraction of the way along', () => {
+        expect(positionAtLine(ANCHORS, 20)).toBeCloseTo(0.5);
+        expect(positionAtLine(ANCHORS, 5)).toBeCloseTo(-0.5);
+        expect(positionAtLine(ANCHORS, 35)).toBeCloseTo(1.5);
     });
 
-    it('shows an entry with no heading of the file at the heading before it', () => {
-        expect(lineOfEntry(PAIRS, 2)).toBe(10);
+    it('spreads the entries that have no heading in the file over the stretch between the headings that do', () => {
+        expect(positionAtLine(ANCHORS, 40)).toBeCloseTo(2);
     });
 
-    it('shows the place above the first entry at the top of the file', () => {
-        expect(lineOfEntry(PAIRS, BEFORE_FIRST_ENTRY)).toBe(0);
+    it('puts a line past the end of the file at the end of the PDF', () => {
+        expect(positionAtLine(ANCHORS, 500)).toBe(3);
     });
 
-    it('agree: the entry at the line of an entry is that entry, for the ones that have a heading', () => {
-        for (const pair of PAIRS) {
-            expect(entryAtLine(PAIRS, lineOfEntry(PAIRS, pair.entry))).toBe(pair.entry);
+    it('is, for a heading on the first line, the position of its entry', () => {
+        const heading = [{ line: 0, position: TOP_OF_PDF }, { line: 0, position: 0 }, { line: 9, position: 1 }];
+        expect(positionAtLine(heading, 0)).toBe(0);
+        expect(positionAtLine(heading, 3)).toBeCloseTo(1 / 3);
+    });
+
+    it('goes the other way: a position is the line it came from', () => {
+        for (const line of [0, 3, 10, 17.5, 30, 41, 50]) {
+            expect(lineAtPosition(ANCHORS, positionAtLine(ANCHORS, line))).toBeCloseTo(line);
         }
+    });
+
+    it('puts a position between two entries the same fraction of the way along the lines', () => {
+        expect(lineAtPosition(ANCHORS, 0.25)).toBeCloseTo(15);
+        expect(lineAtPosition(ANCHORS, 2)).toBeCloseTo(40);
+    });
+
+    it('puts a position past the end of the PDF at the end of the file', () => {
+        expect(lineAtPosition(ANCHORS, 7)).toBe(50);
     });
 });
