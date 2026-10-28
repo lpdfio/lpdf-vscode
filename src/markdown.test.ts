@@ -41,9 +41,9 @@ vi.mock('./engine', () => ({ LpdfRenderError: class extends Error {} }));
 import * as vscode from 'vscode';
 import {
   getLinkedDocumentUri, getLinkedMarkdownUri, getLinkedStylesUri, isMarkdownDocument, isMarkdownUri, loadMarkdownRenderInput,
-  createLpdfDocument, createMarkdownStyles, promptLinkStylesFile, setLinkedDocumentUri, setLinkedStylesUri,
+  createLpdfDocument, promptLinkStyles, setLinkedDocumentUri, sidecarStylesPath, unlinkStyles,
 } from './markdown';
-import { defaultTemplate, starterStyles, stylePresets } from './markdown-engine';
+import { defaultTemplate, stylePresets } from './markdown-engine';
 import { loadRenderInput } from './render-input';
 
 /** A workspaceState that keeps its values in memory. */
@@ -105,21 +105,28 @@ describe('which files are Markdown', () => {
   });
 });
 
-describe('a .md file with nothing linked', () => {
-  it('is wrapped in the default template, with its text as the data', async () => {
+describe('a .md file with no styles next to it', () => {
+  it('is wrapped in the default template, with its text as the data, and watches where its styles would be', async () => {
     const input = await loadMarkdownRenderInput(context, uriOf('plain.md'), '# Title\n');
     expect(input.xml).toContain('size="a4"');
     expect(JSON.parse(input.jsonData ?? '{}')).toEqual({ markdown: '# Title\n' });
-    expect(input.files).toEqual([]);
+    expect(input.files).toEqual([path.join(folder, 'plain.styles.xml')]);
   });
 });
 
-describe('a .md file with styles linked', () => {
-  it('is wrapped in the default template naming the styles, which are read and watched', async () => {
-    const styles = path.join(folder, 'brand-styles.xml');
-    fs.writeFileSync(styles, STYLES);
-    await setLinkedStylesUri(context, uriOf('styled.md'), vscode.Uri.file(styles));
+describe('the styles of a .md file', () => {
+  it('are the .styles.xml next to it, under its name, whatever its extension', () => {
+    expect(sidecarStylesPath(path.join('docs', 'notes.md'))).toBe(path.join('docs', 'notes.styles.xml'));
+    expect(sidecarStylesPath(path.join('docs', 'README.markdown'))).toBe(path.join('docs', 'README.styles.xml'));
+    expect(sidecarStylesPath(path.join('docs', 'LICENSE'))).toBe(path.join('docs', 'LICENSE.styles.xml'));
+    expect(sidecarStylesPath(path.join('docs', 'v1.2.md'))).toBe(path.join('docs', 'v1.2.styles.xml'));
+  });
 
+  it('are found by that name with no link made: the file is wrapped in the default template naming them, and they are read and watched', async () => {
+    const styles = path.join(folder, 'styled.styles.xml');
+    fs.writeFileSync(styles, STYLES);
+
+    expect(getLinkedStylesUri(uriOf('styled.md'))?.fsPath).toBe(styles);
     const input = await loadMarkdownRenderInput(context, uriOf('styled.md'), '# Title\n');
 
     expect(input.xml).toContain(`<markdown-styles src="${styles}"/>`);
@@ -128,15 +135,11 @@ describe('a .md file with styles linked', () => {
     expect(input.files).toContain(styles);
   });
 
-  it('is an error that names the file when the styles are not there', async () => {
-    await setLinkedStylesUri(context, uriOf('gone.md'), uriOf('missing-styles.xml'));
-    await expect(loadMarkdownRenderInput(context, uriOf('gone.md'), '# Title\n')).rejects.toThrow(/missing-styles\.xml/);
-  });
-
-  it('goes back to the default styles when they are unlinked', async () => {
-    await setLinkedStylesUri(context, uriOf('styled.md'), uriOf('brand-styles.xml'));
-    await setLinkedStylesUri(context, uriOf('styled.md'), undefined);
-    expect(getLinkedStylesUri(context, uriOf('styled.md'))).toBeUndefined();
+  it('are not found under another name: another file\'s, or a file that is not named for the .md file', () => {
+    for (const name of ['other.styles.xml', 'mine-styles.xml', 'markdown-styles.xml', 'mine.xml', 'mine.md.xml']) {
+      fs.writeFileSync(path.join(folder, name), STYLES);
+    }
+    expect(getLinkedStylesUri(uriOf('mine.md'))).toBeUndefined();
   });
 });
 
@@ -146,110 +149,108 @@ describe('Link Styles', () => {
   const pickPreset = (name: string): void => {
     ui.showQuickPick.mockImplementation(async (choices: { preset?: { name: string } }[]) => choices.find(c => c.preset?.name === name));
   };
+  const presetStyles = (name: string): string | undefined => stylePresets().find(p => p.name === name)?.styles;
 
-  it('offers the looks, then the choice of a file of one\'s own', async () => {
+  it('offers the three looks and nothing else, and says where the look is written', async () => {
     ui.showQuickPick.mockResolvedValue(undefined);
-    await promptLinkStylesFile(context, uriOf('menu.md'));
+    await promptLinkStyles(uriOf('menu.md'));
 
-    const choices = ui.showQuickPick.mock.calls[0][0] as { label: string; description?: string; kind?: number }[];
-    expect(choices.map(c => c.label)).toEqual(['Sans', 'Serif', 'Typewriter', '', 'Choose a file...']);
+    const choices = ui.showQuickPick.mock.calls[0][0] as { label: string; description?: string }[];
+    expect(choices.map(c => c.label)).toEqual(['Sans', 'Serif', 'Typewriter']);
     expect(choices[0].description).toBe(stylePresets()[0].description);
-    expect(choices[3].kind).toBe(-1);
+    expect(ui.showQuickPick.mock.calls[0][1].placeHolder).toContain('menu.styles.xml');
   });
 
-  it('writes a look beside the file as styles of its own and links them, without opening them over the preview', async () => {
+  it('writes a look next to the file as its styles, which are its link, without opening them over the preview', async () => {
     pickPreset('typewriter');
-    const written = path.join(folder, 'markdown-styles-typewriter.xml');
+    const written = path.join(folder, 'look.styles.xml');
 
-    const styles = await promptLinkStylesFile(context, uriOf('look.md'));
+    const styles = await promptLinkStyles(uriOf('look.md'));
 
     expect(styles?.fsPath).toBe(written);
-    expect(fs.readFileSync(written, 'utf8')).toBe(stylePresets().find(p => p.name === 'typewriter')?.styles);
-    expect(getLinkedStylesUri(context, uriOf('look.md'))?.fsPath).toBe(written);
+    expect(fs.readFileSync(written, 'utf8')).toBe(presetStyles('typewriter'));
+    expect(getLinkedStylesUri(uriOf('look.md'))?.fsPath).toBe(written);
     expect(ui.showTextDocument).not.toHaveBeenCalled();
   });
 
   it('renders the file with the look, as the styles are read from the file written', async () => {
     pickPreset('serif');
-    await promptLinkStylesFile(context, uriOf('serif.md'));
+    await promptLinkStyles(uriOf('serif.md'));
 
     const input = await loadMarkdownRenderInput(context, uriOf('serif.md'), '# Title\n');
 
-    expect(input.xml).toContain(`<markdown-styles src="${path.join(folder, 'markdown-styles-serif.xml')}"/>`);
-    expect(input.assets.markdownStyles?.get(path.join(folder, 'markdown-styles-serif.xml'))).toContain('Times-Roman');
+    const written = path.join(folder, 'serif.styles.xml');
+    expect(input.xml).toContain(`<markdown-styles src="${written}"/>`);
+    expect(input.assets.markdownStyles?.get(written)).toContain('Times-Roman');
   });
 
-  describe('when the file of the look is already there', () => {
-    const edited = '<markdown-styles><h1 color="#123456"/></markdown-styles>';
-    const serif = (): string => path.join(folder, 'markdown-styles-serif.xml');
-    const present = (name: string, text: string): void => { fs.writeFileSync(path.join(folder, name), text); };
+  it('writes the look over the styles that are there, without asking, and says so in the menu', async () => {
+    const written = path.join(folder, 'again.styles.xml');
+    fs.writeFileSync(written, '<markdown-styles><h1 color="#123456"/></markdown-styles>');
+    pickPreset('serif');
 
-    it('links it without a word when it is the look', async () => {
-      pickPreset('serif');
-      present('markdown-styles-serif.xml', stylePresets().find(p => p.name === 'serif')?.styles ?? '');
+    await promptLinkStyles(uriOf('again.md'));
 
-      await promptLinkStylesFile(context, uriOf('same.md'));
-
-      expect(ui.showInformationMessage).not.toHaveBeenCalled();
-      expect(getLinkedStylesUri(context, uriOf('same.md'))?.fsPath).toBe(serif());
-    });
-
-    it('asks, when it is another, whether to replace it, and replaces it on Replace', async () => {
-      pickPreset('serif');
-      present('markdown-styles-serif.xml', edited);
-      ui.showInformationMessage.mockResolvedValue('Replace');
-
-      await promptLinkStylesFile(context, uriOf('replace.md'));
-
-      expect(ui.showInformationMessage.mock.calls[0][1]).toMatchObject({ modal: true });
-      expect(fs.readFileSync(serif(), 'utf8')).toBe(stylePresets().find(p => p.name === 'serif')?.styles);
-      expect(getLinkedStylesUri(context, uriOf('replace.md'))?.fsPath).toBe(serif());
-    });
-
-    it('leaves it as it is and links it on Keep mine', async () => {
-      pickPreset('serif');
-      present('markdown-styles-serif.xml', edited);
-      ui.showInformationMessage.mockResolvedValue('Keep mine');
-
-      await promptLinkStylesFile(context, uriOf('keep.md'));
-
-      expect(fs.readFileSync(serif(), 'utf8')).toBe(edited);
-      expect(getLinkedStylesUri(context, uriOf('keep.md'))?.fsPath).toBe(serif());
-    });
-
-    it('changes and links nothing when the user cancels', async () => {
-      pickPreset('serif');
-      present('markdown-styles-serif.xml', edited);
-      ui.showInformationMessage.mockResolvedValue(undefined);
-
-      expect(await promptLinkStylesFile(context, uriOf('cancelled.md'))).toBeUndefined();
-
-      expect(fs.readFileSync(serif(), 'utf8')).toBe(edited);
-      expect(getLinkedStylesUri(context, uriOf('cancelled.md'))).toBeUndefined();
-    });
+    expect(ui.showQuickPick.mock.calls[0][1].placeHolder).toContain('is replaced');
+    expect(fs.readFileSync(written, 'utf8')).toBe(presetStyles('serif'));
+    expect(ui.showWarningMessage).not.toHaveBeenCalled();
+    expect(ui.showInformationMessage).not.toHaveBeenCalled();
   });
 
-  it('links the file the user chooses, when they choose one', async () => {
-    ui.showQuickPick.mockImplementation(async (choices: { preset?: unknown }[]) => choices.find(c => !c.preset && (c as { label: string }).label !== ''));
-    ui.showOpenDialog.mockResolvedValue([uriOf('mine.xml')]);
-
-    const styles = await promptLinkStylesFile(context, uriOf('own.md'));
-
-    expect(styles?.fsPath).toBe(uriOf('mine.xml').fsPath);
-    expect(getLinkedStylesUri(context, uriOf('own.md'))?.fsPath).toBe(uriOf('mine.xml').fsPath);
-  });
-
-  it('changes nothing when the user cancels the menu or the dialog', async () => {
+  it('changes nothing when the user cancels the menu', async () => {
     const before = fs.readdirSync(folder);
     ui.showQuickPick.mockResolvedValue(undefined);
-    expect(await promptLinkStylesFile(context, uriOf('cancel.md'))).toBeUndefined();
 
-    ui.showQuickPick.mockImplementation(async (choices: { preset?: unknown; label: string }[]) => choices.find(c => !c.preset && c.label !== ''));
-    ui.showOpenDialog.mockResolvedValue(undefined);
-    expect(await promptLinkStylesFile(context, uriOf('cancel.md'))).toBeUndefined();
+    expect(await promptLinkStyles(uriOf('cancel.md'))).toBeUndefined();
 
-    expect(getLinkedStylesUri(context, uriOf('cancel.md'))).toBeUndefined();
     expect(fs.readdirSync(folder)).toEqual(before);
+  });
+
+  it('says so when the styles cannot be written', async () => {
+    fs.mkdirSync(path.join(folder, 'blocked.styles.xml'));
+    pickPreset('sans');
+
+    expect(await promptLinkStyles(uriOf('blocked.md'))).toBeUndefined();
+
+    expect(ui.showErrorMessage).toHaveBeenCalledWith(expect.stringContaining('cannot write the styles'));
+  });
+});
+
+describe('Unlink Styles', () => {
+  beforeEach(() => { Object.values(ui).forEach(fn => fn.mockReset()); });
+
+  it('asks, then deletes the styles next to the file, so that it is rendered with the default ones', async () => {
+    const styles = path.join(folder, 'bye.styles.xml');
+    fs.writeFileSync(styles, STYLES);
+    ui.showWarningMessage.mockResolvedValue('Delete');
+
+    expect(await unlinkStyles(uriOf('bye.md'))).toBe(true);
+
+    expect(ui.showWarningMessage.mock.calls[0][0]).toContain('bye.styles.xml');
+    expect(ui.showWarningMessage.mock.calls[0][1]).toMatchObject({ modal: true });
+    expect(fs.existsSync(styles)).toBe(false);
+    expect(getLinkedStylesUri(uriOf('bye.md'))).toBeUndefined();
+    const input = await loadMarkdownRenderInput(context, uriOf('bye.md'), '# Title\n');
+    expect(input.xml).not.toContain('<markdown-styles src=');
+  });
+
+  it('leaves the styles when the user cancels', async () => {
+    const styles = path.join(folder, 'stay.styles.xml');
+    fs.writeFileSync(styles, STYLES);
+    ui.showWarningMessage.mockResolvedValue(undefined);
+
+    expect(await unlinkStyles(uriOf('stay.md'))).toBe(false);
+
+    expect(fs.readFileSync(styles, 'utf8')).toBe(STYLES);
+  });
+
+  it('says so when the styles cannot be deleted', async () => {
+    fs.mkdirSync(path.join(folder, 'stuck.styles.xml'));
+    ui.showWarningMessage.mockResolvedValue('Delete');
+
+    expect(await unlinkStyles(uriOf('stuck.md'))).toBe(false);
+
+    expect(ui.showErrorMessage).toHaveBeenCalledWith(expect.stringContaining('cannot delete'));
   });
 });
 
@@ -265,17 +266,6 @@ describe('the files written for a .md file', () => {
   };
   const openedIn = (): unknown => (ui.showTextDocument.mock.calls[0][1] as { viewColumn: number }).viewColumn;
 
-  it('are the default styles, linked and opened as a tab in the column of the .md file, not over its preview', async () => {
-    openIn('written.md', 3);
-
-    const styles = await createMarkdownStyles(context, uriOf('written.md'));
-
-    expect(styles?.fsPath).toBe(path.join(folder, 'markdown-styles.xml'));
-    expect(fs.readFileSync(path.join(folder, 'markdown-styles.xml'), 'utf8')).toBe(starterStyles());
-    expect(getLinkedStylesUri(context, uriOf('written.md'))?.fsPath).toBe(styles?.fsPath);
-    expect(openedIn()).toBe(3);
-  });
-
   it('are a document named after the .md file, linked and opened in the column of the .md file', async () => {
     openIn('named.md', 2);
 
@@ -285,6 +275,14 @@ describe('the files written for a .md file', () => {
     expect(fs.readFileSync(path.join(folder, 'named.xml'), 'utf8')).toBe(defaultTemplate());
     expect(getLinkedDocumentUri(context, uriOf('named.md'))?.fsPath).toBe(document?.fsPath);
     expect(openedIn()).toBe(2);
+  });
+
+  it('are a document that names the styles next to the .md file, when there are', async () => {
+    fs.writeFileSync(path.join(folder, 'branded.styles.xml'), STYLES);
+
+    await createLpdfDocument(context, uriOf('branded.md'));
+
+    expect(fs.readFileSync(path.join(folder, 'branded.xml'), 'utf8')).toContain('<markdown-styles src="branded.styles.xml"/>');
   });
 
   it('open in the first column when the .md file is not open in an editor', async () => {
@@ -316,16 +314,16 @@ describe('a .md file with an Lpdf document linked', () => {
     expect(input.files).toContain(document);
   });
 
-  it('is rendered through the document even when styles are linked too', async () => {
+  it('is rendered through the document even when styles are next to it too', async () => {
     const document = path.join(folder, 'both.xml');
     fs.writeFileSync(document, DOCUMENT);
+    fs.writeFileSync(path.join(folder, 'both.styles.xml'), STYLES);
     await setLinkedDocumentUri(context, uriOf('both.md'), vscode.Uri.file(document));
-    await setLinkedStylesUri(context, uriOf('both.md'), uriOf('ignored-styles.xml'));
 
     const input = await loadMarkdownRenderInput(context, uriOf('both.md'), '# Title\n');
 
     expect(input.xml).toContain('size="letter"');
-    expect(input.xml).not.toContain('ignored-styles.xml');
+    expect(input.xml).not.toContain('both.styles.xml');
   });
 });
 
@@ -354,11 +352,6 @@ describe('the link between a .md file and an Lpdf document', () => {
     await setLinkedDocumentUri(context, uriOf('a.md'), uriOf('a.xml'));
     await setLinkedDocumentUri(context, uriOf('a.md'), undefined);
     expect(getLinkedDocumentUri(context, uriOf('a.md'))).toBeUndefined();
-    expect(getLinkedMarkdownUri(context, uriOf('a.xml'))).toBeUndefined();
-  });
-
-  it('does not mistake a linked file of styles for a document', async () => {
-    await setLinkedStylesUri(context, uriOf('a.md'), uriOf('a.xml'));
     expect(getLinkedMarkdownUri(context, uriOf('a.xml'))).toBeUndefined();
   });
 });

@@ -10,16 +10,15 @@ import { previewPdf, renderForUri, closePreviewWhenSourceCloses } from './previe
 import { exportEncryptedPdf, exportPdf } from './export';
 import {
   createLpdfDocument,
-  createMarkdownStyles,
   getLinkedDocumentUri,
   getLinkedMarkdownUri,
   getLinkedStylesUri,
   isMarkdownDocument,
   onDidChangeMarkdownLinks,
   promptLinkMarkdownFile,
-  promptLinkStylesFile,
+  promptLinkStyles,
   setLinkedDocumentUri,
-  setLinkedStylesUri,
+  unlinkStyles,
 } from './markdown';
 import { disposeRenderWorker } from './engine';
 import { LpdfPdfViewerProvider } from './pdf-viewer';
@@ -133,6 +132,11 @@ class MarkdownCodeLensProvider implements vscode.CodeLensProvider {
   constructor(context: vscode.ExtensionContext) {
     this._context = context;
     onDidChangeMarkdownLinks(() => this._emitter.fire());
+    // A file of styles is its own link, so the lenses change when one appears or goes, whoever did it.
+    const watcher = vscode.workspace.createFileSystemWatcher('**/*.styles.xml');
+    watcher.onDidCreate(() => this._emitter.fire());
+    watcher.onDidDelete(() => this._emitter.fire());
+    context.subscriptions.push(watcher);
   }
 
   provideCodeLenses(doc: vscode.TextDocument): vscode.CodeLens[] {
@@ -148,7 +152,7 @@ class MarkdownCodeLensProvider implements vscode.CodeLensProvider {
     if (document) {
       return [...lenses, ...linkedLenses(range, 'file-code', document, 'vscode.open', 'lpdf.unlinkLpdfDocument', doc.uri)];
     }
-    const styles = getLinkedStylesUri(this._context, doc.uri);
+    const styles = getLinkedStylesUri(doc.uri);
     const stylesLenses = styles
       ? linkedLenses(range, 'symbol-color', styles, 'vscode.open', 'lpdf.unlinkMarkdownStyles', doc.uri)
       : [new vscode.CodeLens(range, { title: lensTitle('symbol-color', 'Link Styles...'), command: 'lpdf.linkMarkdownStyles', arguments: [doc.uri] })];
@@ -277,14 +281,14 @@ async function promptPdfViewerOptIn(context: vscode.ExtensionContext): Promise<v
 // -------------------------------------------------
 
 /**
- * Whether the styles of a `.md` file can be linked: not while it is rendered through an Lpdf document, which
+ * Whether the styles of a `.md` file can be changed: not while it is rendered through an Lpdf document, which
  * names the styles itself, in a `<markdown-styles>`. Says so when they cannot.
  */
 async function canChangeStyles(context: vscode.ExtensionContext, markdownUri: vscode.Uri): Promise<boolean> {
   const document = getLinkedDocumentUri(context, markdownUri);
   if (!document) { return true; }
   void vscode.window.showInformationMessage(
-    `Lpdf: This Markdown file is rendered through ${path.basename(document.fsPath)}, which names its styles in a <markdown-styles>. Unlink the document to link styles here.`,
+    `Lpdf: This Markdown file is rendered through ${path.basename(document.fsPath)}, which names its styles in a <markdown-styles>. Unlink the document to change the styles here.`,
   );
   return false;
 }
@@ -338,23 +342,17 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('lpdf.linkMarkdownStyles', async (markdownUri?: vscode.Uri) => {
       const target = markdownUri ?? vscode.window.activeTextEditor?.document.uri;
       if (!target || !(await canChangeStyles(context, target))) { return; }
-      if (!await promptLinkStylesFile(context, target)) { return; }
+      if (!await promptLinkStyles(target)) { return; }
       void renderForUri(context, target, 'data');
     }),
     vscode.commands.registerCommand('lpdf.unlinkMarkdownStyles', async (markdownUri?: vscode.Uri) => {
       const target = markdownUri ?? vscode.window.activeTextEditor?.document.uri;
-      if (!target) { return; }
-      if (!getLinkedStylesUri(context, target)) {
+      if (!target || !(await canChangeStyles(context, target))) { return; }
+      if (!getLinkedStylesUri(target)) {
         void vscode.window.showInformationMessage('Lpdf: This Markdown file has no styles linked: it renders with the default ones.');
         return;
       }
-      await setLinkedStylesUri(context, target, undefined);
-      void renderForUri(context, target, 'data');
-    }),
-    vscode.commands.registerCommand('lpdf.createMarkdownStyles', async (markdownUri?: vscode.Uri) => {
-      const target = markdownUri ?? vscode.window.activeTextEditor?.document.uri;
-      if (!target || !(await canChangeStyles(context, target))) { return; }
-      if (await createMarkdownStyles(context, target)) { void renderForUri(context, target, 'data'); }
+      if (await unlinkStyles(target)) { void renderForUri(context, target, 'data'); }
     }),
     vscode.commands.registerCommand('lpdf.createLpdfDocument', async (markdownUri?: vscode.Uri) => {
       const target = markdownUri ?? vscode.window.activeTextEditor?.document.uri;
