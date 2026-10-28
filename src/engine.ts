@@ -18,6 +18,8 @@ export class LpdfRenderError extends Error {
 export interface RenderAssets {
   fonts:  Map<string, Uint8Array>;
   images: Map<string, Uint8Array>;
+  /** The text of each file of Markdown rules the XML names with `<markdown-styles src>`, by that `src`. */
+  markdownStyles?: Map<string, string>;
 }
 
 type Resolve = (bytes: Uint8Array) => void;

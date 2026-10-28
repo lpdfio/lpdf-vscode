@@ -9,6 +9,7 @@ function fakeEngine(failRender = false): { module: IWasmModule; calls: unknown[]
   class Fake implements IWasmEngine {
     load_font(name: string): void { calls.push(['load_font', name]); }
     load_image(name: string): void { calls.push(['load_image', name]); }
+    load_markdown_styles(src: string, xml: string): void { calls.push(['load_markdown_styles', src, xml]); }
     set_encryption(user: string, owner: string, permissions: string, algorithm: string, entropy: Uint8Array): void {
       calls.push(['set_encryption', user, owner, permissions, algorithm, entropy]);
     }
@@ -39,6 +40,14 @@ function request(extra: Partial<RenderRequest> = {}): RenderRequest {
 const names = (calls: unknown[][]) => calls.map(call => call[0]);
 
 describe('renderRequest', () => {
+  it('gives the engine the files of Markdown rules the document names before it renders', () => {
+    const { module, calls } = fakeEngine();
+    renderRequest(module, request({
+      assets: { fonts: new Map(), images: new Map(), markdownStyles: new Map([['styles.xml', '<markdown-styles/>']]) },
+    }));
+    expect(calls).toEqual([['load_markdown_styles', 'styles.xml', '<markdown-styles/>'], ['render_pdf']]);
+  });
+
   it('renders without encryption when none is asked for', () => {
     const { module, calls } = fakeEngine();
     expect(Array.from(renderRequest(module, request()))).toEqual([37, 80, 68, 70]);

@@ -92,7 +92,27 @@ describe('buildSchemaDocs', () => {
         expect(element('region', 'layout').scope).toBe('layout');
         expect(element('grid', 'tokens').scope).toBe('tokens');
         expect(element('grid').scope).toBe(GLOBAL_SCOPE);
-        expect([...docs.scopes].sort()).toEqual(['layout', 'tokens']);
+        expect(element('h1', 'markdown').scope).toBe('markdown');
+        expect([...docs.scopes].sort()).toEqual(['layout', 'markdown', 'tokens']);
+    });
+
+    it('tells the rules of a markdown from the elements of the layout that share their names', () => {
+        for (const name of ['code', 'li', 'table', 'td']) {
+            expect(element(name).scope, name).toBe(GLOBAL_SCOPE);
+            expect(element(name, 'markdown').scope, name).toBe('markdown');
+        }
+        expect(attributeNames('li', 'markdown')).toEqual(expect.arrayContaining(['indent', 'bullet', 'gap', 'padding']));
+        expect(attributeNames('li', 'markdown')).not.toContain('height');
+        expect(attributeNames('quote', 'markdown')).toEqual(expect.arrayContaining(['bar-color', 'bar-width']));
+        expect(attributeNames('markdown')).toEqual(expect.arrayContaining(['margin', 'gap', 'bookmarks', 'font']));
+        expect(element('markdown').children.map(child => child.name)).toEqual(['markdown-styles', 'markdown-content']);
+        expect(element('markdown-content', 'markdown').text).toBe(true);
+    });
+
+    it('names the type of the number of heading levels a markdown bookmarks', () => {
+        const bookmarks = element('markdown').attributes.find(candidate => candidate.name === 'bookmarks');
+        expect(bookmarks?.type.name).toBe('MarkdownBookmarks');
+        expect(bookmarks?.type.range).toBe('≤ 6');
     });
 
     it('declares a layer and what is in it at the top, so they have no scope', () => {
@@ -113,7 +133,7 @@ describe('buildSchemaDocs', () => {
     });
 
     it('lists each child of section once, though the schema names layout and layer twice, once for each order', () => {
-        expect(element('section').children.map(child => child.name)).toEqual(['bookmark', 'layer', 'layout']);
+        expect(element('section').children.map(child => child.name)).toEqual(['bookmark', 'layer', 'layout', 'markdown']);
     });
 
     it('keeps layout and layer inside a section: document holds only meta and sections', () => {

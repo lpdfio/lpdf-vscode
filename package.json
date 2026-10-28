@@ -44,6 +44,7 @@
   ],
   "activationEvents": [
     "onLanguage:xml",
+    "onLanguage:markdown",
     "workspaceContains:**/*.pdf"
   ],
   "main": "./dist/extension.js",
@@ -91,6 +92,13 @@
       { "command": "lpdf.exportPdf",      "title": "Lpdf: Export PDF"  },
       { "command": "lpdf.exportEncryptedPdf", "title": "Lpdf: Export Encrypted PDF..." },
       { "command": "lpdf.generateHere",   "title": "Lpdf: Generate Code" },
+      { "command": "lpdf.linkMarkdownStyles",   "title": "Lpdf: Link Markdown Styles..." },
+      { "command": "lpdf.unlinkMarkdownStyles", "title": "Lpdf: Unlink Markdown Styles" },
+      { "command": "lpdf.createMarkdownStyles", "title": "Lpdf: Write Markdown Styles" },
+      { "command": "lpdf.createLpdfDocument",   "title": "Lpdf: Create Lpdf Document" },
+      { "command": "lpdf.unlinkLpdfDocument",   "title": "Lpdf: Unlink Lpdf Document" },
+      { "command": "lpdf.linkMarkdownFile",     "title": "Lpdf: Link Markdown File..." },
+      { "command": "lpdf.unlinkMarkdownFile",   "title": "Lpdf: Unlink Markdown File" },
       { "command": "lpdf.linkDataFile",   "title": "Lpdf: Link Data File..."  },
       { "command": "lpdf.unlinkDataFile", "title": "Lpdf: Unlink Data File"   },
       { "command": "lpdf.generateTs",     "title": "Lpdf: Generate TypeScript from XML" },
@@ -113,10 +121,24 @@
           "group": "navigation"
         },
         {
+          "when": "resourceLangId == markdown",
+          "command": "lpdf.previewPdf",
+          "group": "navigation"
+        },
+        {
           "when": "resourceExtname == .pdf",
           "command": "lpdf.diffPdf",
           "group": "1_lpdf"
         }
+      ],
+      "commandPalette": [
+        { "command": "lpdf.linkMarkdownStyles",   "when": "editorLangId == markdown" },
+        { "command": "lpdf.unlinkMarkdownStyles", "when": "editorLangId == markdown" },
+        { "command": "lpdf.createMarkdownStyles", "when": "editorLangId == markdown" },
+        { "command": "lpdf.createLpdfDocument",   "when": "editorLangId == markdown" },
+        { "command": "lpdf.unlinkLpdfDocument",   "when": "editorLangId == markdown" },
+        { "command": "lpdf.linkMarkdownFile",     "when": "lpdf.isLpdfDocument" },
+        { "command": "lpdf.unlinkMarkdownFile",   "when": "lpdf.isLpdfDocument" }
       ],
       "explorer/context": [
         {
@@ -153,7 +175,38 @@
           "when": "resourceExtname == .xml",
           "command": "lpdf.generateHere",
           "group": "2_z_lpdf@4"
-        }      ]
+        },
+        {
+          "when": "resourceLangId == markdown",
+          "command": "lpdf.previewPdf",
+          "group": "2_z_lpdf@1"
+        },
+        {
+          "when": "resourceLangId == markdown",
+          "command": "lpdf.exportPdf",
+          "group": "2_z_lpdf@2"
+        },
+        {
+          "when": "resourceLangId == markdown",
+          "command": "lpdf.exportEncryptedPdf",
+          "group": "2_z_lpdf@3"
+        },
+        {
+          "when": "resourceLangId == markdown",
+          "command": "lpdf.linkMarkdownStyles",
+          "group": "2_z_lpdf@4"
+        },
+        {
+          "when": "resourceLangId == markdown",
+          "command": "lpdf.createMarkdownStyles",
+          "group": "2_z_lpdf@5"
+        },
+        {
+          "when": "resourceLangId == markdown",
+          "command": "lpdf.createLpdfDocument",
+          "group": "2_z_lpdf@6"
+        }
+      ]
     }
   },
   "scripts": {
@@ -164,12 +217,18 @@
     "docs:images": "node scripts/label-screenshots.mjs"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0",
+    "@types/node": "^22.0.0",
     "@types/vscode": "~1.95.0",
-    "@vscode/vsce": "^2.0.0",
-    "happy-dom": "^20.14.5",
+    "@vscode/vsce": "^4.0.0",
+    "happy-dom": "^21.0.4",
     "puppeteer-core": "^24.43.1",
     "typescript": "^5.0.0",
-    "vitest": "^3.2.7"
+    "vitest": "^5.0.5"
+  },
+  "allowScripts": {
+    "@vscode/vsce-sign": false,
+    "esbuild": false,
+    "fsevents": false,
+    "keytar": false
   }
 }

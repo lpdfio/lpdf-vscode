@@ -8,6 +8,19 @@ import { registerNewDocumentCommand } from './new-document';
 import { registerPdfDiffPrompt } from './pdf-diff-prompt';
 import { previewPdf, renderForUri, closePreviewWhenSourceCloses } from './preview';
 import { exportEncryptedPdf, exportPdf } from './export';
+import {
+  createLpdfDocument,
+  createMarkdownStyles,
+  getLinkedDocumentUri,
+  getLinkedMarkdownUri,
+  getLinkedStylesUri,
+  isMarkdownDocument,
+  onDidChangeMarkdownLinks,
+  promptLinkMarkdownFile,
+  promptLinkStylesFile,
+  setLinkedDocumentUri,
+  setLinkedStylesUri,
+} from './markdown';
 import { disposeRenderWorker } from './engine';
 import { LpdfPdfViewerProvider } from './pdf-viewer';
 import { initTrace } from './trace';
@@ -32,6 +45,19 @@ function lensTitle(icon: string, label: string): string {
   return `$(${icon})${LENS_ICON_GAP}${label}`;
 }
 
+/** A file's name for a CodeLens title: CodeLens renders $(name) as a codicon, so the backslash keeps a "$(" literal. */
+function lensFileName(uri: vscode.Uri): string {
+  return path.basename(uri.fsPath).replace(/\$\(/g, '\\$(');
+}
+
+/** The pair of lenses that show a linked file, which opens it, and unlink it. */
+function linkedLenses(range: vscode.Range, icon: string, file: vscode.Uri, openCommand: string, unlinkCommand: string, owner: vscode.Uri): vscode.CodeLens[] {
+  return [
+    new vscode.CodeLens(range, { title: lensTitle(icon, lensFileName(file)), command: openCommand, arguments: [file] }),
+    new vscode.CodeLens(range, { title: lensTitle('close', 'Unlink'), command: unlinkCommand, arguments: [owner] }),
+  ];
+}
+
 class LpdfCodeLensProvider implements vscode.CodeLensProvider {
   private readonly _context: vscode.ExtensionContext;
   private readonly _emitter = new vscode.EventEmitter<void>();
@@ -40,47 +66,96 @@ class LpdfCodeLensProvider implements vscode.CodeLensProvider {
   constructor(context: vscode.ExtensionContext) {
     this._context = context;
     onDidChangeDataLinks(() => this._emitter.fire());
+    onDidChangeMarkdownLinks(() => this._emitter.fire());
   }
 
   provideCodeLenses(doc: vscode.TextDocument): vscode.CodeLens[] {
     if (!isLpdfDocument(doc)) { return []; }
+    const text = doc.getText();
     // Scan only the head of the document for the <lpdf root element.
-    const head = doc.getText().substring(0, LPDF_HEAD_SCAN_BYTES);
+    const head = text.substring(0, LPDF_HEAD_SCAN_BYTES);
     const idx = head.search(/<lpdf\b/);
     if (idx === -1) { return []; }
     const pos = doc.positionAt(idx);
     const range = new vscode.Range(pos, pos);
 
+    // A document that holds a <markdown> can take its text from a .md file; that file is then its data.
+    const markdown = getLinkedMarkdownUri(this._context, doc.uri);
     const linked = getLinkedDataUri(this._context, doc.uri);
-    // CodeLens titles render $(name) as a codicon, so a file name holding "$(" would turn
-    // into an icon; the backslash keeps it literal.
-    const linkedName = linked ? path.basename(linked.fsPath).replace(/\$\(/g, '\\$(') : '';
-    const dataLenses: vscode.CodeLens[] = linked
-      ? [
-          new vscode.CodeLens(range, {
-            title: lensTitle('database', linkedName),
-            command: 'lpdf.linkDataFile',
-            arguments: [doc.uri],
-          }),
-          new vscode.CodeLens(range, {
-            title: lensTitle('close', 'Unlink'),
-            command: 'lpdf.unlinkDataFile',
-            arguments: [doc.uri],
-          }),
-        ]
-      : [
-          new vscode.CodeLens(range, {
-            title: lensTitle('database', 'Link Data...'),
-            command: 'lpdf.linkDataFile',
-            arguments: [doc.uri],
-          }),
-        ];
+    let dataLenses: vscode.CodeLens[] = [];
+    if (markdown) {
+      dataLenses = linkedLenses(range, 'markdown', markdown, 'vscode.open', 'lpdf.unlinkMarkdownFile', doc.uri);
+    } else {
+      dataLenses = linked
+        ? [
+            new vscode.CodeLens(range, {
+              title: lensTitle('database', lensFileName(linked)),
+              command: 'lpdf.linkDataFile',
+              arguments: [doc.uri],
+            }),
+            new vscode.CodeLens(range, {
+              title: lensTitle('close', 'Unlink'),
+              command: 'lpdf.unlinkDataFile',
+              arguments: [doc.uri],
+            }),
+          ]
+        : [
+            new vscode.CodeLens(range, {
+              title: lensTitle('database', 'Link Data...'),
+              command: 'lpdf.linkDataFile',
+              arguments: [doc.uri],
+            }),
+          ];
+      if (/<markdown\b/.test(text)) {
+        dataLenses.push(new vscode.CodeLens(range, {
+          title: lensTitle('markdown', 'Link Markdown...'),
+          command: 'lpdf.linkMarkdownFile',
+          arguments: [doc.uri],
+        }));
+      }
+    }
 
     return [
       new vscode.CodeLens(range, { title: lensTitle('play', 'Preview PDF'),          command: 'lpdf.previewPdf' }),
       new vscode.CodeLens(range, { title: lensTitle('share', 'Export PDF'),          command: 'lpdf.exportPdf'  }),
       new vscode.CodeLens(range, { title: lensTitle('bracket-dot', 'Generate code'), command: 'lpdf.generateHere', arguments: [doc.uri] }),
       ...dataLenses,
+    ];
+  }
+}
+
+/** The lenses of a `.md` file: preview and export, then its styles, or the Lpdf document it is rendered through. */
+class MarkdownCodeLensProvider implements vscode.CodeLensProvider {
+  private readonly _context: vscode.ExtensionContext;
+  private readonly _emitter = new vscode.EventEmitter<void>();
+  readonly onDidChangeCodeLenses: vscode.Event<void> = this._emitter.event;
+
+  constructor(context: vscode.ExtensionContext) {
+    this._context = context;
+    onDidChangeMarkdownLinks(() => this._emitter.fire());
+  }
+
+  provideCodeLenses(doc: vscode.TextDocument): vscode.CodeLens[] {
+    if (!isMarkdownDocument(doc)) { return []; }
+    const range = new vscode.Range(0, 0, 0, 0);
+
+    const lenses = [
+      new vscode.CodeLens(range, { title: lensTitle('play', 'Preview PDF'), command: 'lpdf.previewPdf' }),
+      new vscode.CodeLens(range, { title: lensTitle('share', 'Export PDF'), command: 'lpdf.exportPdf' }),
+    ];
+    // The styles are named by the Lpdf document, once there is one, so they are linked only without it.
+    const document = getLinkedDocumentUri(this._context, doc.uri);
+    if (document) {
+      return [...lenses, ...linkedLenses(range, 'file-code', document, 'vscode.open', 'lpdf.unlinkLpdfDocument', doc.uri)];
+    }
+    const styles = getLinkedStylesUri(this._context, doc.uri);
+    const stylesLenses = styles
+      ? linkedLenses(range, 'symbol-color', styles, 'vscode.open', 'lpdf.unlinkMarkdownStyles', doc.uri)
+      : [new vscode.CodeLens(range, { title: lensTitle('symbol-color', 'Link Styles...'), command: 'lpdf.linkMarkdownStyles', arguments: [doc.uri] })];
+    return [
+      ...lenses,
+      ...stylesLenses,
+      new vscode.CodeLens(range, { title: lensTitle('file-code', 'Create Lpdf Document'), command: 'lpdf.createLpdfDocument', arguments: [doc.uri] }),
     ];
   }
 }
@@ -201,6 +276,19 @@ async function promptPdfViewerOptIn(context: vscode.ExtensionContext): Promise<v
 
 // -------------------------------------------------
 
+/**
+ * Whether the styles of a `.md` file can be linked: not while it is rendered through an Lpdf document, which
+ * names the styles itself, in a `<markdown-styles>`. Says so when they cannot.
+ */
+async function canChangeStyles(context: vscode.ExtensionContext, markdownUri: vscode.Uri): Promise<boolean> {
+  const document = getLinkedDocumentUri(context, markdownUri);
+  if (!document) { return true; }
+  void vscode.window.showInformationMessage(
+    `Lpdf: This Markdown file is rendered through ${path.basename(document.fsPath)}, which names its styles in a <markdown-styles>. Unlink the document to link styles here.`,
+  );
+  return false;
+}
+
 export function activate(context: vscode.ExtensionContext): void {
   initTrace(context);
   const xsdPath = path.join(context.extensionPath, 'schema', 'lpdf.xsd');
@@ -247,6 +335,63 @@ export function activate(context: vscode.ExtensionContext): void {
       setupDataWatcher(context, target, picked);
       void renderForUri(context, target, 'data');
     }),
+    vscode.commands.registerCommand('lpdf.linkMarkdownStyles', async (markdownUri?: vscode.Uri) => {
+      const target = markdownUri ?? vscode.window.activeTextEditor?.document.uri;
+      if (!target || !(await canChangeStyles(context, target))) { return; }
+      if (!await promptLinkStylesFile(context, target)) { return; }
+      void renderForUri(context, target, 'data');
+    }),
+    vscode.commands.registerCommand('lpdf.unlinkMarkdownStyles', async (markdownUri?: vscode.Uri) => {
+      const target = markdownUri ?? vscode.window.activeTextEditor?.document.uri;
+      if (!target) { return; }
+      if (!getLinkedStylesUri(context, target)) {
+        void vscode.window.showInformationMessage('Lpdf: This Markdown file has no styles linked: it renders with the default ones.');
+        return;
+      }
+      await setLinkedStylesUri(context, target, undefined);
+      void renderForUri(context, target, 'data');
+    }),
+    vscode.commands.registerCommand('lpdf.createMarkdownStyles', async (markdownUri?: vscode.Uri) => {
+      const target = markdownUri ?? vscode.window.activeTextEditor?.document.uri;
+      if (!target || !(await canChangeStyles(context, target))) { return; }
+      if (await createMarkdownStyles(context, target)) { void renderForUri(context, target, 'data'); }
+    }),
+    vscode.commands.registerCommand('lpdf.createLpdfDocument', async (markdownUri?: vscode.Uri) => {
+      const target = markdownUri ?? vscode.window.activeTextEditor?.document.uri;
+      if (!target) { return; }
+      if (getLinkedDocumentUri(context, target)) {
+        void vscode.window.showInformationMessage('Lpdf: This Markdown file already has an Lpdf document: unlink it first to write another.');
+        return;
+      }
+      if (await createLpdfDocument(context, target)) { void renderForUri(context, target, 'data'); }
+    }),
+    vscode.commands.registerCommand('lpdf.unlinkLpdfDocument', async (markdownUri?: vscode.Uri) => {
+      const target = markdownUri ?? vscode.window.activeTextEditor?.document.uri;
+      if (!target) { return; }
+      if (!getLinkedDocumentUri(context, target)) {
+        void vscode.window.showInformationMessage('Lpdf: This Markdown file has no Lpdf document linked: it renders in the default one.');
+        return;
+      }
+      await setLinkedDocumentUri(context, target, undefined);
+      void renderForUri(context, target, 'data');
+    }),
+    vscode.commands.registerCommand('lpdf.linkMarkdownFile', async (documentUri?: vscode.Uri) => {
+      const target = documentUri ?? vscode.window.activeTextEditor?.document.uri;
+      if (!target) { return; }
+      if (!await promptLinkMarkdownFile(context, target)) { return; }
+      void renderForUri(context, target, 'data');
+    }),
+    vscode.commands.registerCommand('lpdf.unlinkMarkdownFile', async (documentUri?: vscode.Uri) => {
+      const target = documentUri ?? vscode.window.activeTextEditor?.document.uri;
+      if (!target) { return; }
+      const markdown = getLinkedMarkdownUri(context, target);
+      if (!markdown) {
+        void vscode.window.showInformationMessage('Lpdf: This document has no Markdown file linked.');
+        return;
+      }
+      await setLinkedDocumentUri(context, markdown, undefined);
+      void renderForUri(context, target, 'data');
+    }),
     vscode.commands.registerCommand('lpdf.unlinkDataFile', async (xmlUri?: vscode.Uri) => {
       const target = xmlUri ?? vscode.window.activeTextEditor?.document.uri;
       if (!target) { return; }
@@ -273,6 +418,7 @@ export function activate(context: vscode.ExtensionContext): void {
   // CodeLens
   context.subscriptions.push(
     vscode.languages.registerCodeLensProvider({ language: 'xml' }, new LpdfCodeLensProvider(context)),
+    vscode.languages.registerCodeLensProvider({ language: 'markdown' }, new MarkdownCodeLensProvider(context)),
   );
 
   // Hover with the signature of the tag or attribute under the cursor, read from the same XSD.
@@ -293,6 +439,8 @@ export function activate(context: vscode.ExtensionContext): void {
       if (editor && isLpdfDocument(editor.document)) {
         ensureDataWatcher(context, editor.document.uri);
         renderForUri(context, editor.document.uri, 'switch');
+      } else if (editor && isMarkdownDocument(editor.document)) {
+        renderForUri(context, editor.document.uri, 'switch');
       }
     }),
     vscode.window.tabGroups.onDidChangeTabs(event => closePreviewWhenSourceCloses(event.closed)),
@@ -302,7 +450,7 @@ export function activate(context: vscode.ExtensionContext): void {
       _statusDebounce = setTimeout(() => refreshLpdfContext(vscode.window.activeTextEditor), 300);
     }),
     vscode.workspace.onDidSaveTextDocument(doc => {
-      if (isLpdfDocument(doc)) { renderForUri(context, doc.uri, 'save'); }
+      if (isLpdfDocument(doc) || isMarkdownDocument(doc)) { renderForUri(context, doc.uri, 'save'); }
     }),
   );
 
