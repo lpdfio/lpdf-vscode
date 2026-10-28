@@ -6,13 +6,16 @@
  *
  * Messages from the extension host:
  *   showLoading                           a render has started
- *   updatePdf  { pdfBase64, filename, zoom? }   show this PDF; `zoom` is only present for a file
- *                                         that was not showing before, which starts at the top
+ *   updatePdf  { pdfBase64, filename, zoom?, followHeadings? }   show this PDF; `zoom` is only present for a
+ *                                         file that was not showing before, which starts at the top;
+ *                                         `followHeadings` asks the viewer to follow the headings of the PDF
+ *   scrollToHeading { index }             scroll to a heading of the outline (see lpdf-headings.mjs)
  *   showError  { message }                the render failed
  *
  * Messages to the extension host:
  *   ready                                 messages can now be received
  *   download   { pdfBase64, filename }    the user asked to save the PDF, with any form input in it
+ *   outline, topHeading                   while following headings, where the view is (see lpdf-headings.mjs)
  *   log        { level, message }         written to the extension's output
  *
  * What this relies on in the stock viewer. These are internals of PDF.js's `web/viewer.mjs`, not a
@@ -24,10 +27,11 @@
  *     `close()` saves a document with filled-in form fields before another opens
  *   - the `updateviewarea` event and its `location.pdfOpenParams`, to return to a place after a re-render
  *   - the methods replaced below: `rotatePages`, `requestPresentationMode`, `downloadManager.download`
- * The toolbar's own dependencies are listed in lpdf-toolbar.mjs.
+ * The toolbar's own dependencies are listed in lpdf-toolbar.mjs, and those of following headings in lpdf-headings.mjs.
  */
 
 import { base64ToBytes, bytesToBase64 } from './lpdf-bytes.mjs';
+import { createHeadingFollower } from './lpdf-headings.mjs';
 import { arrangeToolbar, connectToolbar } from './lpdf-toolbar.mjs';
 import { createWorkerUrl, installMapPolyfill } from './lpdf-pdfjs.mjs';
 
@@ -157,34 +161,44 @@ async function startViewer() {
 /**
  * Shows a PDF. One that replaces the file already showing opens at the same place and zoom.
  * @param app The viewer application.
+ * @param headings Follows the headings of the PDF, when the message asks for it.
  * @param message The updatePdf message.
  */
-async function showPdf(app, message) {
+async function showPdf(app, headings, message) {
     const isNewFile = message.zoom !== undefined;
     current = { pdfBase64: message.pdfBase64, filename: message.filename };
     // Opening a document closes the one showing, and the viewer saves that one first when a form field in
     // it holds input, which would ask where to save a PDF the user has moved on from. Each render is a new
     // document, so what was typed into the old one is dropped; the save button still saves a filled form.
     app.pdfDocument?.annotationStorage.resetModified();
+    // The outline of the document being replaced is not the next one's, and the viewer moves as the next opens.
+    headings.stop();
     // The viewer opens a document at this bookmark, in the form it writes into its own links.
     app.initialBookmark = isNewFile || !lastLocation ? null : lastLocation.pdfOpenParams.substring(1);
     // The open arguments go to PDF.js's getDocument as they are; see documentOptions for why the page fetches its data files.
     await app.open({ data: base64ToBytes(message.pdfBase64), filename: message.filename, useWorkerFetch: false });
     hideStatus();
+    if (message.followHeadings) {
+        // The PDF shows without it: a document with an outline that cannot be read only loses the following.
+        await headings.follow().catch(error => log('error', `Could not follow the headings: ${error.message}`));
+    }
 }
 
 try {
     const app = await startViewer();
+    const headings = createHeadingFollower(app, message => vscodeApi.postMessage(message));
     window.addEventListener('message', event => {
         const message = event.data;
         if (message.type === 'showLoading') {
             // A document that is already showing stays in view while the next one renders.
             if (!app.pdfDocument) { showStatus('Rendering…', false); }
         } else if (message.type === 'updatePdf') {
-            pending = pending.then(() => showPdf(app, message)).catch(error => {
+            pending = pending.then(() => showPdf(app, headings, message)).catch(error => {
                 log('error', `Could not show the PDF: ${error.message}`);
                 showStatus(`Error: ${error.message}`, true);
             });
+        } else if (message.type === 'scrollToHeading') {
+            headings.scrollTo(message.index);
         } else if (message.type === 'showError') {
             showStatus(`Error: ${message.message}`, true);
         }

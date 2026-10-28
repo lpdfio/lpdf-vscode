@@ -13,6 +13,7 @@ Lpdf's own files, edited by hand:
 | `lpdf-pdfjs.mjs` | Loads the PDF.js library for every page: the worker as a blob, the Map polyfill, the locations of the fonts, character maps and decoders. |
 | `lpdf-bytes.mjs` | PDF bytes to and from base64, the form in which a PDF travels between the extension host and a page. |
 | `lpdf-host.mjs` | Starts the stock viewer as a read-only viewer and talks to the extension. Lists the viewer internals it relies on. |
+| `lpdf-headings.mjs` | Follows the headings of a Markdown preview: reads the PDF's outline, finds the heading at the top of the view, scrolls to one the extension asks for. Lists the viewer internals it relies on. |
 | `lpdf-toolbar.mjs` | The Lpdf header: moves the viewer's controls and adds the zoom field, fit toggle, two-page and cover buttons. Lists the markup it relies on. |
 | `lpdf-theme.css` | The viewer's palette and the icons Lpdf draws, loaded by the full viewer and the diff view so they look alike. A test fails if an upgrade changes a colour it mirrors. |
 | `lpdf-diff-zoom.mjs` | The zoom arithmetic of the diff view: pinch and Ctrl-wheel, the zoom range (10% to 1000%, as the full viewer's), anchoring under the pointer. |
@@ -54,7 +55,7 @@ needed. The diff view (`lpdf-diff-zoom.mjs`) and the zoom field (`lpdf-toolbar.m
 
 1. `node scripts/vendor-pdfjs.mjs --check`, and `npm test`. The tests run the header code on the
    new `web/viewer.html`; if PDF.js moved a control, the failure names it (a `ToolbarMarkupError`).
-2. Look at the two lists of internals, in `lpdf-host.mjs` and `lpdf-toolbar.mjs`, against the new
+2. Look at the three lists of internals, in `lpdf-host.mjs`, `lpdf-headings.mjs` and `lpdf-toolbar.mjs`, against the new
    `web/viewer.mjs`. They are not a published interface. The ones that break quietly are the
    replaced methods (`rotatePages`, `requestPresentationMode`, `downloadManager.download`), the
    events (`scalechanging`, `spreadmodechanged`, `updateviewarea`) and the option names.
