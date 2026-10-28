@@ -17,7 +17,7 @@ describe('the Markdown preview in the manifest', () => {
 
   it('has the commands for the styles, the Lpdf document and the linked file that the extension registers', () => {
     for (const name of [
-      'linkMarkdownStyles', 'unlinkMarkdownStyles', 'createMarkdownStyles',
+      'linkMarkdownStyles', 'unlinkMarkdownStyles',
       'createLpdfDocument', 'unlinkLpdfDocument', 'linkMarkdownFile', 'unlinkMarkdownFile',
     ]) {
       expect(manifest.contributes.commands.some(c => c.command === `lpdf.${name}`), name).toBe(true);
@@ -28,9 +28,14 @@ describe('the Markdown preview in the manifest', () => {
   it('offers preview, export, the styles and the Lpdf document on a .md file in the Explorer, each in a group of its own', () => {
     expect(entries.map(e => e.command)).toEqual([
       'lpdf.previewPdf', 'lpdf.exportPdf', 'lpdf.exportEncryptedPdf',
-      'lpdf.linkMarkdownStyles', 'lpdf.createMarkdownStyles', 'lpdf.createLpdfDocument',
+      'lpdf.linkMarkdownStyles', 'lpdf.createLpdfDocument',
     ]);
     expect(new Set(entries.map(e => e.group)).size).toBe(entries.length);
+  });
+
+  it('opens a linked file from its lens in a tab beside the file it is linked to, not over it', () => {
+    expect(extensionSource).toContain(`registerCommand('lpdf.openLinkedFile'`);
+    expect(extensionSource).not.toContain(`'vscode.open'`);
   });
 
   it('has no command for a template, since the Lpdf document is the template', () => {

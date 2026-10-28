@@ -8,7 +8,7 @@ const DATA_KEY_PREFIX = 'lpdf.dataFile:';
 const _changeEmitter = new vscode.EventEmitter<void>();
 export const onDidChangeDataLinks: vscode.Event<void> = _changeEmitter.event;
 
-// Stored in place of a URI once the user unlinks, so an auto-discovered <name>.json stays
+// Stored in place of a URI once the user unlinks, so an auto-discovered <name>.data.json stays
 // ignored until a file is linked again.
 const UNLINKED = 'unlinked';
 
@@ -26,18 +26,18 @@ function getExplicitDataUri(
 }
 
 /**
- * Where an XML file's data is found without being linked: a `.json` file next to it, under the
+ * Where an XML file's data is found without being linked: a `.data.json` file next to it, under the
  * same name.
  * @param xmlPath The XML file.
- * @returns The path of its `.json`.
+ * @returns The path of its `.data.json`.
  */
 export function sidecarDataPath(xmlPath: string): string {
-  return path.join(path.dirname(xmlPath), path.basename(xmlPath, '.xml') + '.json');
+  return path.join(path.dirname(xmlPath), path.basename(xmlPath, '.xml') + '.data.json');
 }
 
 /**
  * Returns the effective linked JSON URI for an XML file.
- * Precedence: explicit workspaceState link > auto-discovered sidecar (<name>.json), unless
+ * Precedence: explicit workspaceState link > auto-discovered sidecar (<name>.data.json), unless
  * the user has unlinked the document.
  */
 export function getLinkedDataUri(
@@ -48,7 +48,7 @@ export function getLinkedDataUri(
   if (explicit) { return explicit; }
   if (context.workspaceState.get<string>(dataKey(xmlUri)) === UNLINKED) { return undefined; }
 
-  // Auto-discovery: look for a same-name .json file in the same directory.
+  // Auto-discovery: look for a same-name .data.json file in the same directory.
   const jsonPath = sidecarDataPath(xmlUri.fsPath);
   return fs.existsSync(jsonPath) ? vscode.Uri.file(jsonPath) : undefined;
 }
@@ -84,7 +84,7 @@ export async function setLinkedDataUri(
 }
 
 /**
- * Stops the XML file using any data file, an auto-discovered <name>.json included, and
+ * Stops the XML file using any data file, an auto-discovered <name>.data.json included, and
  * fires onDidChangeDataLinks. Linking a file again turns data back on.
  */
 export async function unlinkDataUri(

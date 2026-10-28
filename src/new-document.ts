@@ -61,7 +61,7 @@ export async function newDocument(extensionPath: string, target?: vscode.Uri): P
     const replace = 'Replace';
     const answer = await vscode.window.showWarningMessage(
       `${path.basename(dataUri.fsPath)} is already there. Replace it with the template's data?`,
-      { modal: true, detail: 'The new document reads its data from the .json file with the same name.' },
+      { modal: true, detail: 'The new document reads its data from the .data.json file with the same name.' },
       replace,
     );
     if (answer !== replace) { return undefined; }
