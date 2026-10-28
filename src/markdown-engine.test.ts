@@ -141,6 +141,6 @@ describe('the starter template and styles', () => {
 
 describe('the engine of the extension', () => {
   it('has the engine the tests above ask', () => {
-    expect(readFileSync(join(__dirname, '..', 'wasm', 'lpdf.d.ts'), 'utf8')).toContain('markdown_declare_images');
+    expect(readFileSync(join(__dirname, '..', 'wasm', 'lpdf.js'), 'utf8')).toContain('markdown_declare_images');
   });
 });
