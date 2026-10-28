@@ -6,7 +6,7 @@ import { registerCodegenCommands } from './codegen';
 import { registerHoverProvider } from './hover-provider';
 import { registerNewDocumentCommand } from './new-document';
 import { registerPdfDiffPrompt } from './pdf-diff-prompt';
-import { previewPdf, renderForUri, closePreviewWhenSourceCloses } from './preview';
+import { previewPdf, renderForUri, closePreviewWhenSourceCloses, followEditor } from './preview';
 import { exportEncryptedPdf, exportPdf } from './export';
 import {
   createLpdfDocument,
@@ -446,6 +446,10 @@ export function activate(context: vscode.ExtensionContext): void {
       }
     }),
     vscode.window.tabGroups.onDidChangeTabs(event => closePreviewWhenSourceCloses(event.closed)),
+    // The preview of a .md file follows its editor, and the editor follows the preview.
+    vscode.window.onDidChangeTextEditorVisibleRanges(event => {
+      if (event.visibleRanges.length > 0) { followEditor(event.textEditor, event.visibleRanges[0].start.line); }
+    }),
     vscode.workspace.onDidChangeTextDocument(event => {
       if (event.document !== vscode.window.activeTextEditor?.document) { return; }
       clearTimeout(_statusDebounce);

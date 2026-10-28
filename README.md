@@ -79,6 +79,7 @@ Right-click a `.md` file in the Explorer and choose **Lpdf: Preview PDF**, or us
 - **Front matter.** A YAML block at the top of the file is not drawn. Its `key: value` lines are data the Lpdf document can show with `data-value`, for example `<text-at data-value="title">`.
 - **Images.** `![chart](img/chart.png)` is read relative to the `.md` file.
 - **Follows your edits.** The preview updates when you save the `.md` file, its Lpdf document or its styles file, and when an image changes.
+- **Scrolls with the editor.** The preview and the editor of a `.md` file stay at the same place, whichever you scroll: the preview follows the line at the top of the editor, and the editor follows the place at the top of the preview. The headings that are bookmarks in the PDF (all six levels, unless the document says otherwise with `bookmarks`) are where the two always agree, and between two of them the preview is as far along its section as the editor is along its lines. So it is exact at a heading and approximate in between, most where a section holds a table, an image or a long code block, and it comes right again at the next heading. A heading underlined with `===` or `---` is not one of those places; write it with `#`. A file with no headings leaves both where they are.
 
 The same file converts on the command line with `lpdf convert --input notes.md`, to the same PDF.
 
