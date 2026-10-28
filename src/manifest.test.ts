@@ -33,6 +33,11 @@ describe('the Markdown preview in the manifest', () => {
     expect(new Set(entries.map(e => e.group)).size).toBe(entries.length);
   });
 
+  it('opens a linked file from its lens in a tab beside the file it is linked to, not over it', () => {
+    expect(extensionSource).toContain(`registerCommand('lpdf.openLinkedFile'`);
+    expect(extensionSource).not.toContain(`'vscode.open'`);
+  });
+
   it('has no command for a template, since the Lpdf document is the template', () => {
     expect(manifest.contributes.commands.filter(c => /template/i.test(c.command))).toEqual([]);
     expect(extensionSource).not.toMatch(/Template'/);

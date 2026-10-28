@@ -255,10 +255,10 @@ function srcFrom(folder: string, file: string): string {
 }
 
 /**
- * Opens a file in the column of the source file it was written for, as a tab, so that the preview, which is in the
- * other column, stays visible: the sources are on one side to edit and the PDF on the other.
+ * Opens a file in the column of the source file it belongs to, as a tab of its own, so that the preview, which is in
+ * the other column, stays visible and the source stays open: the sources are on one side to edit and the PDF on the other.
  */
-async function showWithSource(uri: vscode.Uri, source: vscode.Uri): Promise<void> {
+export async function showWithSource(uri: vscode.Uri, source: vscode.Uri): Promise<void> {
   const editor = vscode.window.visibleTextEditors.find(e => e.document.uri.toString() === source.toString());
   await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(uri), { preview: false, viewColumn: editor?.viewColumn ?? vscode.ViewColumn.One });
 }

@@ -18,6 +18,7 @@ import {
   promptLinkMarkdownFile,
   promptLinkStyles,
   setLinkedDocumentUri,
+  showWithSource,
   unlinkStyles,
 } from './markdown';
 import { disposeRenderWorker } from './engine';
@@ -49,10 +50,10 @@ function lensFileName(uri: vscode.Uri): string {
   return path.basename(uri.fsPath).replace(/\$\(/g, '\\$(');
 }
 
-/** The pair of lenses that show a linked file, which opens it, and unlink it. */
-function linkedLenses(range: vscode.Range, icon: string, file: vscode.Uri, openCommand: string, unlinkCommand: string, owner: vscode.Uri): vscode.CodeLens[] {
+/** The pair of lenses that show a linked file, which opens it beside its owner, and unlink it. */
+function linkedLenses(range: vscode.Range, icon: string, file: vscode.Uri, unlinkCommand: string, owner: vscode.Uri): vscode.CodeLens[] {
   return [
-    new vscode.CodeLens(range, { title: lensTitle(icon, lensFileName(file)), command: openCommand, arguments: [file] }),
+    new vscode.CodeLens(range, { title: lensTitle(icon, lensFileName(file)), command: 'lpdf.openLinkedFile', arguments: [file, owner] }),
     new vscode.CodeLens(range, { title: lensTitle('close', 'Unlink'), command: unlinkCommand, arguments: [owner] }),
   ];
 }
@@ -83,7 +84,7 @@ class LpdfCodeLensProvider implements vscode.CodeLensProvider {
     const linked = getLinkedDataUri(this._context, doc.uri);
     let dataLenses: vscode.CodeLens[] = [];
     if (markdown) {
-      dataLenses = linkedLenses(range, 'markdown', markdown, 'vscode.open', 'lpdf.unlinkMarkdownFile', doc.uri);
+      dataLenses = linkedLenses(range, 'markdown', markdown, 'lpdf.unlinkMarkdownFile', doc.uri);
     } else {
       dataLenses = linked
         ? [
@@ -150,11 +151,11 @@ class MarkdownCodeLensProvider implements vscode.CodeLensProvider {
     // The styles are named by the Lpdf document, once there is one, so they are linked only without it.
     const document = getLinkedDocumentUri(this._context, doc.uri);
     if (document) {
-      return [...lenses, ...linkedLenses(range, 'file-code', document, 'vscode.open', 'lpdf.unlinkLpdfDocument', doc.uri)];
+      return [...lenses, ...linkedLenses(range, 'file-code', document, 'lpdf.unlinkLpdfDocument', doc.uri)];
     }
     const styles = getLinkedStylesUri(doc.uri);
     const stylesLenses = styles
-      ? linkedLenses(range, 'symbol-color', styles, 'vscode.open', 'lpdf.unlinkMarkdownStyles', doc.uri)
+      ? linkedLenses(range, 'symbol-color', styles, 'lpdf.unlinkMarkdownStyles', doc.uri)
       : [new vscode.CodeLens(range, { title: lensTitle('symbol-color', 'Link Styles...'), command: 'lpdf.linkMarkdownStyles', arguments: [doc.uri] })];
     return [
       ...lenses,
@@ -339,6 +340,9 @@ export function activate(context: vscode.ExtensionContext): void {
       setupDataWatcher(context, target, picked);
       void renderForUri(context, target, 'data');
     }),
+    // What the lens of a linked file runs: a tab beside its owner, not over it, which would close the owner's tab
+    // when that one is a preview tab, and with it the source the preview is of.
+    vscode.commands.registerCommand('lpdf.openLinkedFile', (file: vscode.Uri, owner: vscode.Uri) => showWithSource(file, owner)),
     vscode.commands.registerCommand('lpdf.linkMarkdownStyles', async (markdownUri?: vscode.Uri) => {
       const target = markdownUri ?? vscode.window.activeTextEditor?.document.uri;
       if (!target || !(await canChangeStyles(context, target))) { return; }
