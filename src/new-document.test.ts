@@ -101,7 +101,7 @@ describe('newDocument', () => {
     const created = await newDocument(EXTENSION);
     expect(created?.fsPath).toBe(path.join(work, 'acme.xml'));
     expect(fs.readFileSync(path.join(work, 'acme.xml'), 'utf8')).toBe(TEMPLATE_XML);
-    expect(fs.readFileSync(path.join(work, 'acme.json'), 'utf8')).toBe(TEMPLATE_DATA);
+    expect(fs.readFileSync(path.join(work, 'acme.data.json'), 'utf8')).toBe(TEMPLATE_DATA);
     expect(ui.showTextDocument).toHaveBeenCalled();
     expect(ui.executeCommand).toHaveBeenCalledWith('lpdf.previewPdf', created);
   });
@@ -122,17 +122,17 @@ describe('newDocument', () => {
   });
 
   it('asks before replacing a data file that is already there, and leaves it when told not to', async () => {
-    fs.writeFileSync(path.join(work, 'acme.json'), '{"mine":true}');
+    fs.writeFileSync(path.join(work, 'acme.data.json'), '{"mine":true}');
     choose('acme.xml');
     ui.showWarningMessage.mockResolvedValue(undefined);
     expect(await newDocument(EXTENSION)).toBeUndefined();
-    expect(ui.showWarningMessage.mock.calls[0][0]).toContain('acme.json');
-    expect(fs.readFileSync(path.join(work, 'acme.json'), 'utf8')).toBe('{"mine":true}');
+    expect(ui.showWarningMessage.mock.calls[0][0]).toContain('acme.data.json');
+    expect(fs.readFileSync(path.join(work, 'acme.data.json'), 'utf8')).toBe('{"mine":true}');
     expect(fs.existsSync(path.join(work, 'acme.xml'))).toBe(false);
 
     ui.showWarningMessage.mockResolvedValue('Replace');
     await newDocument(EXTENSION);
-    expect(fs.readFileSync(path.join(work, 'acme.json'), 'utf8')).toBe(TEMPLATE_DATA);
+    expect(fs.readFileSync(path.join(work, 'acme.data.json'), 'utf8')).toBe(TEMPLATE_DATA);
   });
 
   it('puts the fonts and images where the XML names them, in an assets folder next to it', async () => {
