@@ -1,12 +1,10 @@
 <img src="media/icon.png" height="48" alt="Lpdf - PDF as Code" />
 
-**View PDFs, compare modified PDFs, and author PDFs in XML with [Lpdf](https://lpdf.io?utm_campaign=vscode&utm_medium=referral&utm_source=readme) — PDF as Code on every platform**
+**View PDFs, preview Markdown in PDF, export Markdown to PDF, compare PDFs, and author PDFs in XML with [Lpdf](https://lpdf.io?utm_campaign=vscode&utm_medium=referral&utm_source=readme) — PDF as Code on every platform**
 
-A PDF viewer, a visual diff for PDFs you have modified, and authoring tools for Lpdf: you describe a document in XML, preview it live, and turn the template into SDK code for your platform. Everything runs on your machine.
+A PDF viewer, a PDF preview for any Markdown file, a visual diff for PDFs you have modified, and authoring tools for Lpdf: you describe a document in XML, preview it live, and turn the template into SDK code for your platform. Everything runs on your machine.
 
-## Open and compare PDFs
-
-### PDF viewer
+## Preview PDF
 
 Open any `.pdf` file in VS Code: right-click it in the Explorer and select **Lpdf: View PDF**, or use the command palette. To open every PDF this way, turn on the `lpdf.defaultPdfViewer` setting. It follows your light or dark theme.
 
@@ -18,7 +16,42 @@ Open any `.pdf` file in VS Code: right-click it in the Explorer and select **Lpd
 4. A two-page view, with or without a cover page.
 5. Save, and document properties.
 
-### Compare PDF with HEAD
+## Markdown to PDF
+
+### Preview next to the file
+
+Right-click a `.md` file in the Explorer and choose **Lpdf: Preview PDF**, or use the button in the editor's title bar, to see it as a PDF beside it. Above the first line of the file are the same commands as lenses, with the links below.
+
+![A Markdown file on the left and its PDF preview on the right, with numbered labels explained in the list below](docs/images/markdown.png)
+
+1. **Preview PDF**, in the lenses above the first line with Export PDF and the links below. The button in the editor's title bar does the same.
+2. The PDF, set on A4 pages. It updates each time you save the `.md` file.
+3. The editor and the preview scroll together, whichever you move.
+
+- **Follows your edits.** The preview updates when you save the `.md` file, its Lpdf document or its styles file, and when an image changes.
+- **Scrolls with the editor.** The preview and the editor agree exactly at the headings that are bookmarks in the PDF (all six levels, unless the document says otherwise with `bookmarks`), and roughly in between, most where a section holds a table, an image or a long code block. Write a heading with `#`: one underlined with `===` or `---` does not count. A file with no headings leaves both where they are.
+
+### Export to PDF
+
+Right-click a `.md` file in the Explorer and choose **Lpdf: Export PDF** to save the PDF, or use Export PDF in the lenses above the first line. **Lpdf: Export Encrypted PDF...** saves it protected with passwords, as described under [Data, images and export](#data-images-and-export). The same file converts on the command line with `lpdf convert --input notes.md`, to the same PDF.
+
+### Style the PDF
+
+The file is set on an A4 page with a 54pt margin and the page number, and the default styles make headings, lists, quotes, code and tables look as people expect of rendered Markdown.
+
+![The menu of looks to link, over a Markdown file and its preview, with numbered labels explained in the list below](docs/images/markdown-styles.png)
+
+1. **Link Styles...** in the lenses above the first line, or **Lpdf: Link Markdown Styles...**, opens the menu.
+2. The looks to start from: Sans, Serif and Typewriter.
+3. The file the look is written to, next to the `.md` file, for you to edit.
+
+- **Your own styles.** **Lpdf: Link Markdown Styles...** offers a look to start from: Sans (what a Markdown gets with no styles), Serif (Times) or Typewriter (Courier). It writes the look beside the `.md` file as `<name>.styles.xml`, for example `notes.styles.xml` for `notes.md`. That file is the link: a `.md` file uses the `.styles.xml` beside it with its name, and the lens above the file opens it to edit. Its rules are named after the Markdown they style (`h1`, `p`, `code`, `quote`, `li`, `table` and so on) and take the attributes of the element they become. Write only the rules you change; the rest stay as the defaults have them. Linking a look again overwrites the file, and **Lpdf: Unlink Markdown Styles** asks, then deletes it, which returns the `.md` file to the default styles.
+- **Your own page.** **Lpdf: Create Lpdf Document** writes an Lpdf document named after the file, `notes.xml` for `notes.md`, beside it, links the two and opens it as a tab in the editor of the `.md` file, so that the preview stays where it is. The document is the page the Markdown is set in, an Lpdf document with a `<markdown>` in a section, so the page size, the margin, a cover, a header or a footer is XML around the Markdown. It names the styles next to the `.md` file, if there are any, and from then on it is where the styles are named. **Lpdf: Unlink Lpdf Document** goes back to the default page.
+- **From the document.** An Lpdf document with a `<markdown>` has **Link Markdown...** above its first line (**Lpdf: Link Markdown File...**), which makes a `.md` file its body: the preview and the export of the document are the Markdown set in it, and the front matter is its data. A `.md` file goes with one document, and a document with one `.md` file.
+- **Front matter.** A YAML block at the top of the file is not drawn. Its `key: value` lines are data the Lpdf document can show with `data-value`, for example `<text-at data-value="title">`.
+- **Images.** `![chart](img/chart.png)` is read relative to the `.md` file.
+
+## Diff PDF
 
 See what changed in a modified PDF. Right-click it in the Explorer and select **Lpdf: Compare PDF with HEAD**, or choose it from the **...** menu of an open PDF's tab. Click a changed PDF in the Source Control view and Lpdf offers to open it this way instead of as a text diff (switch the offer off with the `lpdf.promptPdfDiff` setting). The version in your last commit and your working copy open side by side. The file needs a committed version in a git repository.
 
@@ -49,9 +82,9 @@ The info button opens the two documents' properties, such as size, page count an
 </tr>
 </table>
 
-## Write PDFs in XML
+## Author PDFs
 
-Lpdf describes a document in XML, or in code, and renders a compact PDF that is identical on every platform. This extension is where you author them.
+Lpdf describes a document in XML, or in code, and renders a compact PDF that is identical on every platform. This extension is where you write the XML. Start from one of seven templates, from a one-page letter to a 117-page book, and watch the preview update each time you save. The schema checks, completes and explains your XML as you type, a JSON file supplies the data, and **Lpdf: Generate Code** turns the document into TypeScript, C#, Python or PHP.
 
 ### Start from a template
 
@@ -68,20 +101,6 @@ Any `.xml` file whose root element is `<lpdf>` is an Lpdf document, whatever it 
 3. The viewer's toolbar, with search, zoom, page views, save and properties.
 
 ![The same window in a light theme](docs/images/light.png)
-
-### Preview a Markdown file
-
-Right-click a `.md` file in the Explorer and choose **Lpdf: Preview PDF**, or use the button in the editor's title bar, to see it as a PDF beside it. The file is set on an A4 page with a 54pt margin and the page number, and the default styles make headings, lists, quotes, code and tables look as people expect of rendered Markdown. **Lpdf: Export PDF** saves it. Above the first line of the file are the same commands as lenses, with the links below.
-
-- **Your own styles.** **Lpdf: Link Markdown Styles...** offers a look to start from, Sans (the look a Markdown has with no styles), Serif (Times) or Typewriter (Courier), and writes it next to the `.md` file as `<name>.styles.xml`: `notes.styles.xml` for `notes.md`. That file is the link. A `.md` file is rendered with the `.styles.xml` next to it under its name, so it goes where the folder goes, and the styles in the CodeLens above the file open it to edit. Choosing a look again writes it over the file, and the menu says so. The rules are named after the Markdown they style, `h1`, `p`, `code`, `quote`, `li`, `table` and so on, and take the attributes of the element they become. Write only the rules you change: the rest stay as the defaults have them. **Lpdf: Unlink Markdown Styles** asks, then deletes the file, and the `.md` file goes back to the default styles.
-- **Your own page.** **Lpdf: Create Lpdf Document** writes an Lpdf document named after the file, `notes.xml` for `notes.md`, beside it, links the two and opens it as a tab in the editor of the `.md` file, so that the preview stays where it is. The document is the page the Markdown is set in, an Lpdf document with a `<markdown>` in a section, so the page size, the margin, a cover, a header or a footer is XML around the Markdown. It names the styles next to the `.md` file, if there are any, and from then on it is where the styles are named. **Lpdf: Unlink Lpdf Document** goes back to the default page.
-- **From the document.** An Lpdf document with a `<markdown>` has **Link Markdown...** above its first line (**Lpdf: Link Markdown File...**), which makes a `.md` file its body: the preview and the export of the document are the Markdown set in it, and the front matter is its data. A `.md` file goes with one document, and a document with one `.md` file.
-- **Front matter.** A YAML block at the top of the file is not drawn. Its `key: value` lines are data the Lpdf document can show with `data-value`, for example `<text-at data-value="title">`.
-- **Images.** `![chart](img/chart.png)` is read relative to the `.md` file.
-- **Follows your edits.** The preview updates when you save the `.md` file, its Lpdf document or its styles file, and when an image changes.
-- **Scrolls with the editor.** The preview and the editor of a `.md` file stay at the same place, whichever you scroll: the preview follows the line at the top of the editor, and the editor follows the place at the top of the preview. The headings that are bookmarks in the PDF (all six levels, unless the document says otherwise with `bookmarks`) are where the two always agree, and between two of them the preview is as far along its section as the editor is along its lines. So it is exact at a heading and approximate in between, most where a section holds a table, an image or a long code block, and it comes right again at the next heading. A heading underlined with `===` or `---` is not one of those places; write it with `#`. A file with no headings leaves both where they are.
-
-The same file converts on the command line with `lpdf convert --input notes.md`, to the same PDF.
 
 ### Autocomplete, validation and hover docs
 

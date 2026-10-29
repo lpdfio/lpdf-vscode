@@ -64,5 +64,21 @@
   "light": {
     "source": "light.png",
     "labels": []
+  },
+  "markdown": {
+    "source": "markdown.png",
+    "labels": [
+      { "n": 1, "x": 76, "y": 90 },
+      { "n": 2, "x": 1303, "y": 143 },
+      { "n": 3, "x": 726, "y": 623 }
+    ]
+  },
+  "markdown-styles": {
+    "source": "markdown-styles.png",
+    "labels": [
+      { "n": 1, "x": 400, "y": 118 },
+      { "n": 2, "x": 1230, "y": 129 },
+      { "n": 3, "x": 1235, "y": 61 }
+    ]
   }
 }
