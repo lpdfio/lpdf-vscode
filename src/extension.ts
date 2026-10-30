@@ -24,7 +24,7 @@ import {
 import { disposeRenderWorker } from './engine';
 import { LpdfPdfViewerProvider } from './pdf-viewer';
 import { initTrace } from './trace';
-import { diffPdf } from './pdf-diff';
+import { diffPdf, diffPdfWithRef } from './pdf-diff';
 import {
   getLinkedDataUri,
   setLinkedDataUri,
@@ -412,6 +412,7 @@ export function activate(context: vscode.ExtensionContext): void {
       void vscode.commands.executeCommand('vscode.openWith', target, LpdfPdfViewerProvider.viewType);
     }),
     vscode.commands.registerCommand('lpdf.diffPdf', (uri?: vscode.Uri) => diffPdf(context, uri)),
+    vscode.commands.registerCommand('lpdf.diffPdfWithRef', (uri?: vscode.Uri) => diffPdfWithRef(context, uri)),
   );
   registerCodegenCommands(context);
   registerNewDocumentCommand(context);

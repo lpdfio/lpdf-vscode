@@ -68,7 +68,7 @@ describe('the diff view page', () => {
 
     it('shows the properties in a dialog with a column for HEAD and one for the working copy, and a Close button', () => {
         const dialog = /<dialog id="info-dialog"[\s\S]*?<\/dialog>/.exec(page)?.[0] ?? '';
-        expect(dialog).toContain('<th scope="col">HEAD</th><th scope="col">Working copy</th>');
+        expect(dialog).toContain('<th scope="col" id="info-left-name">HEAD</th><th scope="col">Working copy</th>');
         expect(dialog).toContain('<tbody id="info-body"></tbody>');
         expect(dialog).toContain('id="info-close"');
     });
@@ -82,7 +82,13 @@ describe('the diff view page', () => {
     });
 
     it('passes the name of the file to the dialog, which the documents themselves do not know', () => {
-        expect(page).toContain('loadDiff(msg.oldBase64, msg.newBase64, msg.filename)');
+        expect(page).toContain('loadDiff(msg.oldBase64, msg.newBase64, msg.filename, msg.leftLabel)');
+    });
+
+    it('labels the left pane and its column of the dialog HEAD, until the extension names another ref', () => {
+        expect(page).toContain('<div class="pane-label"><span id="left-name">HEAD</span><span class="pane-meta" id="left-meta"></span></div>');
+        expect(page).toContain(`async function loadDiff(oldBase64, newBase64, fileName, leftLabel = 'HEAD') {`);
+        expect(page).toMatch(/leftName\.textContent = leftLabel;\s*infoLeftName\.textContent = leftLabel;/);
     });
 
     it('sizes its header as the viewer does: 36px, with buttons of 32px and icons of 18px', () => {

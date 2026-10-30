@@ -4,16 +4,17 @@ import * as fs from 'node:fs';
 import { spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { buildLibraryPageHtml } from './library-page-html';
+import { FOR_EACH_REF_ARGS, listRefs, missingVersionMessage, type GitRef } from './pdf-diff-refs';
 
-/** Runs `git show <ref>:<relPath>` and returns the raw stdout bytes as a Buffer. */
-function gitShowBuffer(repoPath: string, relPath: string): Promise<Buffer> {
+/** Runs git in the repository and returns the raw stdout bytes as a Buffer. */
+function runGit(repoPath: string, args: readonly string[]): Promise<Buffer> {
     return new Promise((resolve, reject) => {
         const chunks: Buffer[] = [];
-        const proc = spawn('git', ['show', `HEAD:${relPath}`], { cwd: repoPath });
+        const proc = spawn('git', args, { cwd: repoPath });
         proc.stdout.on('data', (chunk: Buffer) => chunks.push(chunk));
         proc.on('close', code => {
             if (code === 0) { resolve(Buffer.concat(chunks)); }
-            else { reject(new Error(`git show exited ${code}`)); }
+            else { reject(new Error(`git ${args[0]} exited ${code}`)); }
         });
         proc.on('error', reject);
     });
@@ -44,17 +45,31 @@ function buildDiffWebviewHtml(context: vscode.ExtensionContext, webview: vscode.
     });
 }
 
-export async function diffPdf(context: vscode.ExtensionContext, uri?: vscode.Uri): Promise<void> {
+/** What the left side is read from: its full name for git, and the name its labels show. */
+type LeftRef = Pick<GitRef, 'ref' | 'name'>;
+
+/** The version in the last commit, which "Compare PDF with HEAD" compares with. */
+const HEAD: LeftRef = { ref: 'HEAD', name: 'HEAD' };
+
+/** A PDF to compare, and where it is in its repository. */
+interface DiffTarget {
+    readonly fileUri: vscode.Uri;
+    readonly repoPath: string;
+    readonly relPath: string;
+}
+
+/** The PDF the command was run on and its repository, or undefined after telling the user why there is none. */
+async function findTarget(uri?: vscode.Uri): Promise<DiffTarget | undefined> {
     const fileUri = uri ?? vscode.window.activeTextEditor?.document.uri;
     if (!fileUri) {
         void vscode.window.showErrorMessage('Lpdf: No PDF file selected.');
-        return;
+        return undefined;
     }
 
     const gitExtension = vscode.extensions.getExtension<GitExtension>('vscode.git');
     if (!gitExtension) {
         void vscode.window.showErrorMessage('Lpdf: Git extension is not available.');
-        return;
+        return undefined;
     }
 
     const gitApi = (gitExtension.isActive
@@ -71,23 +86,28 @@ export async function diffPdf(context: vscode.ExtensionContext, uri?: vscode.Uri
     }
     if (!repo) {
         void vscode.window.showErrorMessage('Lpdf: No git repository found for this file.');
-        return;
+        return undefined;
     }
 
-    const relPath = path.relative(repo.rootUri.fsPath, fileUri.fsPath).replace(/\\/g, '/');
+    const repoPath = repo.rootUri.fsPath;
+    return { fileUri, repoPath, relPath: path.relative(repoPath, fileUri.fsPath).replace(/\\/g, '/') };
+}
+
+/** Opens the diff view: the PDF at the ref on the left, labelled with the ref's name, and the working copy on the right. */
+async function showDiff(context: vscode.ExtensionContext, target: DiffTarget, ref: LeftRef): Promise<void> {
+    const filename = path.basename(target.fileUri.fsPath);
 
     let oldBase64: string;
     try {
-        const buf = await gitShowBuffer(repo.rootUri.fsPath, relPath);
+        const buf = await runGit(target.repoPath, ['show', `${ref.ref}:${target.relPath}`]);
         oldBase64 = buf.toString('base64');
     } catch {
-        void vscode.window.showErrorMessage('Lpdf: File has no previous version in git HEAD.');
+        void vscode.window.showErrorMessage(missingVersionMessage(filename, ref.name));
         return;
     }
 
-    const newBytes  = await vscode.workspace.fs.readFile(fileUri);
+    const newBytes  = await vscode.workspace.fs.readFile(target.fileUri);
     const newBase64 = Buffer.from(newBytes).toString('base64');
-    const filename  = path.basename(fileUri.fsPath);
 
     const panel = vscode.window.createWebviewPanel(
         'lpdf.pdfDiff',
@@ -103,7 +123,37 @@ export async function diffPdf(context: vscode.ExtensionContext, uri?: vscode.Uri
 
     panel.webview.onDidReceiveMessage((msg: { type: string }) => {
         if (msg.type === 'ready') {
-            void panel.webview.postMessage({ type: 'updateDiff', oldBase64, newBase64, filename });
+            void panel.webview.postMessage({ type: 'updateDiff', oldBase64, newBase64, filename, leftLabel: ref.name });
         }
     });
+}
+
+/** "Lpdf: Compare PDF with HEAD": the PDF as of the last commit against the working copy. */
+export async function diffPdf(context: vscode.ExtensionContext, uri?: vscode.Uri): Promise<void> {
+    const target = await findTarget(uri);
+    if (target) { await showDiff(context, target, HEAD); }
+}
+
+/**
+ * "Lpdf: Compare PDF with branch...": asks for a branch or tag of the PDF's repository, the local
+ * default branch first, and compares the PDF at it with the working copy.
+ */
+export async function diffPdfWithRef(context: vscode.ExtensionContext, uri?: vscode.Uri): Promise<void> {
+    const target = await findTarget(uri);
+    if (!target) { return; }
+
+    let refs: GitRef[];
+    try {
+        refs = listRefs((await runGit(target.repoPath, FOR_EACH_REF_ARGS)).toString('utf8'));
+    } catch {
+        void vscode.window.showErrorMessage('Lpdf: The branches and tags of this repository could not be read.');
+        return;
+    }
+
+    const filename = path.basename(target.fileUri.fsPath);
+    const picked = await vscode.window.showQuickPick(
+        refs.map(ref => ({ label: ref.name, description: ref.kind, ref })),
+        { title: `Compare ${filename} with`, placeHolder: 'A branch or tag' },
+    );
+    if (picked) { await showDiff(context, target, picked.ref); }
 }

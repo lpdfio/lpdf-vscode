@@ -1,9 +1,9 @@
 /**
- * The document properties of the diff view (media/pdf-diff.html): the properties of the HEAD
- * document and of the working copy side by side, as the full viewer's own dialog lists them, with
- * the ones that differ marked. The dialog's text and its formats are the viewer's, which is
- * English with the formats of en-US, the only language the viewer ships, so a figure reads the
- * same here as there.
+ * The document properties of the diff view (media/pdf-diff.html): the properties of the version in
+ * git (HEAD, or the branch or tag it is compared with) and of the working copy side by side, as the
+ * full viewer's own dialog lists them, with the ones that differ marked. The dialog's text and its
+ * formats are the viewer's, which is English with the formats of en-US, the only language the
+ * viewer ships, so a figure reads the same here as there.
  */
 
 /** The language of the viewer's strings and of its number and date formats. */

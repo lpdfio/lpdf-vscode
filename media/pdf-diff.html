@@ -150,7 +150,7 @@
     </div>
     <div id="diff-area">
         <div class="diff-pane">
-            <div class="pane-label">HEAD<span class="pane-meta" id="left-meta"></span></div>
+            <div class="pane-label"><span id="left-name">HEAD</span><span class="pane-meta" id="left-meta"></span></div>
             <div class="pane-scroll" id="left-pane">
                 <div class="pane-inner" id="left-inner"></div>
             </div>
@@ -165,7 +165,7 @@
     <dialog id="info-dialog" aria-label="Document properties">
         <table class="info-table">
             <thead>
-                <tr><th scope="col"></th><th scope="col">HEAD</th><th scope="col">Working copy</th></tr>
+                <tr><th scope="col"></th><th scope="col" id="info-left-name">HEAD</th><th scope="col">Working copy</th></tr>
                 <tr class="info-gap"><td colspan="3"></td></tr>
             </thead>
             <tbody id="info-body"></tbody>
@@ -203,6 +203,7 @@
         const rightPane  = document.getElementById('right-pane');
         const leftInner  = document.getElementById('left-inner');
         const rightInner = document.getElementById('right-inner');
+        const leftName   = document.getElementById('left-name');
         const leftMeta   = document.getElementById('left-meta');
         const rightMeta  = document.getElementById('right-meta');
         const zoomInput  = document.getElementById('zoom-input');
@@ -212,6 +213,7 @@
         const infoDialog = document.getElementById('info-dialog');
         const infoBody   = document.getElementById('info-body');
         const infoSummary = document.getElementById('info-summary');
+        const infoLeftName = document.getElementById('info-left-name');
 
         const STEP = 1.25;
 
@@ -242,7 +244,7 @@
         let fitWidthScale = 1;        // the zoom that fits the width of a pane
         let fitPageScale  = 1;        // the zoom that fits the whole first page in a pane
         let fitMode       = 'width';  // how the zoom was last set: 'width' or 'page' (a fit), else 'manual'
-        let pageSize      = null;     // the first page of the HEAD document, at zoom 1
+        let pageSize      = null;     // the first page of the left document, at zoom 1
         let source        = null;     // what the documents were read from: { fileName, leftBytes, rightBytes }
         let comparison    = null;     // the properties of the two documents side by side, read when first asked for
         let generation    = 0;        // counts zoom changes and renders; a render that is not the latest gives up
@@ -453,7 +455,7 @@
             return bytes + ' B';
         }
 
-        /** The two fits, from the size of a pane and of the first page of the HEAD document. */
+        /** The two fits, from the size of a pane and of the first page of the left document. */
         function computeFitScales() {
             if (!pageSize) { return; }
             // Subtract padding (2×12px) and scrollbar allowance (17px).
@@ -478,7 +480,13 @@
             fitButton.setAttribute('aria-label', label);
         }
 
-        async function loadDiff(oldBase64, newBase64, fileName) {
+        /**
+         * Shows the two versions side by side.
+         * @param {string} leftLabel What the left version is: `HEAD`, or the branch or tag it was read from.
+         */
+        async function loadDiff(oldBase64, newBase64, fileName, leftLabel = 'HEAD') {
+            leftName.textContent = leftLabel;
+            infoLeftName.textContent = leftLabel;
             const [oldBuf, newBuf] = [base64ToUint8Array(oldBase64), base64ToUint8Array(newBase64)];
             const [oldSize, newSize] = [oldBuf.length, newBuf.length];
             source = { fileName, leftBytes: oldSize, rightBytes: newSize };
@@ -644,7 +652,7 @@
             const msg = event.data;
             if (msg.type === 'updateDiff') {
                 try {
-                    await loadDiff(msg.oldBase64, msg.newBase64, msg.filename);
+                    await loadDiff(msg.oldBase64, msg.newBase64, msg.filename, msg.leftLabel);
                 } catch (err) {
                     showError(err.message);
                 }

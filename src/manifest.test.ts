@@ -76,3 +76,35 @@ describe('the encrypted export in the manifest', () => {
     expect(setting.scope).toBe('application');
   });
 });
+
+describe('the PDF compare commands in the manifest', () => {
+  const pdfEntries = (menu: string, command: string) =>
+    manifest.contributes.menus[menu].filter(e => e.command === command && e.when === 'resourceExtname == .pdf');
+
+  it('has Compare PDF with HEAD and Compare PDF with branch..., both registered by the extension', () => {
+    expect(manifest.contributes.commands.find(c => c.command === 'lpdf.diffPdf')?.title).toBe('Lpdf: Compare PDF with HEAD');
+    expect(manifest.contributes.commands.find(c => c.command === 'lpdf.diffPdfWithRef')?.title).toBe('Lpdf: Compare PDF with branch...');
+    expect(extensionSource).toContain(`registerCommand('lpdf.diffPdf'`);
+    expect(extensionSource).toContain(`registerCommand('lpdf.diffPdfWithRef'`);
+  });
+
+  it('offers the branch compare on a PDF in the Explorer and in the ... menu of its tab, right after the HEAD compare', () => {
+    for (const menu of ['explorer/context', 'editor/title']) {
+      const [head] = pdfEntries(menu, 'lpdf.diffPdf');
+      const [branch] = pdfEntries(menu, 'lpdf.diffPdfWithRef');
+      expect(head, menu).toBeDefined();
+      expect(branch, menu).toBeDefined();
+      const [headGroup, headOrder] = (head.group ?? '').split('@');
+      const [branchGroup, branchOrder] = (branch.group ?? '').split('@');
+      expect(branchGroup, menu).toBe(headGroup);
+      expect(Number(branchOrder), menu).toBe(Number(headOrder) + 1);
+    }
+  });
+
+  it('keeps both out of the navigation group of a tab, so they are in its ... menu and not buttons', () => {
+    const groups = manifest.contributes.menus['editor/title']
+      .filter(e => e.command.startsWith('lpdf.diffPdf'))
+      .map(e => e.group);
+    expect(groups.every(g => !g?.startsWith('navigation'))).toBe(true);
+  });
+});

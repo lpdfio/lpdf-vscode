@@ -1,4 +1,5 @@
-// The properties dialogs: the viewer's, and the diff view's HEAD against working copy table.
+// The properties dialogs: the viewer's, and the diff view's HEAD against working copy table, which
+// names the branch or tag instead of HEAD when the extension sends one.
 // Run with `dark` or `light`: the theme class a webview puts on the body.
 import { createChecker, fixturePdf, shotPath, startEnvironment, wait } from './support.mjs';
 
@@ -132,6 +133,7 @@ const weights = await page.evaluate(() => { const row = document.querySelector('
 check('label and values have the same weight, colour and size', weights[0] === weights[1] && weights[1] === weights[2], JSON.stringify(weights));
 check('the dialog is modal and opens', dialog.modal);
 check('the columns are headed HEAD and Working copy', JSON.stringify(dialog.head) === JSON.stringify(['', 'HEAD', 'Working copy']), JSON.stringify(dialog.head));
+check('the left pane is labelled HEAD when the extension names no ref', await page.evaluate(() => document.getElementById('left-name').textContent) === 'HEAD');
 check('there is a row for each of the 14 properties of the viewer\'s dialog, in 3 gaps between 4 groups', dialog.rows.length === 14 && dialog.gaps === 3, `${dialog.rows.length} rows, ${dialog.gaps} gaps`);
 check('the labels are those of the viewer', dialog.rows.map(r => r.label.replace(' (differs)', '')).join('|') === 'File name:|File size:|Title:|Author:|Subject:|Keywords:|Creation Date:|Modification Date:|Creator:|PDF Producer:|PDF Version:|Page Count:|Page Size:|Fast Web View:');
 const byLabel = label => dialog.rows.find(r => r.label.startsWith(label));
@@ -186,6 +188,25 @@ const narrow = await page.evaluate(() => {
 });
 await page.screenshot({ path: shotPath(`${outPrefix}-${scheme}-diff-dialog-narrow.png`) });
 check('in a narrow window the dialog stays inside it', narrow.left >= 0 && narrow.right <= 520 && narrow.top >= 0 && narrow.bottom <= 420, JSON.stringify(narrow));
+await page.keyboard.press('Escape');
+
+// ---- a branch: its name labels the left pane and heads the left column, in place of HEAD
+await page.setViewport({ width: 1100, height: 700 });
+await page.evaluate((x, y) => window.postMessage({ type: 'updateDiff', oldBase64: x, newBase64: y, filename: 'example.pdf', leftLabel: 'main' }, '*'), a, b);
+// The label changes as the message arrives; the documents take a moment more to load.
+await page.waitForFunction(() => document.getElementById('left-name').textContent === 'main', { timeout: 10000 }).catch(() => undefined);
+await wait(800);
+await page.click('#btn-info');
+await wait(300);
+const branch = await page.evaluate(() => ({
+    pane: document.getElementById('left-name').textContent,
+    right: document.querySelectorAll('.pane-label')[1].firstChild.textContent,
+    head: [...document.querySelectorAll('#info-dialog thead th')].map(th => th.textContent),
+}));
+await page.screenshot({ path: shotPath(`${outPrefix}-${scheme}-diff-dialog-branch.png`) });
+check('the left pane is labelled with the branch the extension named', branch.pane === 'main', branch.pane);
+check('the right pane is still the working copy', branch.right === 'Working copy', branch.right);
+check('the columns are headed with the branch and Working copy', JSON.stringify(branch.head) === JSON.stringify(['', 'main', 'Working copy']), JSON.stringify(branch.head));
 await page.keyboard.press('Escape');
 
 check('no console errors or warnings', problems.length === 0, problems.slice(0, 4).join(' | '));

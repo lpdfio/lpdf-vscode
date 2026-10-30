@@ -55,9 +55,11 @@ The file is set on an A4 page with a 54pt margin and the page number, and the de
 
 See what changed in a modified PDF. Right-click it in the Explorer and select **Lpdf: Compare PDF with HEAD**, or choose it from the **...** menu of an open PDF's tab. Click a changed PDF in the Source Control view and Lpdf offers to open it this way instead of as a text diff (switch the offer off with the `lpdf.promptPdfDiff` setting). The version in your last commit and your working copy open side by side. The file needs a committed version in a git repository.
 
+To compare with another branch or a tag, select **Lpdf: Compare PDF with branch...** from the same menus and pick one from the list: your default branch, such as `main`, comes first, then your other branches, the remote branches and the tags. On a branch where the change is already committed, this is how you see what it changed against `main`. The left side and its column in the properties table are labelled with the branch or tag you picked.
+
 ![Compare PDF with HEAD: the PDF from the last commit on the left and the working copy on the right, with numbered labels explained in the list below](docs/images/diff.png)
 
-1. **HEAD**: the PDF as of your last commit, with its page count and size.
+1. **HEAD**: the PDF as of your last commit, with its page count and size. With **Compare PDF with branch...**, the branch or tag you picked.
 2. **Working copy**: the file on disk.
 3. What changed: here, the colour of the heading.
 4. **Sync scroll**: both sides scroll together. Untick it to scroll them apart.
