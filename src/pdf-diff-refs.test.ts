@@ -4,14 +4,14 @@ import { FOR_EACH_REF_ARGS, listRefs, missingVersionMessage } from './pdf-diff-r
 /** What `git for-each-ref` prints for these lines of full name and symbolic target, newest first. */
 const listing = (...lines: [string, string?][]) => lines.map(([ref, target = '']) => `${ref}\0${target}`).join('\n') + '\n';
 
-/** A repository on a card branch, newer than main, with a tag and origin's branches. */
+/** A repository on a work branch, newer than main, with a tag and origin's branches. */
 const REPO = listing(
-    ['refs/heads/357-compare-pdf'],
+    ['refs/heads/fix-header'],
     ['refs/remotes/origin/HEAD', 'refs/remotes/origin/main'],
     ['refs/remotes/origin/main'],
     ['refs/tags/v0.30.0'],
     ['refs/heads/main'],
-    ['refs/remotes/origin/341-npm-scripts'],
+    ['refs/remotes/origin/new-cover'],
     ['refs/heads/old-work'],
     ['refs/tags/v0.29.0'],
 );
@@ -26,7 +26,7 @@ describe('the branches and tags of the picker', () => {
 
     it('puts the local default branch first, then the local branches, the remote branches and the tags, each newest first', () => {
         expect(listRefs(REPO).map(r => r.name)).toEqual([
-            'main', '357-compare-pdf', 'old-work', 'origin/main', 'origin/341-npm-scripts', 'v0.30.0', 'v0.29.0',
+            'main', 'fix-header', 'old-work', 'origin/main', 'origin/new-cover', 'v0.30.0', 'v0.29.0',
         ]);
     });
 

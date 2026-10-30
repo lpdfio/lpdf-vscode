@@ -65,7 +65,7 @@ const context = { extensionPath: path.join(__dirname, '..'), extensionUri: { fsP
 const pdf = { fsPath: '/repo/out/report.pdf' } as never;
 
 const REFS = [
-    'refs/heads/357-compare-pdf\0',
+    'refs/heads/fix-header\0',
     'refs/remotes/origin/HEAD\0refs/remotes/origin/main',
     'refs/remotes/origin/main\0',
     'refs/tags/v0.30.0\0',
@@ -119,7 +119,7 @@ describe('Compare PDF with branch...', () => {
         const [items, options] = state.pick.mock.calls[0] as [{ label: string; description: string }[], { title: string }];
         expect(items.map(i => [i.label, i.description])).toEqual([
             ['main', 'branch'],
-            ['357-compare-pdf', 'branch'],
+            ['fix-header', 'branch'],
             ['origin/main', 'remote branch'],
             ['v0.30.0', 'tag'],
         ]);
