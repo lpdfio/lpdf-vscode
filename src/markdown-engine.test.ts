@@ -56,9 +56,17 @@ describe('prepareMarkdown', () => {
     expect(pdf).toMatch(/\/Subtype\s*\/Image/);
   });
 
-  it('is an error that names the line when the Markdown has raw HTML', () => {
-    const prepared = prepareMarkdown('fine\n\n<div>no</div>\n', null);
-    expect(() => render(prepared.xml, prepared.jsonData)).toThrow(/markdown line 3.*raw HTML/s);
+  it('leaves raw HTML out and keeps the words in it', () => {
+    const withHtml = prepareMarkdown('fine\n\n<div>kept</div>\n', null);
+    const plain = prepareMarkdown('fine\n\nkept\n', null);
+    expect(render(withHtml.xml, withHtml.jsonData)).toBe(render(plain.xml, plain.jsonData));
+  });
+
+  it('declares the image of an img tag as well, and renders it', () => {
+    const prepared = prepareMarkdown('<p align="center"><img src="img/logo.png" width="120"></p>\n', null);
+    expect(prepared.images).toEqual(['img/logo.png']);
+    const pdf = render(prepared.xml, prepared.jsonData, { [markdownImageName(0)]: PIXEL });
+    expect(pdf).toMatch(/\/Subtype\s*\/Image/);
   });
 
   it('says what is wrong with a template that is not XML', () => {
