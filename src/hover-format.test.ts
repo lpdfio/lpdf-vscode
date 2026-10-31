@@ -102,7 +102,8 @@ describe('formatAttributeHover', () => {
         const hover = attributeHover('output', 'allow');
         expect(hover).toContain('**`allow`** · `Permissions`');
         expect(hover).toContain('Any of `print`, `modify`, `copy`, `annotate`, `fill-forms`, `accessibility`, `assemble`, separated by spaces');
-        expect(elementHover('output')).toContain('<output encrypt="aes-256|rc4-128" allow="Permissions"/>');
+        // The output's other attributes, such as pdfa, follow: this is about how the list shows.
+        expect(elementHover('output')).toMatch(/<output encrypt="aes-256\|rc4-128" allow="Permissions"[^>]*\/>/);
     });
 
     it('shows the range', () => {
