@@ -15,6 +15,8 @@ export interface TypeDoc {
     hint?: string;
     /** The numeric range, e.g. `0–1`. */
     range?: string;
+    /** True when the attribute takes any number of the values, separated by spaces, as `allow` does. */
+    list?: boolean;
 }
 
 export interface AttributeDoc {
@@ -211,9 +213,9 @@ class SchemaReader {
     }
 
     private _resolveSimpleType(node: XsdNode, name: string | undefined): TypeDoc {
-        const body = node.children.find(child => child.name === 'restriction' || child.name === 'union');
-        if (!body) { throw new SchemaDocsError(`Type ${name ?? '(unnamed)'} has neither a restriction nor a union`); }
-        const resolved = body.name === 'union' ? this._union(body) : this._restriction(body);
+        const body = node.children.find(child => child.name === 'restriction' || child.name === 'union' || child.name === 'list');
+        if (!body) { throw new SchemaDocsError(`Type ${name ?? '(unnamed)'} has neither a restriction, a union nor a list`); }
+        const resolved = body.name === 'union' ? this._union(body) : body.name === 'list' ? this._list(body) : this._restriction(body);
         return {
             ...resolved,
             name: name ?? resolved.name,
@@ -226,6 +228,11 @@ class SchemaReader {
         const values = restriction.children.filter(child => child.name === 'enumeration').map(child => child.attrs.value);
         if (values.length > 0) { return { name: '', values, open: false }; }
         return { ...this._namedType(restriction.attrs.base), open: true, range: rangeOf(restriction) };
+    }
+
+    /** A list takes the values of its item type, any number of them separated by spaces. */
+    private _list(list: XsdNode): TypeDoc {
+        return { ...this._namedType(list.attrs.itemType), list: true };
     }
 
     private _union(union: XsdNode): TypeDoc {

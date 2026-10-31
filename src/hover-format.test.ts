@@ -98,6 +98,13 @@ describe('formatAttributeHover', () => {
         expect(attributeHover('font', 'core')).toContain('`Helvetica-Bold`');
     });
 
+    it('says that a list takes any of its values, separated by spaces', () => {
+        const hover = attributeHover('output', 'allow');
+        expect(hover).toContain('**`allow`** · `Permissions`');
+        expect(hover).toContain('Any of `print`, `modify`, `copy`, `annotate`, `fill-forms`, `accessibility`, `assemble`, separated by spaces');
+        expect(elementHover('output')).toContain('<output encrypt="aes-256|rc4-128" allow="Permissions"/>');
+    });
+
     it('shows the range', () => {
         expect(attributeHover('grid', 'cols')).toContain('Range: 1–12');
     });

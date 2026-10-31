@@ -136,8 +136,17 @@ describe('buildSchemaDocs', () => {
         expect(element('section').children.map(child => child.name)).toEqual(['bookmark', 'layer', 'layout', 'markdown']);
     });
 
-    it('keeps layout and layer inside a section: document holds only meta and sections', () => {
-        expect(element('document').children.map(child => child.name)).toEqual(['meta', 'section']);
+    it('keeps layout and layer inside a section: document holds only meta, output and sections', () => {
+        expect(element('document').children.map(child => child.name)).toEqual(['meta', 'output', 'section']);
+    });
+
+    it('reads a list of values, which allow on output takes', () => {
+        const allow = attribute('output', 'allow');
+        expect(allow.type.name).toBe('Permissions');
+        expect(allow.type.list).toBe(true);
+        expect(allow.type.values).toEqual(['print', 'modify', 'copy', 'annotate', 'fill-forms', 'accessibility', 'assemble']);
+        expect(allow.type.open).toBe(false);
+        expect(attribute('output', 'encrypt').type.values).toEqual(['aes-256', 'rc4-128']);
     });
 
     it('flags elements that hold text', () => {

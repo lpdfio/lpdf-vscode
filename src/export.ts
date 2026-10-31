@@ -2,57 +2,36 @@ import * as vscode from 'vscode';
 import * as path from 'node:path';
 import { renderPdf, LpdfRenderError } from './engine';
 import { loadRenderInput } from './render-input';
-import { ALGORITHM_SETTING, algorithmFromSetting, describeEncryption, type EncryptionRequest } from './encryption';
-import { askForEncryption } from './encryption-prompt';
+import { CIPHERS, cipherName, requestedCipher } from './encryption';
+import { askForPasswords } from './encryption-prompt';
 import { documentStem, resolveLpdfDocument } from './utils';
 
+/**
+ * Exports the document as a PDF. A document that asks for encryption in its `<output>` is encrypted as it asks,
+ * with the passwords asked for first (see `askForPasswords`); one that doesn't is saved as it renders. Nothing is
+ * written if the user cancels at any step.
+ */
 export async function exportPdf(context: vscode.ExtensionContext, uri?: vscode.Uri): Promise<void> {
   const doc = await resolveLpdfDocument(uri);
   if (!doc) { return; }
 
-  const saveUri = await askWhereToSave(doc, '.pdf');
-  if (!saveUri) { return; }
-  await renderAndSave(context, doc, saveUri);
-}
-
-/**
- * Exports the document as a PDF protected with passwords and permissions. It asks for them first (see
- * `askForEncryption`), then where to save, and writes nothing if the user cancels at any step.
- */
-export async function exportEncryptedPdf(context: vscode.ExtensionContext, uri?: vscode.Uri): Promise<void> {
-  const doc = await resolveLpdfDocument(uri);
-  if (!doc) { return; }
-
-  const algorithm = algorithmFromSetting(vscode.workspace.getConfiguration('lpdf').get<string>(ALGORITHM_SETTING));
-  const encryption = await askForEncryption(algorithm);
-  if (!encryption) { return; }
-
-  const saveUri = await askWhereToSave(doc, '-encrypted.pdf');
-  if (!saveUri) { return; }
-  await renderAndSave(context, doc, saveUri, encryption);
-}
-
-/** The save dialog, in the document's folder with the document's name and the given ending. */
-function askWhereToSave(doc: vscode.TextDocument, ending: string): Thenable<vscode.Uri | undefined> {
-  const xmlDir = path.dirname(doc.uri.fsPath);
-  const defaultUri = vscode.Uri.file(path.join(xmlDir, documentStem(doc.uri.fsPath) + ending));
-  return vscode.window.showSaveDialog({
-    defaultUri,
-    filters: { 'PDF': ['pdf'] },
-  });
-}
-
-async function renderAndSave(
-  context: vscode.ExtensionContext,
-  doc: vscode.TextDocument,
-  saveUri: vscode.Uri,
-  encryption?: EncryptionRequest,
-): Promise<void> {
   try {
     const { xml, jsonData, assets, warnings } = await loadRenderInput(context, doc.uri, doc.getText());
-    const bytes = await renderPdf(xml, jsonData, assets, encryption);
+    const cipher = requestedCipher(xml);
+    // A cipher the engine doesn't know is said before the passwords are typed, not after.
+    if (cipher !== undefined && !CIPHERS.includes(cipher)) {
+      vscode.window.showErrorMessage(`Lpdf: The document's <output> asks for encrypt="${cipher}", which is no cipher: use aes-256 or rc4-128.`);
+      return;
+    }
+    const passwords = cipher === undefined ? undefined : await askForPasswords(cipher);
+    if (cipher !== undefined && passwords === undefined) { return; }
+
+    const saveUri = await askWhereToSave(doc);
+    if (!saveUri) { return; }
+
+    const bytes = await renderPdf(xml, jsonData, assets, { passwords });
     await vscode.workspace.fs.writeFile(saveUri, bytes);
-    const what = encryption ? ` (${describeEncryption(encryption)}; Lpdf cannot recover the passwords)` : '';
+    const what = cipher === undefined ? '' : ` (encrypted with ${cipherName(cipher)}, as its <output> asks; Lpdf cannot recover the passwords)`;
     vscode.window.showInformationMessage(`Lpdf: Saved ${path.basename(saveUri.fsPath)}${what}`);
     if (warnings.length > 0) {
       vscode.window.showWarningMessage(`Lpdf: ${warnings.join(' ')}`);
@@ -61,4 +40,14 @@ async function renderAndSave(
     const msg = e instanceof LpdfRenderError ? e.message : String(e);
     vscode.window.showErrorMessage(`Lpdf: ${msg}`);
   }
+}
+
+/** The save dialog, in the document's folder with the document's name. */
+function askWhereToSave(doc: vscode.TextDocument): Thenable<vscode.Uri | undefined> {
+  const xmlDir = path.dirname(doc.uri.fsPath);
+  const defaultUri = vscode.Uri.file(path.join(xmlDir, documentStem(doc.uri.fsPath) + '.pdf'));
+  return vscode.window.showSaveDialog({
+    defaultUri,
+    filters: { 'PDF': ['pdf'] },
+  });
 }

@@ -22,7 +22,9 @@ const TITLES = ['Alpha', 'Beta', 'Gamma and code', 'Delta'];
 const MARGIN = 16;
 
 const pdfBase64 = Buffer.from(
-    new engine.LpdfEngine('').render_pdf(engine.markdown_declare_images(engine.markdown_template(), '[]'), engine.markdown_file_data(markdown)),
+    new engine.LpdfEngine('').render_pdf(
+        engine.markdown_declare_images(engine.markdown_template(), '[]'), engine.markdown_file_data(markdown), null, null, false, new Uint8Array(0),
+    ),
 ).toString('base64');
 
 const env = await startEnvironment();

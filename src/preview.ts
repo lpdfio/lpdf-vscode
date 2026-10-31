@@ -4,6 +4,7 @@ import * as fs from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { renderPdf, LpdfRenderError, cancelRender } from './engine';
 import { loadRenderInput } from './render-input';
+import { PREVIEW_NOT_ENCRYPTED, requestedCipher } from './encryption';
 import { isMarkdownUri } from './markdown';
 import { ScrollSync } from './scroll-sync';
 import { documentStem, resolveLpdfDocument } from './utils';
@@ -295,10 +296,12 @@ async function doRender(context: vscode.ExtensionContext, uri: vscode.Uri): Prom
   try {
     // A .md file is wrapped in its template here; any other document is the engine's input as it is.
     const input = await loadRenderInput(context, uri, xml);
-    const { assets, warnings } = input;
+    const { assets } = input;
+    // The preview has no passwords: a document that asks for encryption renders unencrypted, and the preview says so.
+    const warnings = requestedCipher(input.xml) === undefined ? input.warnings : [...input.warnings, PREVIEW_NOT_ENCRYPTED];
     const tWasm = Date.now();
     trace(`doRender engine start +${tWasm - t0}ms gen=${generation}`);
-    const bytes = await renderPdf(input.xml, input.jsonData, assets);
+    const bytes = await renderPdf(input.xml, input.jsonData, assets, { skipEncryption: true });
     trace(`doRender engine done +${Date.now() - t0}ms gen=${generation} pdfBytes=${bytes.byteLength} engineMs=${Date.now() - tWasm}`);
     if (generation !== renderGeneration || !previewPanel) {
       trace(`doRender stale after the engine gen=${generation} current=${renderGeneration}`);

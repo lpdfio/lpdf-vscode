@@ -7,7 +7,7 @@ import { registerHoverProvider } from './hover-provider';
 import { registerNewDocumentCommand } from './new-document';
 import { registerPdfDiffPrompt } from './pdf-diff-prompt';
 import { previewPdf, renderForUri, closePreviewWhenSourceCloses, followEditor } from './preview';
-import { exportEncryptedPdf, exportPdf } from './export';
+import { exportPdf } from './export';
 import {
   createLpdfDocument,
   getLinkedDocumentUri,
@@ -331,7 +331,6 @@ export function activate(context: vscode.ExtensionContext): void {
       return previewPdf(context, uri);
     }),
     vscode.commands.registerCommand('lpdf.exportPdf',  (uri?: vscode.Uri) => exportPdf(context, uri)),
-    vscode.commands.registerCommand('lpdf.exportEncryptedPdf', (uri?: vscode.Uri) => exportEncryptedPdf(context, uri)),
     vscode.commands.registerCommand('lpdf.linkDataFile', async (xmlUri?: vscode.Uri) => {
       const target = xmlUri ?? vscode.window.activeTextEditor?.document.uri;
       if (!target) { return; }
