@@ -1,41 +1,25 @@
 import { describe, expect, it } from 'vitest';
-import {
-  PERMISSIONS, algorithmFromSetting, checkConfirmation, checkPassword, describeEncryption,
-  maxPasswordBytes, permissionsFromAllowed, protectsNothing, type EncryptionRequest, type PermissionKey,
-} from './encryption';
+import { checkConfirmation, checkPassword, cipherName, maxPasswordBytes, requestedCipher } from './encryption';
 
-const ALL = PERMISSIONS.map(p => p.key);
-
-function request(overrides: Partial<EncryptionRequest> = {}): EncryptionRequest {
-  return { userPassword: 'open', ownerPassword: 'owner', permissions: permissionsFromAllowed(ALL), algorithm: 'aes-256', ...overrides };
-}
-
-describe('the permissions', () => {
-  it('lists the eight flags the engine reads, each once', () => {
-    expect([...ALL].sort()).toEqual(
-      ['accessibility', 'annotate', 'assemble', 'copy', 'fill_forms', 'modify', 'print', 'print_hq'],
-    );
+describe('requestedCipher', () => {
+  it('reads the encrypt of the document\'s <output>', () => {
+    expect(requestedCipher('<lpdf version="1"><document><output encrypt="aes-256" allow="print"/><section/></document></lpdf>'))
+      .toBe('aes-256');
+    expect(requestedCipher('<document><output allow="" encrypt=\'rc4-128\' ></output></document>')).toBe('rc4-128');
   });
 
-  it('turns the ticked ones into true and the rest into false', () => {
-    const flags = permissionsFromAllowed(['print', 'fill_forms']);
-    expect(flags).toEqual({
-      print: true, fill_forms: true,
-      modify: false, copy: false, annotate: false, accessibility: false, assemble: false, print_hq: false,
-    });
+  it('is undefined for a document with no <output>, or one that does not encrypt', () => {
+    expect(requestedCipher('<lpdf version="1"><document><section/></document></lpdf>')).toBeUndefined();
+    expect(requestedCipher('<lpdf version="1"><document><output/><section/></document></lpdf>')).toBeUndefined();
   });
 
-  it('turns an empty selection into all false', () => {
-    expect(Object.values(permissionsFromAllowed([])).every(flag => flag === false)).toBe(true);
+  it('does not read a comment or a CDATA, where an example of a document can sit', () => {
+    expect(requestedCipher('<document><!-- <output encrypt="aes-256"/> --><section/></document>')).toBeUndefined();
+    expect(requestedCipher('<document><section><code><![CDATA[<output encrypt="aes-256"/>]]></code></section></document>')).toBeUndefined();
   });
-});
 
-describe('algorithmFromSetting', () => {
-  it('is AES-256 unless the setting says rc4-128', () => {
-    expect(algorithmFromSetting('rc4-128')).toBe('rc4-128');
-    expect(algorithmFromSetting('aes-256')).toBe('aes-256');
-    expect(algorithmFromSetting(undefined)).toBe('aes-256');
-    expect(algorithmFromSetting('aes-128')).toBe('aes-256');
+  it('does not take another element whose name starts with output', () => {
+    expect(requestedCipher('<document><outputs encrypt="aes-256"/></document>')).toBeUndefined();
   });
 });
 
@@ -55,7 +39,7 @@ describe('checkPassword', () => {
     expect(checkPassword('a'.repeat(127), 'aes-256', true)).toBeUndefined();
     expect(checkPassword('a'.repeat(128), 'aes-256', true)).toMatchObject({ severity: 'error' });
     expect(checkPassword('a'.repeat(32), 'rc4-128', true)).toBeUndefined();
-    expect(checkPassword('a'.repeat(33), 'rc4-128', true)).toMatchObject({ severity: 'error' });
+    expect(checkPassword('a'.repeat(33), 'rc4-128', true)).toMatchObject({ severity: 'error', message: expect.stringContaining('RC4-128') });
   });
 
   it('counts bytes, not characters', () => {
@@ -76,32 +60,9 @@ describe('checkConfirmation', () => {
   });
 });
 
-describe('describeEncryption', () => {
-  it('names the cipher, the open password and what is off', () => {
-    const flags = permissionsFromAllowed(ALL.filter(key => key !== 'copy' && key !== 'modify'));
-    expect(describeEncryption(request({ permissions: flags }))).toBe('AES-256, open password required, 2 permissions off');
-  });
-
-  it('says so when nothing is restricted and there is no open password', () => {
-    expect(describeEncryption(request({ userPassword: '', algorithm: 'rc4-128' })))
-      .toBe('RC4-128, no open password, every permission allowed');
-  });
-
-  it('uses the singular for one permission', () => {
-    const flags = permissionsFromAllowed(ALL.filter(key => key !== 'print' as PermissionKey));
-    expect(describeEncryption(request({ permissions: flags }))).toContain('1 permission off');
-  });
-
-  it('never contains a password', () => {
-    const text = describeEncryption(request({ userPassword: 'hunter2-open', ownerPassword: 'hunter2-owner' }));
-    expect(text).not.toContain('hunter2');
-  });
-});
-
-describe('protectsNothing', () => {
-  it('is true only with no open password and every permission allowed', () => {
-    expect(protectsNothing(request({ userPassword: '' }))).toBe(true);
-    expect(protectsNothing(request({ userPassword: 'open' }))).toBe(false);
-    expect(protectsNothing(request({ userPassword: '', permissions: permissionsFromAllowed(['print']) }))).toBe(false);
+describe('cipherName', () => {
+  it('names the two ciphers as people read them', () => {
+    expect(cipherName('aes-256')).toBe('AES-256');
+    expect(cipherName('rc4-128')).toBe('RC4-128');
   });
 });

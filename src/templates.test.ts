@@ -182,21 +182,22 @@ describe('the templates that ship in the extension', () => {
   // The engine is downloaded into wasm/ before a build, locally and in CI; without it there is nothing to render with.
   describe.skipIf(!fs.existsSync(ENGINE))('rendered by the engine', () => {
     const { LpdfEngine } = createRequire(__filename)(ENGINE) as {
-      LpdfEngine: new (key: string) => { render_pdf(xml: string, data?: string | null): Uint8Array; free(): void };
+      LpdfEngine: new (key: string) => { render_pdf(xml: string, data: string | null, user: string | null, owner: string | null, skip: boolean, entropy: Uint8Array): Uint8Array; free(): void };
     };
     // A template's fonts and images are registered by the names its <assets> give them, as the extension does.
     const render = (template: { xmlPath: string; assets: { relativePath: string; sourcePath: string }[] }, data: string | null): Uint8Array => {
       const xml = fs.readFileSync(template.xmlPath, 'utf8');
       const engine = new LpdfEngine('') as unknown as {
         load_font(name: string, bytes: Uint8Array): void; load_image(name: string, bytes: Uint8Array): void;
-        render_pdf(xml: string, data?: string | null): Uint8Array; free(): void;
+        render_pdf(xml: string, data: string | null, user: string | null, owner: string | null, skip: boolean, entropy: Uint8Array): Uint8Array;
+        free(): void;
       };
       try {
         const source = (src: string): string => template.assets.find(asset => asset.relativePath === forwardSlashes(src))!.sourcePath;
         const body = withoutComments(xml);
         for (const match of body.matchAll(/<font\s+name="([^"]+)"\s+src="([^"]+)"/g)) { engine.load_font(match[1], fs.readFileSync(source(match[2]))); }
         for (const match of body.matchAll(/<image\s+name="([^"]+)"\s+src="([^"]+)"/g)) { engine.load_image(match[1], fs.readFileSync(source(match[2]))); }
-        return engine.render_pdf(xml, data);
+        return engine.render_pdf(xml, data, null, null, false, new Uint8Array(0));
       } finally { engine.free(); }
     };
     const pdfHeader = (bytes: Uint8Array): string => Buffer.from(bytes.subarray(0, 5)).toString('latin1');

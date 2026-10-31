@@ -9,7 +9,7 @@ import {
 // The engine this extension ships: these tests ask it, so that what they say is what a preview does.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const wasm = require(join(__dirname, '..', 'wasm', 'lpdf.js')) as MarkdownWasm & {
-  LpdfEngine: new (key: string) => { render_pdf(xml: string, data?: string | null): Uint8Array; load_image(name: string, bytes: Uint8Array): void; load_markdown_styles(src: string, xml: string): void; free(): void };
+  LpdfEngine: new (key: string) => { render_pdf(xml: string, data: string | null, user: string | null, owner: string | null, skip: boolean, entropy: Uint8Array): Uint8Array; load_image(name: string, bytes: Uint8Array): void; load_markdown_styles(src: string, xml: string): void; free(): void };
 };
 
 const PIXEL = new Uint8Array(Buffer.from(
@@ -22,7 +22,7 @@ function render(xml: string, data: string | null, images: Record<string, Uint8Ar
   try {
     for (const [name, bytes] of Object.entries(images)) { engine.load_image(name, bytes); }
     for (const [src, text] of Object.entries(styles)) { engine.load_markdown_styles(src, text); }
-    return Buffer.from(engine.render_pdf(xml, data)).toString('latin1');
+    return Buffer.from(engine.render_pdf(xml, data, null, null, false, new Uint8Array(0))).toString('latin1');
   } finally {
     engine.free();
   }

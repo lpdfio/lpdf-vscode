@@ -2,7 +2,7 @@ import { Worker } from 'worker_threads';
 import { randomUUID } from 'node:crypto';
 import * as path from 'node:path';
 import { RENDER_TIMEOUT_MS } from './constants';
-import type { EncryptionRequest } from './encryption';
+import type { RenderEncryption } from './encryption';
 
 export class LpdfRenderError extends Error {
   constructor(message: string) {
@@ -29,7 +29,7 @@ let _worker: Worker | undefined;
 // At most one in-flight render (the one the worker is currently executing).
 const _pending = new Map<string, { resolve: Resolve; reject: Reject; timer: ReturnType<typeof setTimeout> }>();
 // Latest render request waiting to be sent once the worker becomes free.
-let _queued: { xml: string; jsonData: string | null; assets: RenderAssets; encryption?: EncryptionRequest; resolve: Resolve; reject: Reject } | undefined;
+let _queued: { xml: string; jsonData: string | null; assets: RenderAssets; encryption: RenderEncryption; resolve: Resolve; reject: Reject } | undefined;
 
 function getWorker(): Worker {
   if (_worker) { return _worker; }
@@ -105,14 +105,14 @@ function flushQueued(): void {
 
 /**
  * Renders a document on the worker.
- * @param encryption When given, the PDF is encrypted this way; the passwords go to the worker in this
- *                   message and nowhere else. Leave it out for a preview or a plain export.
+ * @param encryption For a document that asks for encryption in its `<output>`: the passwords of an export, which
+ *                   go to the worker in this message and nowhere else, or `skipEncryption` for a preview.
  */
 export function renderPdf(
   xml: string,
   jsonData: string | null,
   assets: RenderAssets,
-  encryption?: EncryptionRequest,
+  encryption: RenderEncryption = {},
 ): Promise<Uint8Array> {
   return new Promise<Uint8Array>((resolve, reject) => {
     // If the worker is idle (nothing in-flight), send immediately.

@@ -33,7 +33,7 @@ Right-click a `.md` file in the Explorer and choose **Lpdf: Preview PDF**, or us
 
 ### Export to PDF
 
-Right-click a `.md` file in the Explorer and choose **Lpdf: Export PDF** to save the PDF, or use Export PDF in the lenses above the first line. **Lpdf: Export Encrypted PDF...** saves it protected with passwords, as described under [Data, images and export](#data-images-and-export). The same file converts on the command line with `lpdf convert --input notes.md`, to the same PDF.
+Right-click a `.md` file in the Explorer and choose **Lpdf: Export PDF** to save the PDF, or use Export PDF in the lenses above the first line. When its Lpdf document asks for encryption, Export PDF asks for the passwords, as described under [Data, images and export](#data-images-and-export). The same file converts on the command line with `lpdf convert --input notes.md`, to the same PDF.
 
 ### Style the PDF
 
@@ -158,7 +158,7 @@ Run **Lpdf: Generate Code** to turn the saved XML into SDK code that builds the 
 - **Data files.** Templates can bind to JSON data. A `<name>.data.json` file next to `<name>.xml` is picked up automatically, or choose any JSON file with **Lpdf: Link Data File...**. The preview updates when the data file changes, and export uses the same data.
 - **Images and fonts.** `<image src="…">` and `<font src="…">` in `<assets>` load from disk. A relative path is looked up next to the XML file first, then in the root of the workspace folder. URLs are not downloaded.
 - **Export.** Run **Lpdf: Export PDF** to render the current document, with its linked data, and save it to disk.
-- **Encrypted export.** Run **Lpdf: Export Encrypted PDF...** to save the PDF protected with passwords. It asks for an owner password (required), an open password (optional: leave it empty so anyone can open the PDF and only the permissions apply), each typed twice, and which permissions to allow: printing, copying, editing and so on. Then it asks where to save. The PDF is encrypted with AES-256, and every export gets a fresh key, so the same document exported twice gives two different files. Lpdf does not store the passwords and cannot recover them. Permissions are advisory: a reader that follows the standard honors them, and a tool that does not can remove them, so use an open password when the content must stay private. The `lpdf.encryptionAlgorithm` setting can switch to RC4-128 for a reader that cannot open AES-256; PDF 2.0 deprecates it. The preview and **Export PDF** never encrypt.
+- **Encrypted export.** A document that asks for encryption in its `<output>`, as `<output encrypt="aes-256" allow="print"/>` does, is encrypted when you export it: **Lpdf: Export PDF** asks for an owner password (required) and an open password (optional: leave it empty so anyone can open the PDF and only the document's `allow` applies), each typed twice and checked against the document's cipher, then where to save. The cipher and the permissions are the document's. With AES-256 every export gets a fresh key, so the same document exported twice gives two different files. Lpdf does not store the passwords and cannot recover them. Permissions are advisory: a reader that follows the standard honors them, and a tool that does not can remove them, so use an open password when the content must stay private. The preview has no passwords: it shows such a document unencrypted, and says so.
 
 ## Works offline
 

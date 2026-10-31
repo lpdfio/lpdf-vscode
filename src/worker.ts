@@ -1,14 +1,16 @@
 import { parentPort, workerData } from 'worker_threads';
 import { randomBytes } from 'node:crypto';
 import type { RenderAssets } from './engine';
-import type { EncryptionRequest } from './encryption';
+import type { RenderEncryption } from './encryption';
 
 export interface IWasmEngine {
   load_font(name: string, bytes: Uint8Array): void;
   load_image(name: string, bytes: Uint8Array): void;
   load_markdown_styles(src: string, xml: string): void;
-  set_encryption(user_password: string, owner_password: string, permissions_json: string, algorithm: string, entropy: Uint8Array): void;
-  render_pdf(xml: string, json_data?: string | null): Uint8Array;
+  render_pdf(
+    xml: string, json_data: string | null, user_password: string | null, owner_password: string | null,
+    skip_encryption: boolean, entropy: Uint8Array,
+  ): Uint8Array;
   free(): void;
 }
 export interface IWasmModule {
@@ -20,18 +22,12 @@ export interface RenderRequest {
   xml: string;
   jsonData: string | null;
   assets: RenderAssets;
-  /** Set for an encrypted export; a preview and a plain export leave it out. */
-  encryption?: EncryptionRequest;
+  /** The passwords of an export of a document that asks for encryption, or `skipEncryption` for a preview. */
+  encryption: RenderEncryption;
 }
 
 /** The random bytes AES-256 needs from the host, one 256-bit key's worth. The engine makes none itself. */
 export const ENTROPY_BYTES = 32;
-
-/**
- * How many arguments `set_encryption` takes since AES-256. An engine from before it takes three, JavaScript
- * would drop the other two without a word, and the file would be encrypted with RC4-128 whatever was asked for.
- */
-const ENCRYPTION_ARGUMENTS = 5;
 
 let _module: IWasmModule | undefined;
 function getWasmModule(): IWasmModule {
@@ -50,8 +46,8 @@ function getWasmModule(): IWasmModule {
  * document's assets, so bytes loaded for an earlier document can never stand in for one this document
  * fails to load. Construction only allocates two empty registries.
  *
- * An encrypted render gets its own 32 random bytes from Node's secure generator, so no two files share
- * a key. RC4-128 needs none.
+ * A render with passwords gets its own 32 random bytes from Node's secure generator, so no two files share
+ * a key. The engine takes the cipher and the permissions from the document's `<output>`.
  * @param wasm The engine module.
  * @param request What to render.
  * @returns The PDF, in a buffer the caller owns.
@@ -62,22 +58,13 @@ export function renderRequest(wasm: IWasmModule, { xml, jsonData, assets, encryp
     for (const [key, bytes] of assets.fonts)  { engine.load_font(key, bytes); }
     for (const [key, bytes] of assets.images) { engine.load_image(key, bytes); }
     for (const [src, text] of assets.markdownStyles ?? []) { engine.load_markdown_styles(src, text); }
-    if (encryption) {
-      if (engine.set_encryption.length < ENCRYPTION_ARGUMENTS) {
-        throw new Error('This engine is older than the encrypted export needs: it cannot encrypt with AES-256. Update the Lpdf extension.');
-      }
-      const entropy = encryption.algorithm === 'aes-256' ? new Uint8Array(randomBytes(ENTROPY_BYTES)) : new Uint8Array(0);
-      engine.set_encryption(
-        encryption.userPassword,
-        encryption.ownerPassword,
-        JSON.stringify(encryption.permissions),
-        encryption.algorithm,
-        entropy,
-      );
-    }
+    const { passwords, skipEncryption = false } = encryption;
+    const entropy = passwords ? new Uint8Array(randomBytes(ENTROPY_BYTES)) : new Uint8Array(0);
     // Copy into a new buffer to guarantee we own the ArrayBuffer before transferring.
     // This guards against the WASM engine returning a view into shared WASM memory.
-    return new Uint8Array(engine.render_pdf(xml, jsonData));
+    return new Uint8Array(engine.render_pdf(
+      xml, jsonData, passwords?.userPassword ?? null, passwords?.ownerPassword ?? null, skipEncryption, entropy,
+    ));
   } finally {
     engine.free();
   }
