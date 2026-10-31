@@ -101,7 +101,7 @@ describe('formatAttributeHover', () => {
     it('says that a list takes any of its values, separated by spaces', () => {
         const hover = attributeHover('output', 'allow');
         expect(hover).toContain('**`allow`** · `Permissions`');
-        expect(hover).toContain('Any of `print`, `modify`, `copy`, `annotate`, `fill-forms`, `accessibility`, `assemble`, separated by spaces');
+        expect(hover).toContain('Any of `all`, `print`, `modify`, `copy`, `annotate`, `fill-forms`, `accessibility`, `assemble`, separated by spaces');
         // The output's other attributes, such as pdfa, follow: this is about how the list shows.
         expect(elementHover('output')).toMatch(/<output encrypt="aes-256\|rc4-128" allow="Permissions"[^>]*\/>/);
     });
