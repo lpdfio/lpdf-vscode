@@ -25,7 +25,8 @@ export interface LoadedAssets {
   files:    string[];
 }
 
-const COMMENT_RE    = /<!--[\s\S]*?-->/g;
+// Comments and CDATA sections, whose text is not markup: a <file> or an <image> shown in a code block is text.
+const NOT_MARKUP_RE = /<!--[\s\S]*?-->|<!\[CDATA\[[\s\S]*?\]\]>/g;
 const ASSETS_RE     = /<assets\b[^>]*>([\s\S]*?)<\/assets\s*>/g;
 // Attribute values may contain '>', so quoted runs are matched whole.
 const ASSET_TAG_RE  = /<(font|image)\b((?:[^>"']|"[^"]*"|'[^']*')*)>/g;
@@ -145,7 +146,7 @@ async function readAsset(asset: AssetDeclaration, src: string, dirs: string[], r
 
 function parseAssetDeclarations(xml: string): AssetDeclaration[] {
   const declarations: AssetDeclaration[] = [];
-  const source = xml.replace(COMMENT_RE, '');
+  const source = xml.replace(NOT_MARKUP_RE, '');
   for (const block of source.matchAll(ASSETS_RE)) {
     for (const tag of block[1].matchAll(ASSET_TAG_RE)) {
       const attributes = parseAttributes(tag[2]);

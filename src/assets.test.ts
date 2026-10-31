@@ -40,4 +40,14 @@ describe('loadAssets of the files a document carries', () => {
     const loaded = await loadAssets(withAttachments('<!-- <file name="a.xml"/> -->'), documentUri());
     expect(loaded.assets.files!.size).toBe(0);
   });
+
+  it('leaves out what a CDATA section shows as text, a file or an image', async () => {
+    const xml = '<lpdf version="1"><document><section><layout>'
+      + '<code><![CDATA[<attachments><file name="a.xml" src="missing.xml"/></attachments>]]></code>'
+      + '<code><![CDATA[<assets><image name="logo" src="missing.png"/></assets>]]></code>'
+      + '</layout></section></document></lpdf>';
+    const loaded = await loadAssets(xml, documentUri());
+    expect(loaded.assets.files!.size).toBe(0);
+    expect(loaded.assets.images.size).toBe(0);
+  });
 });
