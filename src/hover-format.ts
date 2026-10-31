@@ -17,6 +17,7 @@ const GROUP_LABELS = new Map([
 
 /** What goes inside the quotes of an attribute in the signature. */
 function signatureValue(type: TypeDoc): string {
+    if (type.list) { return type.name; }
     if (type.range) { return `${type.name} ${type.range}`; }
     if (!type.open && type.values.length > 0 && type.values.length <= MAX_INLINE_VALUES) {
         return type.values.join('|');
@@ -71,7 +72,10 @@ export function formatAttributeHover(attribute: AttributeDoc): string {
         .filter(Boolean)
         .join(' · ');
     const parts = [title];
-    if (type.values.length > 0) { parts.push(type.values.map(value => `\`${value}\``).join(' | ')); }
+    if (type.values.length > 0) {
+        const values = type.values.map(value => `\`${value}\``);
+        parts.push(type.list ? `Any of ${values.join(', ')}, separated by spaces` : values.join(' | '));
+    }
     if (type.hint) { parts.push(type.hint); }
     if (type.range) { parts.push(`Range: ${type.range}`); }
     return parts.join('\n\n');
