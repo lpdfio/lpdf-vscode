@@ -12,6 +12,7 @@ function fakeEngine(failRender = false): { module: IWasmModule; calls: unknown[]
   class Fake implements IWasmEngine {
     load_font(name: string): void { calls.push(['load_font', name]); }
     load_image(name: string): void { calls.push(['load_image', name]); }
+    load_file(name: string): void { calls.push(['load_file', name]); }
     load_markdown_styles(src: string, xml: string): void { calls.push(['load_markdown_styles', src, xml]); }
     render_pdf(
       xml: string, data: string | null, user: string | null, owner: string | null, skip: boolean, entropy: Uint8Array,
@@ -86,6 +87,14 @@ describe('renderRequest', () => {
     expect(names(calls)).toEqual(['load_font', 'load_image', 'render_pdf']);
   });
 
+  it('loads the files the document carries before it renders', () => {
+    const { module, calls } = fakeEngine();
+    const assets = { fonts: new Map(), images: new Map(), files: new Map([['invoice.xml', new Uint8Array(1)]]) };
+    renderRequest(module, request({ assets, encryption: { passwords } }));
+    expect(calls.filter(call => call[0] === 'load_file')).toEqual([['load_file', 'invoice.xml']]);
+    expect(names(calls).at(-1)).toBe('render_pdf');
+  });
+
   it('frees the engine after a render and after a failed one', () => {
     const ok = fakeEngine();
     renderRequest(ok.module, request());
@@ -101,6 +110,7 @@ describe('renderRequest', () => {
     class Shared implements IWasmEngine {
       load_font(): void {}
       load_image(): void {}
+      load_file(): void {}
       load_markdown_styles(): void {}
       render_pdf(): Uint8Array { return engineBytes; }
       free(): void { engineBytes.fill(0); }
@@ -128,5 +138,14 @@ describe.skipIf(!fs.existsSync(ENGINE))('renderRequest on the engine the extensi
 
   it('refuses it with neither, as the engine does', () => {
     expect(() => text({})).toThrow(/no owner password/);
+  });
+
+  it('embeds the files the document carries, as the SDKs do', () => {
+    const attached = '<lpdf version="1"><document><attachments><file name="invoice.xml" mime="text/xml"/></attachments>'
+      + '<section><layout><text>Hello</text></layout></section></document></lpdf>';
+    const assets = { fonts: new Map(), images: new Map(), files: new Map([['invoice.xml', new Uint8Array(Buffer.from('<invoice/>'))]]) };
+    const pdf = Buffer.from(renderRequest(wasm, request({ xml: attached, assets, encryption: { skipEncryption: false } }))).toString('latin1');
+    expect(pdf).toContain('/Type /EmbeddedFile');
+    expect(pdf).toContain('/Subtype /text#2Fxml');
   });
 });
