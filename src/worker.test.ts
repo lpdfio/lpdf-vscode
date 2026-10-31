@@ -14,6 +14,7 @@ function fakeEngine(failRender = false): { module: IWasmModule; calls: unknown[]
     load_image(name: string): void { calls.push(['load_image', name]); }
     load_file(name: string): void { calls.push(['load_file', name]); }
     load_markdown_styles(src: string, xml: string): void { calls.push(['load_markdown_styles', src, xml]); }
+    set_created_on(iso: string): void { calls.push(['set_created_on', iso]); }
     render_pdf(
       xml: string, data: string | null, user: string | null, owner: string | null, skip: boolean, entropy: Uint8Array,
     ): Uint8Array {
@@ -34,20 +35,27 @@ function request(extra: Partial<RenderRequest> = {}): RenderRequest {
 
 const names = (calls: unknown[][]) => calls.map(call => call[0]);
 
+/** What the engine was asked to render with. */
+function renderCall(calls: unknown[][]): unknown[] {
+  const call = calls.find(([name]) => name === 'render_pdf');
+  if (!call) { throw new Error('The engine was not asked to render'); }
+  return call;
+}
+
 describe('renderRequest', () => {
   it('gives the engine the files of Markdown rules the document names before it renders', () => {
     const { module, calls } = fakeEngine();
     renderRequest(module, request({
       assets: { fonts: new Map(), images: new Map(), markdownStyles: new Map([['styles.xml', '<markdown-styles/>']]) },
     }));
-    expect(names(calls)).toEqual(['load_markdown_styles', 'render_pdf']);
+    expect(names(calls)).toEqual(['load_markdown_styles', 'set_created_on', 'render_pdf']);
     expect(calls[0]).toEqual(['load_markdown_styles', 'styles.xml', '<markdown-styles/>']);
   });
 
   it('renders with no passwords, no skip and no random bytes when nothing is asked', () => {
     const { module, calls } = fakeEngine();
     expect(Array.from(renderRequest(module, request()))).toEqual([37, 80, 68, 70]);
-    const [, xml, data, user, owner, skip, entropy] = calls[0];
+    const [, xml, data, user, owner, skip, entropy] = renderCall(calls);
     expect([xml, data, user, owner, skip]).toEqual(['<lpdf/>', null, null, null, false]);
     expect(entropy).toHaveLength(0);
   });
@@ -55,14 +63,14 @@ describe('renderRequest', () => {
   it('asks the engine to skip the encryption for a preview', () => {
     const { module, calls } = fakeEngine();
     renderRequest(module, request({ encryption: { skipEncryption: true } }));
-    expect(calls[0][5]).toBe(true);
-    expect(calls[0][6]).toHaveLength(0);
+    expect(renderCall(calls)[5]).toBe(true);
+    expect(renderCall(calls)[6]).toHaveLength(0);
   });
 
   it('gives the engine the passwords with the render', () => {
     const { module, calls } = fakeEngine();
     renderRequest(module, request({ encryption: { passwords } }));
-    const [, , , user, owner, skip] = calls[0];
+    const [, , , user, owner, skip] = renderCall(calls);
     expect([user, owner, skip]).toEqual(['open', 'owner', false]);
   });
 
@@ -72,8 +80,8 @@ describe('renderRequest', () => {
     renderRequest(first.module, request({ encryption: { passwords } }));
     renderRequest(second.module, request({ encryption: { passwords } }));
 
-    const a = first.calls[0][6] as Uint8Array;
-    const b = second.calls[0][6] as Uint8Array;
+    const a = renderCall(first.calls)[6] as Uint8Array;
+    const b = renderCall(second.calls)[6] as Uint8Array;
     expect(ENTROPY_BYTES).toBe(32);
     expect(a).toHaveLength(32);
     expect(b).toHaveLength(32);
@@ -84,7 +92,7 @@ describe('renderRequest', () => {
     const { module, calls } = fakeEngine();
     const assets = { fonts: new Map([['serif', new Uint8Array(1)]]), images: new Map([['logo', new Uint8Array(1)]]) };
     renderRequest(module, request({ assets, encryption: { passwords } }));
-    expect(names(calls)).toEqual(['load_font', 'load_image', 'render_pdf']);
+    expect(names(calls)).toEqual(['load_font', 'load_image', 'set_created_on', 'render_pdf']);
   });
 
   it('loads the files the document carries before it renders', () => {
@@ -93,6 +101,25 @@ describe('renderRequest', () => {
     renderRequest(module, request({ assets, encryption: { passwords } }));
     expect(calls.filter(call => call[0] === 'load_file')).toEqual([['load_file', 'invoice.xml']]);
     expect(names(calls).at(-1)).toBe('render_pdf');
+  });
+
+  it('dates the render with its time, in UTC to the second, before it renders', () => {
+    const { module, calls } = fakeEngine();
+    renderRequest(module, request(), new Date('2026-10-31T16:40:12.345Z'));
+    expect(calls.slice(-2)).toEqual([['set_created_on', '2026-10-31T16:40:12Z'], renderCall(calls)]);
+  });
+
+  it('dates the render with the time it is made when given none', () => {
+    const { module, calls } = fakeEngine();
+    const before = Math.floor(Date.now() / 1000) * 1000;
+    renderRequest(module, request());
+    const after = Date.now();
+
+    const [, iso] = calls.find(([name]) => name === 'set_created_on') ?? [];
+    expect(iso).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
+    const time = Date.parse(iso as string);
+    expect(time).toBeGreaterThanOrEqual(before);
+    expect(time).toBeLessThanOrEqual(after);
   });
 
   it('frees the engine after a render and after a failed one', () => {
@@ -112,6 +139,7 @@ describe('renderRequest', () => {
       load_image(): void {}
       load_file(): void {}
       load_markdown_styles(): void {}
+      set_created_on(): void {}
       render_pdf(): Uint8Array { return engineBytes; }
       free(): void { engineBytes.fill(0); }
     }
@@ -147,5 +175,32 @@ describe.skipIf(!fs.existsSync(ENGINE))('renderRequest on the engine the extensi
     const pdf = Buffer.from(renderRequest(wasm, request({ xml: attached, assets, encryption: { skipEncryption: false } }))).toString('latin1');
     expect(pdf).toContain('/Type /EmbeddedFile');
     expect(pdf).toContain('/Subtype /text#2Fxml');
+  });
+
+  describe('a document with <output pdfa>', () => {
+    // PDF/A embeds every font, so the text is in one of the book template's.
+    const font = fs.readFileSync(path.join(__dirname, '..', 'templates', 'book', 'assets', 'fonts', 'CrimsonText-Regular.ttf'));
+    const assets = { fonts: new Map([['body', new Uint8Array(font)]]), images: new Map() };
+    const archived = '<lpdf version="1"><assets><font name="body" src="CrimsonText-Regular.ttf"/></assets>'
+      + '<document font="body"><output pdfa="2b"/><section><layout><text>Hello</text></layout></section></document></lpdf>';
+    const now = new Date('2026-10-31T16:40:12.345Z');
+
+    // The encryption each command asks for: preview.ts skips it, and export.ts has no passwords to give here.
+    it.each([
+      ['the preview', { skipEncryption: true }],
+      ['Export PDF', {}],
+    ])('renders for %s, dated with the time of the render', (_, encryption) => {
+      const pdf = Buffer.from(renderRequest(wasm, request({ xml: archived, assets, encryption }), now)).toString('latin1');
+      expect(pdf).toContain('<pdfaid:part>2</pdfaid:part>');
+      expect(pdf).toContain('/CreationDate (D:20261031164012Z)');
+      expect(pdf).toContain('<xmp:CreateDate>2026-10-31T16:40:12Z</xmp:CreateDate>');
+    });
+  });
+
+  it('dates a document without PDF/A to the second', () => {
+    const pdf = Buffer.from(renderRequest(wasm, request({ xml: '<lpdf version="1"><document><section><layout><text>Hello</text></layout></section></document></lpdf>' }),
+      new Date('2026-10-31T16:40:12.345Z'))).toString('latin1');
+    // No milliseconds among the digits. An engine that keeps the zone writes the `Z` after them.
+    expect(pdf).toMatch(/\/CreationDate \(D:20261031164012Z?\)/);
   });
 });
