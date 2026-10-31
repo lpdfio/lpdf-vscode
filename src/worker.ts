@@ -83,8 +83,8 @@ export function renderRequest(
 /**
  * A time as the engine's `created_on`: ISO 8601 in UTC, to the second, such as `2026-10-31T16:40:12Z`.
  *
- * Whole seconds, since the engine dates a document without `<output pdfa>` from the digits of `created_on`
- * alone, and the milliseconds of `toISOString()` would add three digits to its PDF date.
+ * Whole seconds, the finest a PDF date holds (PDF 1.7, 7.9.4), so the engine is never given the milliseconds
+ * of `toISOString()` to drop or to misread.
  * @param time The time.
  * @returns The date for `set_created_on`.
  */
