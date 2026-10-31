@@ -51,7 +51,7 @@ describe('buildSchemaDocs', () => {
     });
 
     it('treats a boolean as true or false', () => {
-        expect(attribute('column', 'debug').type).toMatchObject({ name: 'boolean', values: ['true', 'false'], open: false });
+        expect(attribute('column', 'debug').type).toMatchObject({ name: 'Boolean', values: ['true', 'false'], open: false });
     });
 
     it('reads numeric ranges', () => {
