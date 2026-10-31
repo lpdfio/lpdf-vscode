@@ -145,7 +145,7 @@ describe('buildSchemaDocs', () => {
         const allow = attribute('output', 'allow');
         expect(allow.type.name).toBe('Permissions');
         expect(allow.type.list).toBe(true);
-        expect(allow.type.values).toEqual(['print', 'modify', 'copy', 'annotate', 'fill-forms', 'accessibility', 'assemble']);
+        expect(allow.type.values).toEqual(['all', 'print', 'modify', 'copy', 'annotate', 'fill-forms', 'accessibility', 'assemble']);
         expect(allow.type.open).toBe(false);
         expect(attribute('output', 'encrypt').type.values).toEqual(['aes-256', 'rc4-128']);
     });
