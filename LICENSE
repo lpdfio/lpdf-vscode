@@ -45,7 +45,7 @@ SOFTWARE.
 
 Applies to the files in `wasm/`. The engine is owned by Codesense LLC and is not open source.
 
-Anyone may use the engine through this extension, as published by Codesense LLC, free of charge, for any purpose, including the PDFs it produces. PDFs rendered without a license key carry the "Made with Lpdf" attribution, which may not be removed.
+Anyone may use the engine through this extension, as published by Codesense LLC, free of charge, for any purpose, including the PDFs it produces. PDFs rendered without a license key carry the Lpdf attribution in the top-right corner, which may not be removed.
 
 Using the engine files outside this extension is governed by the Lpdf License: https://lpdf.io/license
 
