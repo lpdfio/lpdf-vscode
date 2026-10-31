@@ -121,6 +121,16 @@ describe('exportPdf of a document that asks for encryption in its <output>', () 
     expect(message).not.toContain('hunter2');
   });
 
+  it('refuses a cipher the engine doesn\'t know before it asks for any password', async () => {
+    state.doc = { uri: { fsPath: '/work/invoice.xml' }, getText: () => ENCRYPTED.replace('rc4-128', 'aes-128') };
+    await exportPdf(context);
+
+    expect(state.error.mock.calls[0][0]).toContain('encrypt="aes-128"');
+    expect(state.askForPasswords).not.toHaveBeenCalled();
+    expect(state.saveDialog).not.toHaveBeenCalled();
+    expect(state.renderPdf).not.toHaveBeenCalled();
+  });
+
   it('keeps the passwords out of secret storage and every memento', async () => {
     await exportPdf(context);
     for (const mock of [secrets.store, secrets.get, secrets.delete, memento.update]) {

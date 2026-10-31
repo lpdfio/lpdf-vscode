@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'node:path';
 import { renderPdf, LpdfRenderError } from './engine';
 import { loadRenderInput } from './render-input';
-import { cipherName, requestedCipher } from './encryption';
+import { CIPHERS, cipherName, requestedCipher } from './encryption';
 import { askForPasswords } from './encryption-prompt';
 import { documentStem, resolveLpdfDocument } from './utils';
 
@@ -18,6 +18,11 @@ export async function exportPdf(context: vscode.ExtensionContext, uri?: vscode.U
   try {
     const { xml, jsonData, assets, warnings } = await loadRenderInput(context, doc.uri, doc.getText());
     const cipher = requestedCipher(xml);
+    // A cipher the engine doesn't know is said before the passwords are typed, not after.
+    if (cipher !== undefined && !CIPHERS.includes(cipher)) {
+      vscode.window.showErrorMessage(`Lpdf: The document's <output> asks for encrypt="${cipher}", which is no cipher: use aes-256 or rc4-128.`);
+      return;
+    }
     const passwords = cipher === undefined ? undefined : await askForPasswords(cipher);
     if (cipher !== undefined && passwords === undefined) { return; }
 

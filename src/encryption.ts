@@ -39,6 +39,9 @@ export function requestedCipher(xml: string): string | undefined {
   return output === undefined ? undefined : /\bencrypt\s*=\s*(["'])(.*?)\1/.exec(output)?.[2];
 }
 
+/** The ciphers the engine knows, by the name `encrypt` gives them. */
+export const CIPHERS: readonly string[] = ['aes-256', 'rc4-128'];
+
 /** The name of a cipher as people read it: `RC4-128` for `rc4-128`, `AES-256` for the rest. */
 export function cipherName(cipher: string): string {
   return cipher === 'rc4-128' ? 'RC4-128' : 'AES-256';
