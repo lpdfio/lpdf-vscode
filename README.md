@@ -174,7 +174,7 @@ The Lpdf engine, PDF viewer, and export all run locally on your machine. No serv
 
 ## License
 
-The extension is free to use, for any purpose. Previews and exports carry a "Made with Lpdf" line on every page.
+The extension is free to use, for any purpose. Previews and exports carry the Lpdf attribution in the top-right corner of every page.
 
 The PDF viewer is built on [PDF.js](https://mozilla.github.io/pdf.js/), Mozilla's open-source PDF renderer, under the Apache License 2.0, with Lpdf's own toolbar around it. It, its fonts and its other components are listed with their licenses in [THIRD_PARTY_LICENSES](THIRD_PARTY_LICENSES).
 
