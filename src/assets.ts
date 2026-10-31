@@ -3,9 +3,12 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { LpdfRenderError, type RenderAssets } from './engine';
 
-/** One `<font>` or `<image>` declared in `<assets>`, or one file of rules a `<markdown-styles>` names. */
+/**
+ * One `<font>` or `<image>` declared in `<assets>`, one file of rules a `<markdown-styles>` names, or one `<file>`
+ * the document carries in `<attachments>`.
+ */
 interface AssetDeclaration {
-  kind: 'font' | 'image' | 'markdown-styles';
+  kind: 'font' | 'image' | 'markdown-styles' | 'file';
   name: string;
   /** Key the engine looks the bytes up by: `ref`, else `name`. */
   key:  string;
@@ -27,6 +30,8 @@ const ASSETS_RE     = /<assets\b[^>]*>([\s\S]*?)<\/assets\s*>/g;
 // Attribute values may contain '>', so quoted runs are matched whole.
 const ASSET_TAG_RE  = /<(font|image)\b((?:[^>"']|"[^"]*"|'[^']*')*)>/g;
 const STYLES_TAG_RE = /<markdown-styles\b((?:[^>"']|"[^"]*"|'[^']*')*)>/g;
+const ATTACHMENTS_RE = /<attachments\b[^>]*>([\s\S]*?)<\/attachments\s*>/g;
+const FILE_TAG_RE   = /<file\b((?:[^>"']|"[^"]*"|'[^']*')*)>/g;
 const ATTRIBUTE_RE  = /([\w:.-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
 const ENTITY_RE     = /&(amp|lt|gt|quot|apos);/g;
 const XML_ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" };
@@ -34,9 +39,9 @@ const XML_ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot:
 const URL_SCHEME_RE = /^[a-z][a-z0-9+.-]+:/i;
 
 /**
- * Reads the bytes of every font and image the XML declares in `<assets>`, and the text of every file of
- * Markdown rules a `<markdown-styles src>` names, so the extension renders what the SDKs render when they
- * load `src` themselves.
+ * Reads the bytes of every font and image the XML declares in `<assets>`, the text of every file of
+ * Markdown rules a `<markdown-styles src>` names, and the bytes of every file it carries in `<attachments>`,
+ * so the extension renders what the SDKs render when they load `src` themselves.
  *
  * A relative `src` is looked up next to the XML file first, then in the root of
  * its workspace folder. The SDKs resolve it against the app's working
@@ -45,7 +50,7 @@ const URL_SCHEME_RE = /^[a-z][a-z0-9+.-]+:/i;
  * @param xml    The document text, including unsaved edits.
  * @param xmlUri The document's location, used to resolve relative `src` paths.
  * @returns The loaded bytes, and a warning for each custom font with no `src`.
- * @throws LpdfRenderError when an image has no `src`, or any `src` cannot be read.
+ * @throws LpdfRenderError when an image or a file has no `src`, or any `src` cannot be read.
  *   The engine would reject the image anyway, and a font would silently become
  *   Helvetica.
  */
@@ -54,6 +59,7 @@ export async function loadAssets(xml: string, xmlUri: vscode.Uri): Promise<Loade
   const fonts    = new Map<string, Uint8Array>();
   const images   = new Map<string, Uint8Array>();
   const markdownStyles = new Map<string, string>();
+  const attached = new Map<string, Uint8Array>();
   const warnings: string[] = [];
   const files: string[] = [];
 
@@ -67,6 +73,11 @@ export async function loadAssets(xml: string, xmlUri: vscode.Uri): Promise<Loade
       fonts.set(asset.key, await readAsset(asset, asset.src, dirs, files));
     } else if (asset.kind === 'markdown-styles') {
       markdownStyles.set(asset.key, Buffer.from(await readAsset(asset, asset.src!, dirs, files)).toString('utf8'));
+    } else if (asset.kind === 'file') {
+      if (!asset.src) {
+        throw new LpdfRenderError(`file '${asset.name}' has no src. The extension loads the files a document carries from the file path in src.`);
+      }
+      attached.set(asset.key, await readAsset(asset, asset.src, dirs, files));
     } else {
       if (!asset.src) {
         throw new LpdfRenderError(`image '${asset.name}' has no src. The extension loads images from the file path in src.`);
@@ -75,7 +86,7 @@ export async function loadAssets(xml: string, xmlUri: vscode.Uri): Promise<Loade
     }
   }
 
-  return { assets: { fonts, images, markdownStyles }, warnings, files };
+  return { assets: { fonts, images, markdownStyles, files: attached }, warnings, files };
 }
 
 /**
@@ -147,6 +158,14 @@ function parseAssetDeclarations(xml: string): AssetDeclaration[] {
         src:  attributes.get('src') || undefined,
         core: attributes.get('core'),
       });
+    }
+  }
+  for (const block of source.matchAll(ATTACHMENTS_RE)) {
+    for (const tag of block[1].matchAll(FILE_TAG_RE)) {
+      const attributes = parseAttributes(tag[1]);
+      const name = attributes.get('name');
+      if (!name) { continue; } // the engine reports the missing name
+      declarations.push({ kind: 'file', name, key: attributes.get('ref') ?? name, src: attributes.get('src') || undefined, core: undefined });
     }
   }
   for (const tag of source.matchAll(STYLES_TAG_RE)) {

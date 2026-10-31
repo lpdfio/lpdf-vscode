@@ -136,8 +136,9 @@ describe('buildSchemaDocs', () => {
         expect(element('section').children.map(child => child.name)).toEqual(['bookmark', 'layer', 'layout', 'markdown']);
     });
 
-    it('keeps layout and layer inside a section: document holds only meta, output and sections', () => {
-        expect(element('document').children.map(child => child.name)).toEqual(['meta', 'output', 'section']);
+    it('keeps layout and layer inside a section: document holds only meta, output, attachments and sections', () => {
+        expect(element('document').children.map(child => child.name)).toEqual(['meta', 'output', 'attachments', 'section']);
+        expect(element('attachments').children.map(child => child.name)).toEqual(['file']);
     });
 
     it('reads a list of values, which allow on output takes', () => {

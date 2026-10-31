@@ -20,6 +20,8 @@ export interface RenderAssets {
   images: Map<string, Uint8Array>;
   /** The text of each file of Markdown rules the XML names with `<markdown-styles src>`, by that `src`. */
   markdownStyles?: Map<string, string>;
+  /** The bytes of each file the XML carries in `<attachments>`, by the `ref` or name of its `<file>`. */
+  files?: Map<string, Uint8Array>;
 }
 
 type Resolve = (bytes: Uint8Array) => void;

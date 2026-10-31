@@ -6,6 +6,7 @@ import type { RenderEncryption } from './encryption';
 export interface IWasmEngine {
   load_font(name: string, bytes: Uint8Array): void;
   load_image(name: string, bytes: Uint8Array): void;
+  load_file(name: string, bytes: Uint8Array): void;
   load_markdown_styles(src: string, xml: string): void;
   render_pdf(
     xml: string, json_data: string | null, user_password: string | null, owner_password: string | null,
@@ -57,6 +58,7 @@ export function renderRequest(wasm: IWasmModule, { xml, jsonData, assets, encryp
   try {
     for (const [key, bytes] of assets.fonts)  { engine.load_font(key, bytes); }
     for (const [key, bytes] of assets.images) { engine.load_image(key, bytes); }
+    for (const [key, bytes] of assets.files ?? []) { engine.load_file(key, bytes); }
     for (const [src, text] of assets.markdownStyles ?? []) { engine.load_markdown_styles(src, text); }
     const { passwords, skipEncryption = false } = encryption;
     const entropy = passwords ? new Uint8Array(randomBytes(ENTROPY_BYTES)) : new Uint8Array(0);
