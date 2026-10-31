@@ -8,6 +8,7 @@ export interface IWasmEngine {
   load_image(name: string, bytes: Uint8Array): void;
   load_file(name: string, bytes: Uint8Array): void;
   load_markdown_styles(src: string, xml: string): void;
+  set_created_on(iso: string): void;
   render_pdf(
     xml: string, json_data: string | null, user_password: string | null, owner_password: string | null,
     skip_encryption: boolean, entropy: Uint8Array,
@@ -49,17 +50,24 @@ function getWasmModule(): IWasmModule {
  *
  * A render with passwords gets its own 32 random bytes from Node's secure generator, so no two files share
  * a key. The engine takes the cipher and the permissions from the document's `<output>`.
+ *
+ * Every render is dated with the time it is made, as `created_on`: a document with `<output pdfa>` carries
+ * its date, and the engine has no clock, so without one the preview and the export of such a document fail.
  * @param wasm The engine module.
  * @param request What to render.
+ * @param now The time of the render.
  * @returns The PDF, in a buffer the caller owns.
  */
-export function renderRequest(wasm: IWasmModule, { xml, jsonData, assets, encryption }: RenderRequest): Uint8Array {
+export function renderRequest(
+  wasm: IWasmModule, { xml, jsonData, assets, encryption }: RenderRequest, now: Date = new Date(),
+): Uint8Array {
   const engine = new wasm.LpdfEngine('');
   try {
     for (const [key, bytes] of assets.fonts)  { engine.load_font(key, bytes); }
     for (const [key, bytes] of assets.images) { engine.load_image(key, bytes); }
     for (const [key, bytes] of assets.files ?? []) { engine.load_file(key, bytes); }
     for (const [src, text] of assets.markdownStyles ?? []) { engine.load_markdown_styles(src, text); }
+    engine.set_created_on(createdOn(now));
     const { passwords, skipEncryption = false } = encryption;
     const entropy = passwords ? new Uint8Array(randomBytes(ENTROPY_BYTES)) : new Uint8Array(0);
     // Copy into a new buffer to guarantee we own the ArrayBuffer before transferring.
@@ -70,6 +78,18 @@ export function renderRequest(wasm: IWasmModule, { xml, jsonData, assets, encryp
   } finally {
     engine.free();
   }
+}
+
+/**
+ * A time as the engine's `created_on`: ISO 8601 in UTC, to the second, such as `2026-10-31T16:40:12Z`.
+ *
+ * Whole seconds, since the engine dates a document without `<output pdfa>` from the digits of `created_on`
+ * alone, and the milliseconds of `toISOString()` would add three digits to its PDF date.
+ * @param time The time.
+ * @returns The date for `set_created_on`.
+ */
+function createdOn(time: Date): string {
+  return `${time.toISOString().slice(0, 19)}Z`;
 }
 
 // Not a worker thread when a test imports this file.
