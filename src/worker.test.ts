@@ -200,6 +200,7 @@ describe.skipIf(!fs.existsSync(ENGINE))('renderRequest on the engine the extensi
   it('dates a document without PDF/A to the second', () => {
     const pdf = Buffer.from(renderRequest(wasm, request({ xml: '<lpdf version="1"><document><section><layout><text>Hello</text></layout></section></document></lpdf>' }),
       new Date('2026-10-31T16:40:12.345Z'))).toString('latin1');
-    expect(pdf).toContain('/CreationDate (D:20261031164012)');
+    // No milliseconds among the digits. An engine that keeps the zone writes the `Z` after them.
+    expect(pdf).toMatch(/\/CreationDate \(D:20261031164012Z?\)/);
   });
 });
