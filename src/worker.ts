@@ -7,6 +7,7 @@ export interface IWasmEngine {
   load_font(name: string, bytes: Uint8Array): void;
   load_image(name: string, bytes: Uint8Array): void;
   load_file(name: string, bytes: Uint8Array): void;
+  load_profile(name: string, bytes: Uint8Array): void;
   load_markdown_styles(src: string, xml: string): void;
   set_created_on(iso: string): void;
   render_pdf(
@@ -51,8 +52,9 @@ function getWasmModule(): IWasmModule {
  * A render with passwords gets its own 32 random bytes from Node's secure generator, so no two files share
  * a key. The engine takes the cipher and the permissions from the document's `<output>`.
  *
- * Every render is dated with the time it is made, as `created_on`: a document with `<output pdfa>` carries
- * its date, and the engine has no clock, so without one the preview and the export of such a document fail.
+ * Every render is dated with the time it is made, as `created_on`: a document with `<output pdfa>`, `pdfua` or
+ * `pdfx` carries its date, and the engine has no clock, so without one the preview and the export of such a document
+ * fail.
  * @param wasm The engine module.
  * @param request What to render.
  * @param now The time of the render.
@@ -66,6 +68,7 @@ export function renderRequest(
     for (const [key, bytes] of assets.fonts)  { engine.load_font(key, bytes); }
     for (const [key, bytes] of assets.images) { engine.load_image(key, bytes); }
     for (const [key, bytes] of assets.files ?? []) { engine.load_file(key, bytes); }
+    for (const [key, bytes] of assets.profiles ?? []) { engine.load_profile(key, bytes); }
     for (const [src, text] of assets.markdownStyles ?? []) { engine.load_markdown_styles(src, text); }
     engine.set_created_on(createdOn(now));
     const { passwords, skipEncryption = false } = encryption;

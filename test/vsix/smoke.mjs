@@ -145,27 +145,26 @@ function shippedFiles() {
 }
 
 /**
- * The fonts and images a template's document declares in `<assets>`, read from the template's folder
- * and keyed as the extension keys them: by `ref`, else by `name`. Declarations without `src`, core fonts
+ * The fonts, images and color profiles a template's document declares in `<assets>`, read from the template's
+ * folder and keyed as the extension keys them: by `ref`, else by `name`. Declarations without `src`, core fonts
  * and fonts left to Helvetica, load nothing.
  * @param {string} xml The document.
  * @param {string} folder The template's folder, which its `src` paths are relative to.
- * @returns {{ fonts: Map<string, Uint8Array>, images: Map<string, Uint8Array> }}
+ * @returns {{ fonts: Map<string, Uint8Array>, images: Map<string, Uint8Array>, profiles: Map<string, Uint8Array> }}
  */
 function readAssets(xml, folder) {
-    const fonts = new Map();
-    const images = new Map();
+    const loaded = { font: new Map(), image: new Map(), profile: new Map() };
     const source = xml.replace(/<!--[\s\S]*?-->/g, '');
     for (const block of source.matchAll(/<assets\b[^>]*>([\s\S]*?)<\/assets\s*>/g)) {
-        for (const [, kind, attributeText] of block[1].matchAll(/<(font|image)\b([^>]*)>/g)) {
+        for (const [, kind, attributeText] of block[1].matchAll(/<(font|image|profile)\b([^>]*)>/g)) {
             const attributes = new Map([...attributeText.matchAll(/([\w:.-]+)\s*=\s*"([^"]*)"/g)].map(match => [match[1], match[2]]));
             const src = attributes.get('src');
             if (!src) { continue; }
             const key = attributes.get('ref') ?? attributes.get('name');
-            (kind === 'font' ? fonts : images).set(key, fs.readFileSync(path.join(folder, src)));
+            loaded[kind].set(key, fs.readFileSync(path.join(folder, src)));
         }
     }
-    return { fonts, images };
+    return { fonts: loaded.font, images: loaded.image, profiles: loaded.profile };
 }
 
 /**

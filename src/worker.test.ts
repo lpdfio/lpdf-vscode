@@ -13,6 +13,7 @@ function fakeEngine(failRender = false): { module: IWasmModule; calls: unknown[]
     load_font(name: string): void { calls.push(['load_font', name]); }
     load_image(name: string): void { calls.push(['load_image', name]); }
     load_file(name: string): void { calls.push(['load_file', name]); }
+    load_profile(name: string): void { calls.push(['load_profile', name]); }
     load_markdown_styles(src: string, xml: string): void { calls.push(['load_markdown_styles', src, xml]); }
     set_created_on(iso: string): void { calls.push(['set_created_on', iso]); }
     render_pdf(
@@ -103,6 +104,14 @@ describe('renderRequest', () => {
     expect(names(calls).at(-1)).toBe('render_pdf');
   });
 
+  it('loads the color profiles of the document before it renders', () => {
+    const { module, calls } = fakeEngine();
+    const assets = { fonts: new Map(), images: new Map(), profiles: new Map([['press', new Uint8Array(1)]]) };
+    renderRequest(module, request({ assets }));
+    expect(calls.filter(call => call[0] === 'load_profile')).toEqual([['load_profile', 'press']]);
+    expect(names(calls).at(-1)).toBe('render_pdf');
+  });
+
   it('dates the render with its time, in UTC to the second, before it renders', () => {
     const { module, calls } = fakeEngine();
     renderRequest(module, request(), new Date('2026-10-31T16:40:12.345Z'));
@@ -138,6 +147,7 @@ describe('renderRequest', () => {
       load_font(): void {}
       load_image(): void {}
       load_file(): void {}
+      load_profile(): void {}
       load_markdown_styles(): void {}
       set_created_on(): void {}
       render_pdf(): Uint8Array { return engineBytes; }
@@ -175,6 +185,22 @@ describe.skipIf(!fs.existsSync(ENGINE))('renderRequest on the engine the extensi
     const pdf = Buffer.from(renderRequest(wasm, request({ xml: attached, assets, encryption: { skipEncryption: false } }))).toString('latin1');
     expect(pdf).toContain('/Type /EmbeddedFile');
     expect(pdf).toContain('/Subtype /text#2Fxml');
+  });
+
+  it('renders the brochure template, a PDF/X document, with its fonts, its chart and its press profile', () => {
+    const template = path.join(__dirname, '..', 'templates', 'brochure');
+    const read = (file: string) => new Uint8Array(fs.readFileSync(path.join(template, file)));
+    const assets = {
+      fonts: new Map([['display', read('assets/fonts/Radley-Regular.ttf')], ['text', read('assets/fonts/Montserrat-Regular.ttf')]]),
+      images: new Map([['chart', read('assets/images/committed-capital.png')]]),
+      profiles: new Map([['press', read('assets/profiles/FOGRA39L_coated.icc')]]),
+    };
+    const xml = fs.readFileSync(path.join(template, 'document.xml'), 'utf8');
+    const pdf = Buffer.from(renderRequest(wasm, request({ xml, assets, encryption: { skipEncryption: true } }))).toString('latin1');
+    expect(pdf).toContain('/S /GTS_PDFX');
+    expect(pdf).toContain('/Info (FOGRA39L Coated)');
+    expect(pdf).toContain('/TrimBox');
+    expect(pdf).not.toContain('/Annots');
   });
 
   describe('a document with <output pdfa>', () => {

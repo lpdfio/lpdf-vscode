@@ -22,6 +22,24 @@ beforeAll(() => {
   fs.writeFileSync(path.join(folder, 'invoice-data.xml'), '<invoice/>');
 });
 
+describe('loadAssets of the color profiles a document declares', () => {
+  const withProfiles = (profiles: string): string =>
+    `<lpdf version="1"><assets>${profiles}</assets><document><section/></document></lpdf>`;
+
+  it('reads each profile from its src next to the document, under its ref or name, and watches it', async () => {
+    fs.writeFileSync(path.join(folder, 'press.icc'), 'not really a profile');
+    const loaded = await loadAssets(withProfiles('<profile name="press" src="press.icc"/><profile name="other" ref="fogra39" src="press.icc"/>'), documentUri());
+    expect([...loaded.assets.profiles!.keys()]).toEqual(['press', 'fogra39']);
+    expect(Buffer.from(loaded.assets.profiles!.get('press')!).toString()).toBe('not really a profile');
+    expect(loaded.files).toContain(path.join(folder, 'press.icc'));
+  });
+
+  it('is an error that names a profile with no src, or one whose src is not there', async () => {
+    await expect(loadAssets(withProfiles('<profile name="press"/>'), documentUri())).rejects.toThrow("profile 'press' has no src");
+    await expect(loadAssets(withProfiles('<profile name="press" src="missing.icc"/>'), documentUri())).rejects.toThrow(/profile 'press': cannot find missing\.icc/);
+  });
+});
+
 describe('loadAssets of the files a document carries', () => {
   it('reads each file from its src next to the document, under its ref or name, and watches it', async () => {
     const xml = withAttachments('<file name="invoice.xml" src="invoice-data.xml"/><file name="copy.xml" ref="copy" src="invoice-data.xml"/>');

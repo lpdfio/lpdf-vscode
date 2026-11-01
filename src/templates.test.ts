@@ -184,11 +184,13 @@ describe('the templates that ship in the extension', () => {
     const { LpdfEngine } = createRequire(__filename)(ENGINE) as {
       LpdfEngine: new (key: string) => { render_pdf(xml: string, data: string | null, user: string | null, owner: string | null, skip: boolean, entropy: Uint8Array): Uint8Array; free(): void };
     };
-    // A template's fonts and images are registered by the names its <assets> give them, as the extension does.
+    // A template's fonts, images and color profiles are registered by the names its <assets> give them, and the render
+    // is dated, as the extension does.
     const render = (template: { xmlPath: string; assets: { relativePath: string; sourcePath: string }[] }, data: string | null): Uint8Array => {
       const xml = fs.readFileSync(template.xmlPath, 'utf8');
       const engine = new LpdfEngine('') as unknown as {
         load_font(name: string, bytes: Uint8Array): void; load_image(name: string, bytes: Uint8Array): void;
+        load_profile(name: string, bytes: Uint8Array): void; set_created_on(iso: string): void;
         render_pdf(xml: string, data: string | null, user: string | null, owner: string | null, skip: boolean, entropy: Uint8Array): Uint8Array;
         free(): void;
       };
@@ -197,6 +199,8 @@ describe('the templates that ship in the extension', () => {
         const body = withoutComments(xml);
         for (const match of body.matchAll(/<font\s+name="([^"]+)"\s+src="([^"]+)"/g)) { engine.load_font(match[1], fs.readFileSync(source(match[2]))); }
         for (const match of body.matchAll(/<image\s+name="([^"]+)"\s+src="([^"]+)"/g)) { engine.load_image(match[1], fs.readFileSync(source(match[2]))); }
+        for (const match of body.matchAll(/<profile\s+name="([^"]+)"\s+src="([^"]+)"/g)) { engine.load_profile(match[1], fs.readFileSync(source(match[2]))); }
+        engine.set_created_on('2026-10-31T09:30:00Z');
         return engine.render_pdf(xml, data, null, null, false, new Uint8Array(0));
       } finally { engine.free(); }
     };
