@@ -22,6 +22,8 @@ export interface RenderAssets {
   markdownStyles?: Map<string, string>;
   /** The bytes of each file the XML carries in `<attachments>`, by the `ref` or name of its `<file>`. */
   files?: Map<string, Uint8Array>;
+  /** The bytes of each color profile the XML declares in `<assets>`, by the `ref` or name of its `<profile>`. */
+  profiles?: Map<string, Uint8Array>;
 }
 
 type Resolve = (bytes: Uint8Array) => void;

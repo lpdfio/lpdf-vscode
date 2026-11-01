@@ -4,11 +4,11 @@ import * as path from 'node:path';
 import { LpdfRenderError, type RenderAssets } from './engine';
 
 /**
- * One `<font>` or `<image>` declared in `<assets>`, one file of rules a `<markdown-styles>` names, or one `<file>`
- * the document carries in `<attachments>`.
+ * One `<font>`, `<image>` or `<profile>` declared in `<assets>`, one file of rules a `<markdown-styles>` names, or one
+ * `<file>` the document carries in `<attachments>`.
  */
 interface AssetDeclaration {
-  kind: 'font' | 'image' | 'markdown-styles' | 'file';
+  kind: 'font' | 'image' | 'profile' | 'markdown-styles' | 'file';
   name: string;
   /** Key the engine looks the bytes up by: `ref`, else `name`. */
   key:  string;
@@ -29,7 +29,7 @@ export interface LoadedAssets {
 const NOT_MARKUP_RE = /<!--[\s\S]*?-->|<!\[CDATA\[[\s\S]*?\]\]>/g;
 const ASSETS_RE     = /<assets\b[^>]*>([\s\S]*?)<\/assets\s*>/g;
 // Attribute values may contain '>', so quoted runs are matched whole.
-const ASSET_TAG_RE  = /<(font|image)\b((?:[^>"']|"[^"]*"|'[^']*')*)>/g;
+const ASSET_TAG_RE  = /<(font|image|profile)\b((?:[^>"']|"[^"]*"|'[^']*')*)>/g;
 const STYLES_TAG_RE = /<markdown-styles\b((?:[^>"']|"[^"]*"|'[^']*')*)>/g;
 const ATTACHMENTS_RE = /<attachments\b[^>]*>([\s\S]*?)<\/attachments\s*>/g;
 const FILE_TAG_RE   = /<file\b((?:[^>"']|"[^"]*"|'[^']*')*)>/g;
@@ -40,7 +40,7 @@ const XML_ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot:
 const URL_SCHEME_RE = /^[a-z][a-z0-9+.-]+:/i;
 
 /**
- * Reads the bytes of every font and image the XML declares in `<assets>`, the text of every file of
+ * Reads the bytes of every font, image and color profile the XML declares in `<assets>`, the text of every file of
  * Markdown rules a `<markdown-styles src>` names, and the bytes of every file it carries in `<attachments>`,
  * so the extension renders what the SDKs render when they load `src` themselves.
  *
@@ -51,7 +51,7 @@ const URL_SCHEME_RE = /^[a-z][a-z0-9+.-]+:/i;
  * @param xml    The document text, including unsaved edits.
  * @param xmlUri The document's location, used to resolve relative `src` paths.
  * @returns The loaded bytes, and a warning for each custom font with no `src`.
- * @throws LpdfRenderError when an image or a file has no `src`, or any `src` cannot be read.
+ * @throws LpdfRenderError when an image, a profile or a file has no `src`, or any `src` cannot be read.
  *   The engine would reject the image anyway, and a font would silently become
  *   Helvetica.
  */
@@ -61,6 +61,7 @@ export async function loadAssets(xml: string, xmlUri: vscode.Uri): Promise<Loade
   const images   = new Map<string, Uint8Array>();
   const markdownStyles = new Map<string, string>();
   const attached = new Map<string, Uint8Array>();
+  const profiles = new Map<string, Uint8Array>();
   const warnings: string[] = [];
   const files: string[] = [];
 
@@ -79,6 +80,11 @@ export async function loadAssets(xml: string, xmlUri: vscode.Uri): Promise<Loade
         throw new LpdfRenderError(`file '${asset.name}' has no src. The extension loads the files a document carries from the file path in src.`);
       }
       attached.set(asset.key, await readAsset(asset, asset.src, dirs, files));
+    } else if (asset.kind === 'profile') {
+      if (!asset.src) {
+        throw new LpdfRenderError(`profile '${asset.name}' has no src. The extension loads color profiles from the file path in src.`);
+      }
+      profiles.set(asset.key, await readAsset(asset, asset.src, dirs, files));
     } else {
       if (!asset.src) {
         throw new LpdfRenderError(`image '${asset.name}' has no src. The extension loads images from the file path in src.`);
@@ -87,7 +93,7 @@ export async function loadAssets(xml: string, xmlUri: vscode.Uri): Promise<Loade
     }
   }
 
-  return { assets: { fonts, images, markdownStyles, files: attached }, warnings, files };
+  return { assets: { fonts, images, markdownStyles, files: attached, profiles }, warnings, files };
 }
 
 /**
@@ -153,7 +159,7 @@ function parseAssetDeclarations(xml: string): AssetDeclaration[] {
       const name = attributes.get('name');
       if (!name) { continue; } // the engine reports the missing name
       declarations.push({
-        kind: tag[1] as 'font' | 'image',
+        kind: tag[1] as 'font' | 'image' | 'profile',
         name,
         key:  attributes.get('ref') ?? name,
         src:  attributes.get('src') || undefined,
