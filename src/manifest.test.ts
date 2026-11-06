@@ -93,3 +93,26 @@ describe('the PDF compare commands in the manifest', () => {
     expect(groups.every(g => !g?.startsWith('navigation'))).toBe(true);
   });
 });
+
+describe('the Generate commands in the manifest', () => {
+  const codegenSource = readFileSync(join(__dirname, 'codegen.ts'), 'utf8');
+  const languages = [
+    { command: 'lpdf.generateTs', title: 'Lpdf: Generate TypeScript from XML', label: 'TypeScript / Node.js', target: 'js' },
+    { command: 'lpdf.generateCs', title: 'Lpdf: Generate C# from XML', label: 'C# / .NET', target: 'dotnet' },
+    { command: 'lpdf.generatePy', title: 'Lpdf: Generate Python from XML', label: 'Python', target: 'python' },
+    { command: 'lpdf.generatePhp', title: 'Lpdf: Generate PHP from XML', label: 'PHP', target: 'php' },
+    { command: 'lpdf.generateJava', title: 'Lpdf: Generate Java from XML', label: 'Java', target: 'java' },
+  ];
+
+  it('has a command for each language, Java among them, each generating its own target', () => {
+    const commands = manifest.contributes.commands.filter(c => c.command.startsWith('lpdf.generate') && c.command !== 'lpdf.generateHere');
+    expect(commands).toEqual(languages.map(({ command, title }) => ({ command, title })));
+    for (const { command, target } of languages) {
+      expect(codegenSource, command).toMatch(new RegExp(`registerCommand\\('${command.replace('.', '\\.')}',.*runCodegen\\(ext, u, '${target}'\\)`));
+    }
+  });
+
+  it('offers the same languages, in the same order, in the picker of Generate Code', () => {
+    expect([...codegenSource.matchAll(/\{ label: '([^']+)'/g)].map(m => m[1])).toEqual(languages.map(l => l.label));
+  });
+});

@@ -96,6 +96,7 @@
       { "command": "lpdf.generateCs",     "title": "Lpdf: Generate C# from XML" },
       { "command": "lpdf.generatePy",     "title": "Lpdf: Generate Python from XML" },
       { "command": "lpdf.generatePhp",    "title": "Lpdf: Generate PHP from XML" },
+      { "command": "lpdf.generateJava",   "title": "Lpdf: Generate Java from XML" },
       { "command": "lpdf.diffPdf",        "title": "Lpdf: Compare PDF with HEAD" },
       { "command": "lpdf.diffPdfWithRef", "title": "Lpdf: Compare PDF with branch..." }
     ],

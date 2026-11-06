@@ -86,7 +86,7 @@ The info button opens the two documents' properties, such as size, page count an
 
 ## Author PDFs
 
-Lpdf describes a document in XML, or in code, and renders a compact PDF that is identical on every platform. This extension is where you write the XML. Start from one of seven templates, from a one-page letter to a 117-page book, and watch the preview update each time you save. The schema checks, completes and explains your XML as you type, a JSON file supplies the data, and **Lpdf: Generate Code** turns the document into TypeScript, C#, Python or PHP.
+Lpdf describes a document in XML, or in code, and renders a compact PDF that is identical on every platform. This extension is where you write the XML. Start from one of seven templates, from a one-page letter to a 117-page book, and watch the preview update each time you save. The schema checks, completes and explains your XML as you type, a JSON file supplies the data, and **Lpdf: Generate Code** turns the document into TypeScript, C#, Python, PHP or Java.
 
 ### Start from a template
 
@@ -149,7 +149,7 @@ Run **Lpdf: Generate Code** to turn the saved XML into SDK code that builds the 
 
 ![The Generate Code command offering four languages, with the XML on the left and the generated C# on the right, with numbered labels explained in the list below](docs/images/generate.png)
 
-1. Choose the language: TypeScript, C#, Python or PHP.
+1. Choose the language: TypeScript, C#, Python, PHP or Java.
 2. Your template.
 3. The code that builds the same document.
 

@@ -6,13 +6,14 @@ interface WasmCodegen {
     codegen_wasm(xml: string, options_json: string): string;
 }
 
-type Target = 'js' | 'dotnet' | 'python' | 'php';
+type Target = 'js' | 'dotnet' | 'python' | 'php' | 'java';
 
 const TARGETS: Array<{ label: string; description: string; target: Target; langId: string }> = [
-    { label: 'TypeScript / Node.js', description: '.ts',  target: 'js',     langId: 'typescript' },
-    { label: 'C# / .NET',           description: '.cs',  target: 'dotnet', langId: 'csharp'     },
-    { label: 'Python',               description: '.py',  target: 'python', langId: 'python'     },
-    { label: 'PHP',                  description: '.php', target: 'php',    langId: 'php'        },
+    { label: 'TypeScript / Node.js', description: '.ts',   target: 'js',     langId: 'typescript' },
+    { label: 'C# / .NET',            description: '.cs',   target: 'dotnet', langId: 'csharp'     },
+    { label: 'Python',               description: '.py',   target: 'python', langId: 'python'     },
+    { label: 'PHP',                  description: '.php',  target: 'php',    langId: 'php'        },
+    { label: 'Java',                 description: '.java', target: 'java',   langId: 'java'       },
 ];
 
 let _wasm: WasmCodegen | undefined;
@@ -72,6 +73,7 @@ export function registerCodegenCommands(context: vscode.ExtensionContext): void 
         vscode.commands.registerCommand('lpdf.generateCs',   (uri?: vscode.Uri) => { const u = resolveUri(uri); if (u) { return runCodegen(ext, u, 'dotnet'); } }),
         vscode.commands.registerCommand('lpdf.generatePy',   (uri?: vscode.Uri) => { const u = resolveUri(uri); if (u) { return runCodegen(ext, u, 'python'); } }),
         vscode.commands.registerCommand('lpdf.generatePhp',  (uri?: vscode.Uri) => { const u = resolveUri(uri); if (u) { return runCodegen(ext, u, 'php'); } }),
+        vscode.commands.registerCommand('lpdf.generateJava', (uri?: vscode.Uri) => { const u = resolveUri(uri); if (u) { return runCodegen(ext, u, 'java'); } }),
         vscode.commands.registerCommand('lpdf.generateHere', (uri?: vscode.Uri) => pickAndGenerate(ext, uri)),
     );
 }
