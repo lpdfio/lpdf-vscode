@@ -147,7 +147,7 @@ Hover an element or an attribute for what it does, the attributes it takes, and 
 
 Run **Lpdf: Generate Code** to turn the saved XML into SDK code that builds the same document. It opens beside your template.
 
-![The Generate Code command offering four languages, with the XML on the left and the generated C# on the right, with numbered labels explained in the list below](docs/images/generate.png)
+![The Generate Code command offering five languages, with the XML on the left and the generated Java on the right, with numbered labels explained in the list below](docs/images/generate.png)
 
 1. Choose the language: TypeScript, C#, Python, PHP or Java.
 2. Your template.
