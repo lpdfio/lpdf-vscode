@@ -19,6 +19,7 @@ describe.skipIf(!fs.existsSync(ENGINE))('the Generate commands', () => {
         ['python', ['debug=False', 'GridAttr(cols=3, opacity=0.5)', 'TextAttr(bold=True, line_height=1.5)', "line_height='m'"]],
         ['php', ['debug: false', 'new GridAttr(cols: 3, opacity: 0.5)', 'new TextAttr(bold: true, lineHeight: 1.5)', "lineHeight: 'm'"]],
         ['dotnet', ['Debug = false', 'new() { Cols = 3, Opacity = 0.5 }', 'new() { Bold = true, LineHeight = 1.5 }', 'LineHeight = "m"']],
+        ['java', ['new DocumentAttr().debug(false)', 'new GridAttr().cols(3).opacity(0.5)', 'new TextAttr().bold(true).lineHeight(1.5)', 'new TextAttr().lineHeight("m")']],
     ])('write each typed attribute as a literal of its type in %s', (target, literals) => {
         const code = generate(target);
         for (const literal of literals) {
@@ -29,5 +30,14 @@ describe.skipIf(!fs.existsSync(ENGINE))('the Generate commands', () => {
     it('refuse a value the engine refuses, with its error', () => {
         expect(() => codegen_wasm(TYPED.replace('bold="true"', 'bold="1"'), JSON.stringify({ target: 'js', indent: 4 })))
             .toThrow(/bold must be true or false, not "1"/);
+    });
+
+    it('write a text of 65,534 bytes in Java, and refuse one byte more, naming the element and the limit', () => {
+        const java = (bytes: number): string =>
+            codegen_wasm(TYPED.replace('>a<', `>${'a'.repeat(bytes)}<`), JSON.stringify({ target: 'java', indent: 4 }));
+
+        expect(java(65534)).toContain('public class Main');
+        expect(() => java(65535))
+            .toThrow(/<text> at line 2, col \d+: its text is 65535 bytes, more than the 65534 a string holds in Java code/);
     });
 });
