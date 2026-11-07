@@ -9,11 +9,11 @@ interface WasmCodegen {
 type Target = 'js' | 'dotnet' | 'python' | 'php' | 'java';
 
 const TARGETS: Array<{ label: string; description: string; target: Target; langId: string }> = [
-    { label: 'TypeScript / Node.js', description: '.ts',   target: 'js',     langId: 'typescript' },
-    { label: 'C# / .NET',            description: '.cs',   target: 'dotnet', langId: 'csharp'     },
+    { label: 'JavaScript',           description: '.js',   target: 'js',     langId: 'javascript' },
     { label: 'Python',               description: '.py',   target: 'python', langId: 'python'     },
-    { label: 'PHP',                  description: '.php',  target: 'php',    langId: 'php'        },
     { label: 'Java',                 description: '.java', target: 'java',   langId: 'java'       },
+    { label: 'C#',                   description: '.cs',   target: 'dotnet', langId: 'csharp'     },
+    { label: 'PHP',                  description: '.php',  target: 'php',    langId: 'php'        },
 ];
 
 let _wasm: WasmCodegen | undefined;

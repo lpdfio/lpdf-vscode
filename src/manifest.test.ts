@@ -97,11 +97,11 @@ describe('the PDF compare commands in the manifest', () => {
 describe('the Generate commands in the manifest', () => {
   const codegenSource = readFileSync(join(__dirname, 'codegen.ts'), 'utf8');
   const languages = [
-    { command: 'lpdf.generateTs', title: 'Lpdf: Generate TypeScript from XML', label: 'TypeScript / Node.js', target: 'js' },
-    { command: 'lpdf.generateCs', title: 'Lpdf: Generate C# from XML', label: 'C# / .NET', target: 'dotnet' },
+    { command: 'lpdf.generateTs', title: 'Lpdf: Generate JavaScript from XML', label: 'JavaScript', target: 'js' },
     { command: 'lpdf.generatePy', title: 'Lpdf: Generate Python from XML', label: 'Python', target: 'python' },
-    { command: 'lpdf.generatePhp', title: 'Lpdf: Generate PHP from XML', label: 'PHP', target: 'php' },
     { command: 'lpdf.generateJava', title: 'Lpdf: Generate Java from XML', label: 'Java', target: 'java' },
+    { command: 'lpdf.generateCs', title: 'Lpdf: Generate C# from XML', label: 'C#', target: 'dotnet' },
+    { command: 'lpdf.generatePhp', title: 'Lpdf: Generate PHP from XML', label: 'PHP', target: 'php' },
   ];
 
   it('has a command for each language, Java among them, each generating its own target', () => {
