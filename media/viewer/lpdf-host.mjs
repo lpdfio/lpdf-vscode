@@ -26,6 +26,7 @@
  *     `initialBookmark`, `pdfDocument`, `pdfViewer`; `pdfDocument.annotationStorage.resetModified()`, because
  *     `close()` saves a document with filled-in form fields before another opens
  *   - the `updateviewarea` event and its `location.pdfOpenParams`, to return to a place after a re-render
+ *   - the `pagesloaded` event and `pdfViewer.container`, to put the sideways scroll back to the left for a new file
  *   - the methods replaced below: `rotatePages`, `requestPresentationMode`, `downloadManager.download`
  * The toolbar's own dependencies are listed in lpdf-toolbar.mjs, and those of following headings in lpdf-headings.mjs.
  */
@@ -175,9 +176,19 @@ async function showPdf(app, headings, message) {
     headings.stop();
     // The viewer opens a document at this bookmark, in the form it writes into its own links.
     app.initialBookmark = isNewFile || !lastLocation ? null : lastLocation.pdfOpenParams.substring(1);
+    // A file that starts at the top starts at the left too. When its pages are not all as wide, as in a report with a wide
+    // page among the others, the viewer scrolls sideways to the left edge of the first page, and that page loses its margin.
+    // It does so at `pagesloaded`, when it has the size of every page and fits the zoom again; the scroll is put back after.
+    const firstViewSet = isNewFile
+        ? new Promise(resolve => app.eventBus.on('pagesloaded', () => requestAnimationFrame(resolve), { once: true }))
+        : null;
     // The open arguments go to PDF.js's getDocument as they are; see documentOptions for why the page fetches its data files.
     await app.open({ data: base64ToBytes(message.pdfBase64), filename: message.filename, useWorkerFetch: false });
     hideStatus();
+    if (firstViewSet) {
+        await firstViewSet;
+        app.pdfViewer.container.scrollLeft = 0;
+    }
     if (message.followHeadings) {
         // The PDF shows without it: a document with an outline that cannot be read only loses the following.
         await headings.follow().catch(error => log('error', `Could not follow the headings: ${error.message}`));
