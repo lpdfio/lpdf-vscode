@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.34.1 — 2026-11-07
+### Generate Code
+- **Lpdf: Generate Code** lists JavaScript, Python, Java, C# and PHP, in that order, where it said TypeScript for JavaScript. The code it writes is plain JavaScript, with no types, and it opens in an editor in JavaScript mode, not TypeScript mode. The command is titled **Lpdf: Generate JavaScript from XML**. Its id is as it was, so a keybinding for it keeps working
+
+### Templates
+- The admission letter template loads its crest as an image: **Lpdf: New Document** writes the letter with an `assets` folder beside it. The crest was ten lines of path code in the XML
+
+### PDF viewer
+- A PDF whose pages differ in width, such as a report with a wide page among the others, opens at the left edge with the first page's margin. It opened scrolled sideways, with the first page against the edge of the pane
+
 ## v0.34.0 (core) — 2026-11-07
 ### Lengths
 - **Breaking:** a table's `cols` with a width that is none of `fr`, `pt`, `mm`, `in`, `%` or `auto` is an error that names them, such as `cols="40cm 1fr"`. It was dropped, and the table read as one column. A bare number is `fr`, as before
