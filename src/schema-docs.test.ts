@@ -28,7 +28,7 @@ describe('buildSchemaDocs', () => {
         expect(gap.type.name).toBe('TokenScaleOrPt');
         expect(gap.type.values).toEqual(['xs', 's', 'm', 'l', 'xl', 'xxl']);
         expect(gap.type.open).toBe(true);
-        expect(gap.type.hint).toContain('slot, alias of a slot, or explicit pt value');
+        expect(gap.type.hint).toContain('slot, alias of a slot, or explicit length');
     });
 
     it('resolves a type declared after the first place it is used', () => {
