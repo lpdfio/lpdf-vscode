@@ -1,6 +1,6 @@
 import { AttributeDoc, ChildDoc, ElementDoc, TypeDoc } from './schema-docs';
 
-/** The longest value list written inside a signature; a longer one shows the type name. */
+/** The longest value list written inside a signature; a longer one shows the type name, or its first values and `…` when the type has none. */
 const MAX_INLINE_VALUES = 6;
 
 /** A signature this short stays on one line. */
