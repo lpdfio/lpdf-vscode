@@ -1,6 +1,6 @@
 import { AttributeDoc, ChildDoc, ElementDoc, TypeDoc } from './schema-docs';
 
-/** The longest value list written inside a signature; a longer one shows the type name. */
+/** The longest value list written inside a signature; a longer one shows the type name, or its first values and `…` when the type has none. */
 const MAX_INLINE_VALUES = 6;
 
 /** A signature this short stays on one line. */
@@ -19,8 +19,11 @@ const GROUP_LABELS = new Map([
 function signatureValue(type: TypeDoc): string {
     if (type.list) { return type.name; }
     if (type.range) { return `${type.name} ${type.range}`; }
-    if (!type.open && type.values.length > 0 && type.values.length <= MAX_INLINE_VALUES) {
-        return type.values.join('|');
+    if (!type.open && type.values.length > 0) {
+        if (type.values.length <= MAX_INLINE_VALUES) { return type.values.join('|'); }
+        // An enumeration written inline on the attribute has no type name to stand for its values, so its first
+        // values do.
+        if (!type.name) { return [...type.values.slice(0, MAX_INLINE_VALUES), '…'].join('|'); }
     }
     return type.name;
 }

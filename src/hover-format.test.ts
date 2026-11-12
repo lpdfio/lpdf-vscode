@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { buildSchemaDocs, findElement, SchemaDocs } from './schema-docs';
+import { buildSchemaDocs, ElementDoc, findElement, SchemaDocs } from './schema-docs';
 import { formatAttributeHover, formatElementHover } from './hover-format';
 
 const docs: SchemaDocs = buildSchemaDocs(fs.readFileSync(path.join(__dirname, '..', 'schema', 'lpdf.xsd'), 'utf8'));
@@ -31,6 +31,23 @@ describe('formatElementHover', () => {
 
     it('names the type where the values are too many to list', () => {
         expect(elementHover('font')).toContain('core="BuiltinFont"');
+    });
+
+    it('shows the first values of an inline enumeration too long to list, which has no type name', () => {
+        const element: ElementDoc = {
+            name: 'barcode', scope: 'global', children: [], text: false,
+            attributes: [{
+                name: 'type', required: true,
+                type: { name: '', values: ['qr', 'code128', 'ean13', 'code39', 'ean8', 'upca', 'pdf417'], open: false },
+            }],
+        };
+        expect(formatElementHover(element)).toContain('type="qr|code128|ean13|code39|ean8|upca|…"');
+    });
+
+    it('gives every attribute of every element a value in its signature', () => {
+        for (const element of docs.elements) {
+            expect(formatElementHover(element), element.name).not.toMatch(/ [a-z-]+=""/);
+        }
     });
 
     it('shows a numeric range after the type', () => {
