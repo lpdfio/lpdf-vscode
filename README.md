@@ -1,12 +1,12 @@
 <img src="media/icon.png" height="48" alt="Lpdf - PDF as Code" />
 
-**View PDFs, preview Markdown in PDF, export Markdown to PDF, compare PDFs, and author PDFs in XML with [Lpdf](https://lpdf.io?utm_campaign=vscode&utm_medium=referral&utm_source=readme) — PDF as Code on every platform**
+# Lpdf for VS Code
 
-A PDF viewer, a PDF preview for any Markdown file, a visual diff for PDFs you have modified, and authoring tools for Lpdf: you describe a document in XML, preview it live, and turn the template into SDK code for your platform. Everything runs on your machine.
+Lpdf for VS Code is a PDF viewer, a PDF preview and export for Markdown files, a visual diff for PDFs, and an editor for [Lpdf](https://lpdf.io?utm_campaign=vscode&utm_medium=referral&utm_source=readme) documents in XML with a live preview, all running on your machine.
 
 ## Preview PDF
 
-Open any `.pdf` file in VS Code: right-click it in the Explorer and select **Lpdf: View PDF**, or use the command palette. To open every PDF this way, turn on the `lpdf.defaultPdfViewer` setting. It follows your light or dark theme.
+Right-click a `.pdf` file in the Explorer and select **Lpdf: View PDF**, or use the command palette. To open every PDF this way, turn on the `lpdf.defaultPdfViewer` setting. It follows your light or dark theme.
 
 ![The PDF viewer with the page thumbnails and the search bar open, with numbered labels explained in the list below](docs/images/viewer.png)
 
@@ -20,7 +20,7 @@ Open any `.pdf` file in VS Code: right-click it in the Explorer and select **Lpd
 
 ### Preview next to the file
 
-Right-click a `.md` file in the Explorer and choose **Lpdf: Preview PDF**, or use the button in the editor's title bar, to see it as a PDF beside it. Above the first line of the file are the same commands as lenses, with the links below.
+Right-click a `.md` file in the Explorer and choose **Lpdf: Preview PDF**, or use the button in the editor's title bar, to see it as a PDF beside it. The same commands are lenses above the first line of the file.
 
 ![A Markdown file on the left and its PDF preview on the right, with numbered labels explained in the list below](docs/images/markdown.png)
 
@@ -28,16 +28,13 @@ Right-click a `.md` file in the Explorer and choose **Lpdf: Preview PDF**, or us
 2. The PDF, set on A4 pages. It updates each time you save the `.md` file.
 3. The editor and the preview scroll together, whichever you move.
 
-- **Follows your edits.** The preview updates when you save the `.md` file, its Lpdf document or its styles file, and when an image changes.
-- **Scrolls with the editor.** The preview and the editor agree exactly at the headings that are bookmarks in the PDF (all six levels, unless the document says otherwise with `bookmarks`), and roughly in between, most where a section holds a table, an image or a long code block. Write a heading with `#`: one underlined with `===` or `---` does not count. A file with no headings leaves both where they are.
-
 ### Export to PDF
 
-Right-click a `.md` file in the Explorer and choose **Lpdf: Export PDF** to save the PDF, or use Export PDF in the lenses above the first line. When its Lpdf document asks for encryption, Export PDF asks for the passwords, as described under [Data, images and export](#data-images-and-export). The same file converts on the command line with `lpdf convert --input notes.md`, to the same PDF.
+Right-click a `.md` file in the Explorer and choose **Lpdf: Export PDF** to save the PDF, or use Export PDF in the lenses above the first line.
 
 ### Style the PDF
 
-The file is set on an A4 page with a 54pt margin and the page number, and the default styles make headings, lists, quotes, code and tables look as people expect of rendered Markdown.
+**Lpdf: Link Markdown Styles...** writes a look beside the `.md` file for you to edit, and **Lpdf: Create Lpdf Document** a page of your own around the Markdown: its size, margin, cover, header and footer.
 
 ![The menu of looks to link, over a Markdown file and its preview, with numbered labels explained in the list below](docs/images/markdown-styles.png)
 
@@ -45,17 +42,11 @@ The file is set on an A4 page with a 54pt margin and the page number, and the de
 2. The looks to start from: Sans, Serif and Typewriter.
 3. The file the look is written to, next to the `.md` file, for you to edit.
 
-- **Your own styles.** **Lpdf: Link Markdown Styles...** offers a look to start from: Sans (what a Markdown gets with no styles), Serif (Times) or Typewriter (Courier). It writes the look beside the `.md` file as `<name>.styles.xml`, for example `notes.styles.xml` for `notes.md`. That file is the link: a `.md` file uses the `.styles.xml` beside it with its name, and the lens above the file opens it to edit. Its rules are named after the Markdown they style (`h1`, `p`, `code`, `quote`, `li`, `table` and so on) and take the attributes of the element they become. Write only the rules you change; the rest stay as the defaults have them. Linking a look again overwrites the file, and **Lpdf: Unlink Markdown Styles** asks, then deletes it, which returns the `.md` file to the default styles.
-- **Your own page.** **Lpdf: Create Lpdf Document** writes an Lpdf document named after the file, `notes.xml` for `notes.md`, beside it, links the two and opens it as a tab in the editor of the `.md` file, so that the preview stays where it is. The document is the page the Markdown is set in, an Lpdf document with a `<markdown>` in a section, so the page size, the margin, a cover, a header or a footer is XML around the Markdown. It names the styles next to the `.md` file, if there are any, and from then on it is where the styles are named. **Lpdf: Unlink Lpdf Document** goes back to the default page.
-- **From the document.** An Lpdf document with a `<markdown>` has **Link Markdown...** above its first line (**Lpdf: Link Markdown File...**), which makes a `.md` file its body: the preview and the export of the document are the Markdown set in it, and the front matter is its data. A `.md` file goes with one document, and a document with one `.md` file.
-- **Front matter.** A YAML block at the top of the file is not drawn. Its `key: value` lines are data the Lpdf document can show with `data-value`, for example `<text-at data-value="title">`.
-- **Images.** `![chart](img/chart.png)` is read relative to the `.md` file.
+How styles and documents link to a `.md` file, its front matter and its images: [Markdown to PDF](https://lpdf.io/docs/vscode/?utm_campaign=vscode&utm_medium=referral&utm_source=readme#markdown-to-pdf) in the docs.
 
 ## Diff PDF
 
-See what changed in a modified PDF. Right-click it in the Explorer and select **Lpdf: Compare PDF with HEAD**, or choose it from the **...** menu of an open PDF's tab. Click a changed PDF in the Source Control view and Lpdf offers to open it this way instead of as a text diff (switch the offer off with the `lpdf.promptPdfDiff` setting). The version in your last commit and your working copy open side by side. The file needs a committed version in a git repository.
-
-To compare with another branch or a tag, select **Lpdf: Compare PDF with branch...** from the same menus and pick one from the list: your default branch, such as `main`, comes first, then your other branches, the remote branches and the tags. On a branch where the change is already committed, this is how you see what it changed against `main`. The left side and its column in the properties table are labelled with the branch or tag you picked.
+Right-click a modified PDF in the Explorer and select **Lpdf: Compare PDF with HEAD**, or choose it from the **...** menu of an open PDF's tab, to see the version in your last commit beside your working copy. **Lpdf: Compare PDF with branch...** compares with a branch or a tag instead. When you click a changed PDF in the Source Control view, Lpdf offers to open it this way.
 
 ![Compare PDF with HEAD: the PDF from the last commit on the left and the working copy on the right, with numbered labels explained in the list below](docs/images/diff.png)
 
@@ -86,15 +77,15 @@ The info button opens the two documents' properties, such as size, page count an
 
 ## Author PDFs
 
-Lpdf describes a document in XML, or in code, and renders a compact PDF that is identical on every platform. This extension is where you write the XML. Start from one of seven templates, from a one-page letter to a 117-page book, and watch the preview update each time you save. The schema checks, completes and explains your XML as you type, a JSON file supplies the data, and **Lpdf: Generate Code** turns the document into JavaScript, Python, Java, C# or PHP.
+Lpdf describes a document in XML, or in code, and renders the same PDF on every platform. This extension is where you write the XML.
 
 ### Start from a template
 
-Run **Lpdf: New Document...**, or choose it under **File > New File...** or on a folder in the Explorer. Pick a template and where to save it. The templates are seven documents, from a one-page admission letter to a 117-page book: a résumé, an invoice, a report, an installment contract and a brochure are the others. A template that has data, such as the invoice and the report, writes its JSON beside the XML, and one that has fonts or images writes them to an `assets` folder next to it. The document opens with its preview beside it. Change a value in the JSON and the preview follows.
+Run **Lpdf: New Document...**, or choose it under **File > New File...** or on a folder in the Explorer, and pick one of seven templates, from a one-page letter to a 117-page book. A template's data, fonts and images are written beside it.
 
 ### Live preview
 
-Any `.xml` file whose root element is `<lpdf>` is an Lpdf document, whatever it is named. Run **Lpdf: Preview PDF**, or use the buttons above `<lpdf>`, to open the rendered PDF beside your XML. It updates each time you save, and keeps your place and zoom. It is the same viewer as above, and it follows your light or dark theme.
+Any `.xml` file whose root element is `<lpdf>` is an Lpdf document. Run **Lpdf: Preview PDF**, or use the buttons above `<lpdf>`, to open the rendered PDF beside your XML. It updates each time you save.
 
 ![The XML next to its live preview, with numbered labels explained in the list below](docs/images/preview.png)
 
@@ -155,29 +146,24 @@ Run **Lpdf: Generate Code** to turn the saved XML into SDK code that builds the 
 
 ### Data, images and export
 
-- **Data files.** Templates can bind to JSON data. A `<name>.data.json` file next to `<name>.xml` is picked up automatically, or choose any JSON file with **Lpdf: Link Data File...**. The preview updates when the data file changes, and export uses the same data.
-- **Images and fonts.** `<image src="…">` and `<font src="…">` in `<assets>` load from disk. A relative path is looked up next to the XML file first, then in the root of the workspace folder. URLs are not downloaded.
-- **Export.** Run **Lpdf: Export PDF** to render the current document, with its linked data, and save it to disk.
-- **Encrypted export.** A document that asks for encryption in its `<output>`, as `<output encrypt="aes-256" allow="print"/>` does, is encrypted when you export it: **Lpdf: Export PDF** asks for an owner password (required) and an open password (optional: leave it empty so anyone can open the PDF and only the document's `allow` applies), each typed twice and checked against the document's cipher, then where to save. The cipher and the permissions are the document's. With AES-256 every export gets a fresh key, so the same document exported twice gives two different files. Lpdf does not store the passwords and cannot recover them. Permissions are advisory: a reader that follows the standard honors them, and a tool that does not can remove them, so use an open password when the content must stay private. The preview has no passwords: it shows such a document unencrypted, and says so.
+A `<name>.data.json` file next to `<name>.xml` is the document's data, or **Lpdf: Link Data File...** links another. Images and fonts load from disk. **Lpdf: Export PDF** saves the PDF, and asks for passwords when the document asks for encryption. How each works: [Author Lpdf documents](https://lpdf.io/docs/vscode/?utm_campaign=vscode&utm_medium=referral&utm_source=readme#author-lpdf-documents) in the docs.
 
 ## Works offline
 
-The Lpdf engine, PDF viewer, and export all run locally on your machine. No server round-trips, no accounts — your documents stay private. The extension collects no telemetry. The Red Hat XML extension it depends on asks for your consent to its own.
+The Lpdf engine, PDF viewer, and export all run locally on your machine. No server round-trips, no accounts: your documents stay on your machine. The extension collects no telemetry. The Red Hat XML extension it depends on asks for your consent to its own.
 
 ## Requirements
 
-- [Red Hat XML](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-xml) — required for XSD autocomplete and validation. It is installed automatically, also if you only use the PDF viewer.
+- [Red Hat XML](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-xml), for the schema's completion and validation. It is installed with the extension, also if you only use the PDF viewer.
 
 ## Docs
 
-[lpdf.io/docs](https://lpdf.io/docs/?utm_campaign=vscode&utm_medium=referral&utm_source=readme)
+[lpdf.io/docs/vscode](https://lpdf.io/docs/vscode/?utm_campaign=vscode&utm_medium=referral&utm_source=readme)
 
-## License
+## Issues
 
-The extension is free to use, for any purpose. Previews and exports carry the Lpdf attribution in the top-right corner of every page.
+Report bugs and request features at [github.com/lpdfio/lpdf/issues](https://github.com/lpdfio/lpdf/issues), the one tracker for the engine, the SDKs and the VS Code extension. Pull requests are not accepted.
 
-The PDF viewer is built on [PDF.js](https://mozilla.github.io/pdf.js/), Mozilla's open-source PDF renderer, under the Apache License 2.0, with Lpdf's own toolbar around it. It, its fonts and its other components are listed with their licenses in [THIRD_PARTY_LICENSES](THIRD_PARTY_LICENSES).
+---
 
-The extension code is MIT licensed. The bundled Lpdf engine may be used through the extension by anyone, including for the PDFs it produces. See [LICENSE](LICENSE) for the terms. Using the engine in your own app is covered by the [Lpdf License](https://lpdf.io/license).
-
-Pull requests are not accepted. Report bugs and request features at [github.com/lpdfio/lpdf/issues](https://github.com/lpdfio/lpdf/issues). See [CONTRIBUTING](CONTRIBUTING.md).
+Licensed under the Lpdf for VS Code License. See [LICENSE](LICENSE) for full terms.

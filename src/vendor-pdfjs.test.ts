@@ -365,12 +365,13 @@ describe('the viewer folder that ships in the extension', () => {
         }
     });
 
-    it('credits PDF.js, with its licence, in the README and in THIRD_PARTY_LICENSES', () => {
-        const readme = fs.readFileSync(path.join(__dirname, '..', 'README.md'), 'utf8');
+    // The README restates no licence, so the credit is THIRD_PARTY_LICENSES, which ships in the extension.
+    it('credits PDF.js, with its licence, in THIRD_PARTY_LICENSES, and ships that file', () => {
         const thirdParty = fs.readFileSync(path.join(__dirname, '..', 'THIRD_PARTY_LICENSES'), 'utf8');
-        expect(readme).toMatch(/PDF\.js[^\n]*Apache License 2\.0/);
-        expect(readme).toContain('(THIRD_PARTY_LICENSES)');
+        const ignored = fs.readFileSync(path.join(__dirname, '..', '.vscodeignore'), 'utf8').split(/\r?\n/);
+        expect(thirdParty).toContain('## PDF.js (media/viewer/)');
         expect(thirdParty).toContain('Apache License, Version 2.0');
+        expect(ignored.filter(line => line.includes('THIRD_PARTY_LICENSES'))).toEqual([]);
         expect(fs.existsSync(path.join(realViewerDir, 'LICENSE'))).toBe(true);
     });
 
