@@ -46,7 +46,7 @@ How styles and documents link to a `.md` file, its front matter and its images: 
 
 ## Diff PDF
 
-Right-click a modified PDF in the Explorer and select **Lpdf: Compare PDF with HEAD**, or choose it from the **...** menu of an open PDF's tab, to see the version in your last commit beside your working copy. **Lpdf: Compare PDF with branch...** compares with a branch or a tag instead. A changed PDF clicked in the Source Control view offers to open this way.
+Right-click a modified PDF in the Explorer and select **Lpdf: Compare PDF with HEAD**, or choose it from the **...** menu of an open PDF's tab, to see the version in your last commit beside your working copy. **Lpdf: Compare PDF with branch...** compares with a branch or a tag instead. When you click a changed PDF in the Source Control view, Lpdf offers to open it this way.
 
 ![Compare PDF with HEAD: the PDF from the last commit on the left and the working copy on the right, with numbered labels explained in the list below](docs/images/diff.png)
 
@@ -146,7 +146,7 @@ Run **Lpdf: Generate Code** to turn the saved XML into SDK code that builds the 
 
 ### Data, images and export
 
-A `<name>.data.json` file next to `<name>.xml` is the document's data, or **Lpdf: Link Data File...** links another. Images and fonts load from disk. **Lpdf: Export PDF** saves the PDF, and asks for passwords when the document is encrypted. How each works: [Author Lpdf documents](https://lpdf.io/docs/vscode/?utm_campaign=vscode&utm_medium=referral&utm_source=readme#author-lpdf-documents) in the docs.
+A `<name>.data.json` file next to `<name>.xml` is the document's data, or **Lpdf: Link Data File...** links another. Images and fonts load from disk. **Lpdf: Export PDF** saves the PDF, and asks for passwords when the document asks for encryption. How each works: [Author Lpdf documents](https://lpdf.io/docs/vscode/?utm_campaign=vscode&utm_medium=referral&utm_source=readme#author-lpdf-documents) in the docs.
 
 ## Works offline
 
