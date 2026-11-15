@@ -19,7 +19,7 @@ checks documents against. Take both from the same Lpdf release, the engine into
 
 ```bash
 TAG=$(gh release view --repo lpdfio/lpdf --json tagName -q .tagName)
-gh release download "$TAG" --repo lpdfio/lpdf --pattern lpdf.js --pattern lpdf_bg.wasm --dir wasm
+gh release download "$TAG" --repo lpdfio/lpdf --pattern lpdf.js --pattern lpdf_bg.wasm --pattern THIRD_PARTY_LICENSES_ENGINE.txt --dir wasm
 mkdir -p schema
 gh api -H "Accept: application/vnd.github.raw+json" "repos/lpdfio/lpdf/contents/schema/lpdf.xsd?ref=$TAG" > schema/lpdf.xsd
 npm install

@@ -1,6 +1,7 @@
 /**
  * Smoke-tests the packaged extension: unpacks a .vsix, checks that the files the extension loads at
- * run time are in it, and renders every template it ships with its own engine.
+ * run time and the file of the engine's third-party licenses are in it, and renders every template
+ * it ships with its own engine.
  *
  *   node test/vsix/smoke.mjs [lpdf.vsix]
  *
@@ -42,6 +43,12 @@ const RUNTIME_FILES = [
     'wasm/lpdf_bg.wasm',
     'schema/lpdf.xsd',
 ];
+
+/**
+ * What the licenses of the crates the engine links ask to travel with it: the file the core release attaches beside
+ * the engine's files, which the extension doesn't load.
+ */
+const LICENSE_FILES = ['wasm/THIRD_PARTY_LICENSES_ENGINE.txt'];
 
 /** Folders whose every file in git must be in the package: the viewer's and the templates'. */
 const SHIPPED_FOLDERS = ['media', 'templates'];
@@ -272,7 +279,7 @@ async function smokeTest(vsixPath, checker) {
     const main = manifest ? path.posix.normalize(JSON.parse(manifest.toString('utf8')).main ?? '') : '';
     checker.check('package.json names its main file', main !== '' && main !== '.', main);
 
-    for (const file of [main, ...RUNTIME_FILES].filter(file => file && file !== '.')) {
+    for (const file of [main, ...RUNTIME_FILES, ...LICENSE_FILES].filter(file => file && file !== '.')) {
         checker.check(`${file} is in the package`, packaged.has(file));
     }
     const missing = shippedFiles().filter(file => !packaged.has(file));

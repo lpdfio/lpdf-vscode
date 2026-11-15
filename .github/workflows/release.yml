@@ -89,6 +89,7 @@ jobs:
               --repo lpdfio/lpdf \
               --pattern "lpdf.js" \
               --pattern "lpdf_bg.wasm" \
+              --pattern "THIRD_PARTY_LICENSES_ENGINE.txt" \
               --dir wasm \
               --clobber && DOWNLOADED=1 && break
             echo "Attempt $attempt failed — retrying in 10s..."
@@ -98,6 +99,12 @@ jobs:
           # (var/VERSIONING.md in lpdfio/lpdf). ci.yml keeps its fallback.
           if [ -z "$DOWNLOADED" ]; then
             echo "::error::Could not download core $CORE_TAG. This release must ship engine $CORE_TAG — publish that core release first, or check the tag."
+            exit 1
+          fi
+          # gh release download is content when only some of its patterns match, and this workflow runs no
+          # check of the package: without this a core release that lacks the file would publish a package without it.
+          if [ ! -f wasm/THIRD_PARTY_LICENSES_ENGINE.txt ]; then
+            echo "::error::Core $CORE_TAG has no THIRD_PARTY_LICENSES_ENGINE.txt. The licenses of the crates the engine links must travel with it, so this release waits for a core release that attaches the file."
             exit 1
           fi
 
