@@ -1,6 +1,7 @@
 /**
  * Smoke-tests the packaged extension: unpacks a .vsix, checks that the files the extension loads at
- * run time are in it, and renders every template it ships with its own engine.
+ * run time and the file of the engine's third-party licenses are in it, and renders every template
+ * it ships with its own engine.
  *
  *   node test/vsix/smoke.mjs [lpdf.vsix]
  *
