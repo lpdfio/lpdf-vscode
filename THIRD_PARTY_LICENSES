@@ -101,24 +101,7 @@ See LICENSE (Part 2) and https://lpdf.io/license for terms.
 
 ### Compiled Rust crates statically linked into the WASM binary
 
-The WASM binary is compiled from Rust and statically links the following
-crates. All are licensed under MIT OR Apache-2.0 (or compatible permissive
-terms) and do not impose any copyleft obligations.
-
-| Crate            | License                     |
-|------------------|-----------------------------|
-| serde            | MIT OR Apache-2.0           |
-| serde_json       | MIT OR Apache-2.0           |
-| roxmltree        | MIT OR Apache-2.0           |
-| pdf-writer       | MIT OR Apache-2.0           |
-| ttf-parser       | MIT OR Apache-2.0           |
-| subsetter        | MIT OR Apache-2.0           |
-| base64           | MIT OR Apache-2.0           |
-| miniz_oxide      | MIT OR Zlib OR Apache-2.0   |
-| qrcode           | MIT OR Apache-2.0           |
-| md-5             | MIT OR Apache-2.0           |
-| ed25519-dalek    | MIT OR Apache-2.0           |
-| curve25519-dalek | MIT OR Apache-2.0           |
-| wasm-bindgen     | MIT OR Apache-2.0           |
-
-Full license texts are available at https://crates.io for each crate listed.
+The WASM binary is compiled from Rust and statically links a number of Rust
+crates, under MIT, Apache-2.0, BSD and similar licenses. The crates, with their
+licenses and license texts, are listed in wasm/THIRD_PARTY_LICENSES_ENGINE.txt,
+which this extension carries beside the engine.

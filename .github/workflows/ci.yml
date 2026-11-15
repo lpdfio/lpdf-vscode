@@ -47,6 +47,7 @@ jobs:
               --repo lpdfio/lpdf \
               --pattern "lpdf.js" \
               --pattern "lpdf_bg.wasm" \
+              --pattern "THIRD_PARTY_LICENSES_ENGINE.txt" \
               --dir wasm \
               --clobber && break
             echo "Attempt $attempt failed — retrying in 10s..."
