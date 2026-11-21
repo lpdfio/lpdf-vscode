@@ -44,11 +44,22 @@ describe('buildSchemaDocs', () => {
         expect(align.type.hint).toBeUndefined();
     });
 
-    it('reads an enumeration written inline on the attribute', () => {
+    it('reads an enumeration written inline on the attribute, which has no type name', () => {
+        const inline = '<xs:schema xmlns:xs="x"><xs:element name="a"><xs:complexType><xs:attribute name="b"><xs:simpleType>'
+            + '<xs:restriction base="xs:string"><xs:enumeration value="x"/><xs:enumeration value="y"/></xs:restriction>'
+            + '</xs:simpleType></xs:attribute></xs:complexType></xs:element></xs:schema>';
+        const b = findElement(buildSchemaDocs(inline), 'a')?.attributes[0];
+        expect(b?.type.values).toEqual(['x', 'y']);
+        expect(b?.type.name).toBe('');
+    });
+
+    it('names an enumeration the schema gives a type, as every closed enumeration has one', () => {
         const barcodeType = attribute('barcode', 'type');
         // The first values, in the schema's order: the list grows as types are added.
         expect(barcodeType.type.values.slice(0, 3)).toEqual(['qr', 'code128', 'ean13']);
-        expect(barcodeType.type.name).toBe('');
+        expect(barcodeType.type.name).toBe('BarcodeType');
+        expect(attribute('barcode', 'ec').type.values).toEqual(['L', 'M', 'Q', 'H', '0', '1', '2', '3', '4', '5', '6', '7', '8']);
+        expect(attribute('barcode', 'ec').type.name).toBe('EcLevel');
     });
 
     it('treats a boolean as true or false', () => {
