@@ -105,10 +105,16 @@ describe('formatAttributeHover', () => {
         expect(hover).toContain('slot, alias of a slot, or explicit length');
     });
 
-    it('marks a required attribute and leaves the type off an unnamed enumeration', () => {
+    it('marks a required attribute after the type it names', () => {
         const hover = attributeHover('barcode', 'type');
-        expect(hover.startsWith('**`type`** · required')).toBe(true);
+        expect(hover.startsWith('**`type`** · `BarcodeType` · required')).toBe(true);
         expect(hover).toContain('`qr` | `code128` | `ean13`');
+    });
+
+    it('leaves the type off an unnamed enumeration', () => {
+        const hover = formatAttributeHover({ name: 'b', required: true, type: { name: '', values: ['x', 'y'], open: false } });
+        expect(hover.startsWith('**`b`** · required')).toBe(true);
+        expect(hover).toContain('`x` | `y`');
     });
 
     it('lists every value even when the signature shows the type name', () => {
