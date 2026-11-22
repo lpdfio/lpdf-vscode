@@ -1,8 +1,8 @@
 <img src="media/icon.png" height="48" alt="Lpdf - PDF as Code" />
 
-# Lpdf for VS Code
+# Lpdf: PDF Viewer & Markdown to PDF
 
-Lpdf for VS Code is a PDF viewer, a PDF preview and export for Markdown files, a visual diff for PDFs, and an editor for [Lpdf](https://lpdf.io?utm_campaign=vscode&utm_medium=referral&utm_source=readme) documents in XML with a live preview, all running on your machine.
+A PDF viewer, Markdown to PDF preview and export, a visual PDF diff, and an editor for [Lpdf](https://lpdf.io?utm_campaign=vscode&utm_medium=referral&utm_source=readme) documents in XML with a live PDF preview, all running on your machine.
 
 ## Preview PDF
 
