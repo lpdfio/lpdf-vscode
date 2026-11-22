@@ -1,7 +1,7 @@
 {
   "name": "lpdf",
-  "displayName": "Lpdf",
-  "description": "View PDFs, preview Markdown in PDF, export Markdown to PDF, compare PDFs, and author PDFs in XML. Lpdf: PDF as Code on every platform.",
+  "displayName": "Lpdf: PDF Viewer & Markdown to PDF",
+  "description": "PDF viewer, Markdown to PDF, PDF diff and XML editor with live PDF preview",
   "license": "SEE LICENSE IN LICENSE",
   "publisher": "lpdfio",
   "version": "0.0.0",
