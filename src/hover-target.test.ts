@@ -6,7 +6,7 @@ const SCOPES = ['layout', 'tokens'];
 const TEXT = [
     '<lpdf version="1">',
     '  <!-- <column gap="m"> in a comment -->',
-    '  <document size="a4">',
+    '  <document size="A4">',
     '    <section>',
     '      <layout><column gap="m"><text>hello</text></column></layout>',
     '      <layer><text-at x="1pt" y="1pt">t</text-at></layer>',
@@ -45,7 +45,7 @@ describe('locateHoverTarget', () => {
     });
 
     it('finds an attribute after another', () => {
-        expect(locateHoverTarget(TEXT, offsetOf('size="a4"', 0, 1), SCOPES)).toMatchObject({ element: 'document', attribute: 'size' });
+        expect(locateHoverTarget(TEXT, offsetOf('size="A4"', 0, 1), SCOPES)).toMatchObject({ element: 'document', attribute: 'size' });
     });
 
     it('reports the layout scope inside a layout, and none inside a layer', () => {
@@ -78,7 +78,7 @@ describe('locateHoverTarget', () => {
     });
 
     it('finds nothing in an attribute value', () => {
-        expect(locateHoverTarget(TEXT, offsetOf('"a4"', 0, 2), SCOPES)).toBeUndefined();
+        expect(locateHoverTarget(TEXT, offsetOf('"A4"', 0, 2), SCOPES)).toBeUndefined();
     });
 
     it('finds nothing inside a comment', () => {

@@ -141,7 +141,7 @@ describe('the starter template and styles', () => {
 
   it('is the page a .md file is wrapped in by default: A4, a 54pt margin and the page number', () => {
     const template = defaultTemplate();
-    expect(template).toContain('size="a4"');
+    expect(template).toContain('size="A4"');
     expect(template).toContain('margin="54pt"');
     expect(template).toContain('Page {page} of {pages}');
   });

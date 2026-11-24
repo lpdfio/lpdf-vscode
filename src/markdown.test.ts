@@ -66,7 +66,7 @@ afterAll(() => { fs.rmSync(folder, { recursive: true, force: true }); });
 beforeEach(() => { context = { workspaceState: memento() } as unknown as vscode.ExtensionContext; });
 
 const STYLES = '<markdown-styles><h1 color="#ff0000"/></markdown-styles>';
-const DOCUMENT = '<lpdf version="1"><document size="letter"><section><markdown><markdown-content data-value="markdown"/></markdown></section></document></lpdf>';
+const DOCUMENT = '<lpdf version="1"><document size="Letter"><section><markdown><markdown-content data-value="markdown"/></markdown></section></document></lpdf>';
 
 describe('which files are Markdown', () => {
   beforeEach(() => { openDocuments.length = 0; });
@@ -108,7 +108,7 @@ describe('which files are Markdown', () => {
 describe('a .md file with no styles next to it', () => {
   it('is wrapped in the default template, with its text as the data, and watches where its styles would be', async () => {
     const input = await loadMarkdownRenderInput(context, uriOf('plain.md'), '# Title\n');
-    expect(input.xml).toContain('size="a4"');
+    expect(input.xml).toContain('size="A4"');
     expect(JSON.parse(input.jsonData ?? '{}')).toEqual({ markdown: '# Title\n' });
     expect(input.files).toEqual([path.join(folder, 'plain.styles.xml')]);
   });
@@ -130,7 +130,7 @@ describe('the styles of a .md file', () => {
     const input = await loadMarkdownRenderInput(context, uriOf('styled.md'), '# Title\n');
 
     expect(input.xml).toContain(`<markdown-styles src="${styles}"/>`);
-    expect(input.xml).toContain('size="a4"');
+    expect(input.xml).toContain('size="A4"');
     expect(input.assets.markdownStyles?.get(styles)).toBe(STYLES);
     expect(input.files).toContain(styles);
   });
@@ -309,7 +309,7 @@ describe('a .md file with an Lpdf document linked', () => {
 
     const input = await loadMarkdownRenderInput(context, uriOf('report.md'), '# Title\n');
 
-    expect(input.xml).toContain('size="letter"');
+    expect(input.xml).toContain('size="Letter"');
     expect(JSON.parse(input.jsonData ?? '{}')).toEqual({ markdown: '# Title\n' });
     expect(input.files).toContain(document);
   });
@@ -322,7 +322,7 @@ describe('a .md file with an Lpdf document linked', () => {
 
     const input = await loadMarkdownRenderInput(context, uriOf('both.md'), '# Title\n');
 
-    expect(input.xml).toContain('size="letter"');
+    expect(input.xml).toContain('size="Letter"');
     expect(input.xml).not.toContain('both.styles.xml');
   });
 });
