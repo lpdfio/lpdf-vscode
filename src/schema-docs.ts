@@ -144,10 +144,15 @@ class SchemaReader {
 
         const complexType = node.children.find(child => child.name === 'complexType')
             ?? this._complexTypes.get(node.attrs.type ?? '');
-        const element: ElementDoc = { name, scope, attributes: [], children: [], text: complexType?.attrs.mixed === 'true' };
+        // Simple content is text of a type, such as a chart's `<value>`: its attributes sit on the
+        // extension or restriction of that type, not on the complex type itself.
+        const simpleContent = complexType?.children.find(child => child.name === 'simpleContent');
+        const derivation = simpleContent?.children.find(child => child.name === 'extension' || child.name === 'restriction');
+        const text = complexType?.attrs.mixed === 'true' || simpleContent !== undefined;
+        const element: ElementDoc = { name, scope, attributes: [], children: [], text };
         this._elements.push(element);
         if (complexType) {
-            this._readAttributes(complexType, element, undefined);
+            this._readAttributes(derivation ?? complexType, element, undefined);
             this._readContent(complexType, owner, false, element);
         }
     }

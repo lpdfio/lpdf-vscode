@@ -110,6 +110,12 @@ describe('buildSchemaDocs', () => {
         expect([...docs.scopes].sort()).toEqual(['chart', 'layout', 'markdown', 'tokens']);
     });
 
+    it('reads the attributes and the text of an element with simple content, as a chart\'s value has', () => {
+        expect(attributeNames('value', 'chart')).toEqual(['data-value', 'data-source', 'data-if', 'data-if-not']);
+        expect(element('value', 'chart').text).toBe(true);
+        expect(element('value', 'chart').children).toEqual([]);
+    });
+
     it('tells the rules of a markdown from the elements of the layout that share their names', () => {
         for (const name of ['code', 'li', 'table', 'td']) {
             expect(element(name).scope, name).toBe(GLOBAL_SCOPE);
