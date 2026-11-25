@@ -86,7 +86,7 @@ describe('formatElementHover', () => {
         const hover = elementHover('value', 'chart');
         expect(hover).not.toContain('<value/>');
         expect(hover).toContain('Data binding: `data-value`, `data-source`, `data-if`, `data-if-not`');
-        expect(hover).toContain('text');
+        expect(hover).toContain('Contains: text');
     });
 
     it('leaves the contents line off an element that has none', () => {
