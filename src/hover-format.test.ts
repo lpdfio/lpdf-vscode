@@ -82,6 +82,13 @@ describe('formatElementHover', () => {
         expect(elementHover('text')).toContain('Contains: text, `<span>`');
     });
 
+    it('shows the text and the data binding of a chart\'s value, which holds simple content', () => {
+        const hover = elementHover('value', 'chart');
+        expect(hover).not.toContain('<value/>');
+        expect(hover).toContain('Data binding: `data-value`, `data-source`, `data-if`, `data-if-not`');
+        expect(hover).toContain('Contains: text');
+    });
+
     it('leaves the contents line off an element that has none', () => {
         expect(elementHover('divider')).not.toContain('Contains');
     });

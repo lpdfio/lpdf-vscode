@@ -63,6 +63,14 @@ describe('locateHoverTarget', () => {
         expect(locateHoverTarget(text, text.lastIndexOf('text') + 1, SCOPES)?.scope).toBeUndefined();
     });
 
+    it('goes back to the scope around a nested scope element at its closing tag', () => {
+        const scopes = ['layout', 'chart'];
+        const text = '<layout><chart type="bar" height="9pt"><category/></chart><region pin="top"/></layout><text/>';
+        expect(locateHoverTarget(text, text.indexOf('category') + 1, scopes)?.scope).toBe('chart');
+        expect(locateHoverTarget(text, text.indexOf('region') + 1, scopes)?.scope).toBe('layout');
+        expect(locateHoverTarget(text, text.lastIndexOf('text') + 1, scopes)?.scope).toBeUndefined();
+    });
+
     it('does not count a self-closing scope element as open', () => {
         const text = '<tokens/><grid/>';
         expect(locateHoverTarget(text, text.lastIndexOf('grid') + 1, SCOPES)?.scope).toBeUndefined();

@@ -22,26 +22,27 @@ function escapeRegExp(text: string): string {
 }
 
 /**
- * The scope element still open at the end of `before`, if any. Scope elements (`layout`,
- * `tokens`) never nest, so one value is enough: an opening tag sets it, its
- * closing tag clears it.
+ * The innermost scope element still open at the end of `before`, if any. Scope elements nest, as
+ * a `chart` does inside a `layout`, so the open ones are kept in order: an opening tag adds its
+ * name, and its closing tag goes back to the scope around it.
  */
 function enclosingScope(before: string, scopes: readonly string[]): string | undefined {
     if (scopes.length === 0) { return undefined; }
     const names = scopes.map(escapeRegExp).join('|');
     // Comments are matched too, so a commented-out <layout> is stepped over.
     const scopeTag = new RegExp(`<!--[\\s\\S]*?-->|<(/?)(${names})(?=[\\s/>])[^>]*?(/?)>`, 'g');
-    let current: string | undefined;
+    const open: string[] = [];
     for (const match of before.matchAll(scopeTag)) {
         const [, closing, name, selfClosing]: (string | undefined)[] = match;
         if (name === undefined) { continue; }
         if (closing) {
-            if (current === name) { current = undefined; }
+            const at = open.lastIndexOf(name);
+            if (at >= 0) { open.length = at; }
         } else if (!selfClosing) {
-            current = name;
+            open.push(name);
         }
     }
-    return current;
+    return open[open.length - 1];
 }
 
 /**
