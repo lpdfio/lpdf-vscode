@@ -105,7 +105,9 @@ describe('buildSchemaDocs', () => {
         expect(element('grid', 'tokens').scope).toBe('tokens');
         expect(element('grid').scope).toBe(GLOBAL_SCOPE);
         expect(element('h1', 'markdown').scope).toBe('markdown');
-        expect([...docs.scopes].sort()).toEqual(['layout', 'markdown', 'tokens']);
+        expect(element('series', 'chart').scope).toBe('chart');
+        expect(element('value', 'chart').scope).toBe('chart');
+        expect([...docs.scopes].sort()).toEqual(['chart', 'layout', 'markdown', 'tokens']);
     });
 
     it('tells the rules of a markdown from the elements of the layout that share their names', () => {
